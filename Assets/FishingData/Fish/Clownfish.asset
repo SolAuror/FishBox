@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86a3dfc58b06fbd45b5e6d9c1f15df56, type: 3}
+  m_Name: Clownfish
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.FishDefinition
+  fishName: Clownfish
+  rarity: 0
+  isPredator: 0
+  baseValue: 12
+  catchItemPrefab: {fileID: 3835581444044970215, guid: 14599342bd47179479c8db4e19da5c73, type: 3}
+  minSize: 0.45
+  maxSize: 0.65
+  minWeight: 0.15
+  maxWeight: 0.6
+  catchDifficulty: 0.85
+  modelPrefab: {fileID: 919132149155446097, guid: bf023dcad2b93204a91bbb09b934e956, type: 3}
+  modelScaleMultiplier: 0.6

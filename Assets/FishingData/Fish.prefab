@@ -1,0 +1,100 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &5967311704334534294
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2336889269507922447}
+  - component: {fileID: 1675849020963138310}
+  m_Layer: 0
+  m_Name: Fish
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2336889269507922447
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5967311704334534294}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 2.63188, y: -4.9400005, z: -4.04503}
+  m_LocalScale: {x: 0.25, y: 0.25, z: 0.25}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1675849020963138310
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5967311704334534294}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 94dfd7f38a901134cbad850ee332c037, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.AI_Fish
+  _modelRoot: {fileID: 2336889269507922447}
+  _possibleModels:
+  - {fileID: 919132149155446097, guid: a6c1ee282fb3b3c4a8b51646d4706a85, type: 3}
+  - {fileID: 919132149155446097, guid: f3ea7c5f6c52e684c9e86eb39abfd4ad, type: 3}
+  - {fileID: 919132149155446097, guid: 00b6c4ace31d3e044a750928bb717be4, type: 3}
+  - {fileID: 919132149155446097, guid: a6f527e37b4ae084798fa708ba96f386, type: 3}
+  - {fileID: 919132149155446097, guid: 11eab27e912a5b247a38536b43945b13, type: 3}
+  - {fileID: 919132149155446097, guid: 75b75519246074d42b514a68c1f47d9c, type: 3}
+  - {fileID: 919132149155446097, guid: f2649394d1fba2046835a1ea4ab27a74, type: 3}
+  - {fileID: 919132149155446097, guid: c8b90d5a799368e40a0d07de42ca5efb, type: 3}
+  - {fileID: 919132149155446097, guid: c68812b5ac6c73347a323c7333be2b04, type: 3}
+  - {fileID: 919132149155446097, guid: 0a0d9b92409016943a94605c80e42d66, type: 3}
+  - {fileID: 919132149155446097, guid: de10d139e7d51114ebb7a8742967bd11, type: 3}
+  - {fileID: 919132149155446097, guid: 8a8b06ccab8782f49a5edaa81a9bd47e, type: 3}
+  - {fileID: 919132149155446097, guid: 9ef6a250edd7ef64699a321381e0478c, type: 3}
+  - {fileID: 919132149155446097, guid: 0e7a06942266f7d4bac16d18d7b31270, type: 3}
+  - {fileID: 919132149155446097, guid: 882792f24cd24e24ab67f2b939c977b0, type: 3}
+  - {fileID: 919132149155446097, guid: cd6412f6984252f4596bd3c5e8ee9e32, type: 3}
+  - {fileID: 919132149155446097, guid: b63b4f0d5ed32ad47b5ebecf8c8f4338, type: 3}
+  - {fileID: 919132149155446097, guid: fedc1d6f17bb4b340ae5368cd7bf38fb, type: 3}
+  - {fileID: 919132149155446097, guid: be0f148414112954da5bf679460a6168, type: 3}
+  - {fileID: 919132149155446097, guid: a3dd46493da8a884990232305f675dc4, type: 3}
+  - {fileID: 919132149155446097, guid: 2ab0ff8bd9c7a37438dd30332416ce87, type: 3}
+  - {fileID: 919132149155446097, guid: 501bd47477296dc42a9e514e1fc35755, type: 3}
+  - {fileID: 919132149155446097, guid: 9123579abe4dfd44ebcbb57861b98fd2, type: 3}
+  - {fileID: 919132149155446097, guid: bc0bf862fcfecd645b59c0a0ee0ff0e6, type: 3}
+  - {fileID: 919132149155446097, guid: 79777cd7e05e9ea408e0f28ce452fa32, type: 3}
+  - {fileID: 919132149155446097, guid: bf023dcad2b93204a91bbb09b934e956, type: 3}
+  - {fileID: 919132149155446097, guid: fdc882e4bbeb1cd4fab02dca0960d2b7, type: 3}
+  - {fileID: 919132149155446097, guid: 644c4458c7b17544a981bd143136e51a, type: 3}
+  - {fileID: 919132149155446097, guid: cabcefadf3810934588305dd8d863001, type: 3}
+  - {fileID: 919132149155446097, guid: 6bf59fd8bb5935f4a86d23b201a9fa55, type: 3}
+  - {fileID: 919132149155446097, guid: 91e85d5b5a57b224294e1beeb354362d, type: 3}
+  - {fileID: 919132149155446097, guid: 335507b81137a1a4e841ed7b0d989f88, type: 3}
+  - {fileID: 919132149155446097, guid: 4346200320b4ea641a85cd0bd3c4224d, type: 3}
+  - {fileID: 919132149155446097, guid: ee7a851f765aad040914592ade8df161, type: 3}
+  - {fileID: 919132149155446097, guid: 008c56f2b64aa194fa0b4a14e586c5d0, type: 3}
+  _swimSpeed: 1.5
+  _fleeSpeed: 3
+  _turnSpeed: 3
+  _wanderRadius: 5
+  _wanderRetargetMinTime: 2
+  _wanderRetargetMaxTime: 5
+  _player: {fileID: 0}
+  _fleeRadius: 6
+  _fleeDistance: 4
+  _playerMovementThreshold: 0.2
+  _playerPredictionTime: 0.35
+  _fleeRetargetMinTime: 0.35
+  _fleeRetargetMaxTime: 1
+  _waterVolume: {fileID: 0}
+  _edgePadding: 0.75
+  _surfacePadding: 0.6
+  _bottomPadding: 0.5

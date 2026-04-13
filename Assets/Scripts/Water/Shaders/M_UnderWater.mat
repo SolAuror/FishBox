@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: M_UnderWater
+  m_Shader: {fileID: 4800000, guid: 3fbb1bd6300fae0449214c2383e4dc39, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _DEBUGMODE_OFF
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: -1
+  stringTagMap: {}
+  disabledShaderPasses: []
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _CausticsMap:
+        m_Texture: {fileID: 2800000, guid: 92165e06fce7cb44dbf3862bf7b44cb6, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AbsorptionB: 0.5
+    - _AbsorptionG: 1.5
+    - _AbsorptionR: 3
+    - _AdaptStrength: 0.2
+    - _BlurAmount: 0.002
+    - _BlurMaxDepth: 5
+    - _CausticsDrift: 0.1
+    - _CausticsIntensity: 0.09
+    - _CausticsSpeed: 0.09
+    - _CausticsTiling: 0.81
+    - _ChromaStrength: 0.5
+    - _DebugMode: 0
+    - _DistortionAmount: 0.0072
+    - _DistortionScale: 3
+    - _DistortionSpeed: 0.8
+    - _FogDensity: 0.3
+    - _FogStartDepth: 0.05
+    - _ShaftIntensity: 0.15
+    - _SurfaceBrightness: 0.1
+    - _TintStrength: 1
+    - _VignetteStrength: 0.834
+    m_Colors:
+    - _ShaftDir: {r: 0.2, g: 1, b: 0, a: 0}
+    - _UnderwaterTint: {r: 0.039215688, g: 0.12834269, b: 0.38039216, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

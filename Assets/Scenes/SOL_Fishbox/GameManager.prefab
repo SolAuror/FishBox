@@ -1,0 +1,301 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &3808976992032612638
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4704130813304856088}
+  - component: {fileID: 4805029651920948915}
+  - component: {fileID: 34490108443366332}
+  - component: {fileID: 1555752556423984590}
+  - component: {fileID: 3445350609321324633}
+  - component: {fileID: 6173921462213140331}
+  - component: {fileID: 6720626528712342543}
+  - component: {fileID: 112069774871293302}
+  - component: {fileID: 3407453402715185778}
+  - component: {fileID: 2053283229401983910}
+  m_Layer: 10
+  m_Name: GameManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4704130813304856088
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0.0026118201, y: -0.008292069, z: -0.0007547734, w: 0.999962}
+  m_LocalPosition: {x: 1.52884, y: -2.60686, z: -14.796211}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: -0.3, y: -0.95, z: -0.084}
+--- !u!114 &4805029651920948915
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bd366383337e2fc4f8364e6111a4faca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.ToD.Calendar
+  daysPerMonth: 1c0000001c0000001c0000001c0000001c0000001c0000001c0000001c0000001c0000001c0000001c0000001c000000
+  monthNames:
+  - Aurion
+  - Solven
+  - Thalmer
+  - Verdane
+  - "C\xE6lith"
+  - Embera
+  - Lithane
+  - Duskara
+  - Falmere
+  - Nocturn
+  - Wrethis
+  - Glacium
+  startDay: 1
+  startMonth: 1
+  startYear: 42
+  currentDay: 0
+  currentMonth: 1
+  currentYear: 42
+  totalDaysElapsed: 0
+--- !u!114 &34490108443366332
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14c5e04786f9e0e42bb111c5d2e49fd2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SolWaterBridge
+  todManager: {fileID: 1555752556423984590}
+  globalWaveSpeedMultiplier: 1
+  windDirection: {x: 1, y: 0, z: 0.5}
+  windStrength: 1
+  waterLevel: 0
+  rainIntensity: 0
+  rainRoughnessBoost: 0.15
+  rainNormalBoost: 0.8
+  rainReflectionDampen: 0.3
+  reflectionProbe: {fileID: 0}
+  morningStart: 5
+  dayStart: 9
+  afternoonStart: 14
+  nightStart: 20
+--- !u!114 &1555752556423984590
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: edc76f328b69afb4085f4359b897bc3f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.ToD.TimeofDay
+  sunPrefab: {fileID: 3536939070357035121, guid: 2c8614c39e8f0fb419712b94ec0f3c8a, type: 3}
+  moonPrefab: {fileID: 3536939070357035121, guid: e576d6a2bcd195f44b455e38668f3571, type: 3}
+  sunConfig: {fileID: 11400000, guid: 8ddcea2c0f539c048ae95bd5a2d41bb5, type: 2}
+  moonConfig: {fileID: 11400000, guid: c12ebf4a271e6e44e9e6b05f1d2dc51d, type: 2}
+  tertiaryPlanets: []
+  timeOfDay: 0.305
+  sunriseColor: {r: 1, g: 0.54624325, b: 0.19999999, a: 1}
+  noonColor: {r: 1, g: 0.95, b: 0.8, a: 1}
+  sunsetColor: {r: 1, g: 0.8026618, b: 0.19999999, a: 1}
+  maxIntensity: 1.5
+  minIntensity: 0.05
+  moonColorNight: {r: 0.6, g: 0.7, b: 0.9, a: 1}
+  moonMaxIntensity: 0.3
+  lunarTiltDegrees: 5
+  initialLunarPhase: 0.266
+  initialNodalPhase: 0.3
+  nodalPrecessionDays: 28
+  eclipseThresholdDegrees: 4
+  lunarEclipseTint: {r: 0.6, g: 0.15, b: 0.1, a: 1}
+  eclipsePhaseWindow: 0.05
+  eclipseApexBias: 2
+  solarEclipseLightColor: {r: 0.4, g: 0.2, b: 0.15, a: 1}
+  eclipseAmbientColor: {r: 0.08, g: 0.06, b: 0.12, a: 1}
+  eclipseFogColor: {r: 0.12, g: 0.1, b: 0.15, a: 1}
+  debugLunarPhase: 0.12665904
+  debugMoonIllumination: 0.1501512
+  debugEclipseStrength: 0
+  debugIsSolarEclipse: 0
+  debugIsLunarEclipse: 0
+  controlAmbient: 1
+  ambientDayColor: {r: 0.5367569, g: 0.6981132, b: 0.67435247, a: 1}
+  ambientNightColor: {r: 0.0948013, g: 0.07809718, b: 0.14150941, a: 1}
+  controlFog: 1
+  enableNightFog: 1
+  fogDayColor: {r: 0.7, g: 0.75, b: 0.8, a: 1}
+  fogNightColor: {r: 0.078431375, g: 0.0943508, b: 0.14117648, a: 1}
+  fogDayDensity: 0.005
+  fogNightDensity: 0.045
+  controlSkybox: 1
+  skyZenithDay: {r: 0.47209862, g: 0.6711578, b: 0.9716981, a: 1}
+  skyHorizonDay: {r: 0.69803923, g: 0.88058126, b: 0.9490196, a: 1}
+  skyHorizonSunrise: {r: 1, g: 0.55, b: 0.2, a: 1}
+  skyHorizonSunset: {r: 1, g: 0.40500125, b: 0.3254717, a: 1}
+  skyNadirDay: {r: 0.5, g: 0.45, b: 0.4, a: 1}
+  skyZenithBlendDay: 0.63
+  skyHorizonBlendDay: 1.37
+  skyNadirBlendDay: 0.1
+  skyZenithNight: {r: 0.052538652, g: 0.041963343, b: 0.38679248, a: 1}
+  skyHorizonNight: {r: 0.1659977, g: 0.10559807, b: 0.1981132, a: 1}
+  skyNadirNight: {r: 0.02, g: 0.01, b: 0.04, a: 1}
+  skyZenithBlendNight: 0.79
+  skyHorizonBlendNight: 1.95
+  skyNadirBlendNight: 0.2
+  skyZenithEclipse: {r: 1, g: 0, b: 0.01960802, a: 1}
+  skyHorizonEclipse: {r: 0.7169812, g: 0, b: 0.026704844, a: 1}
+  starIntensityNight: 20
+  starPower: 48
+  starHeight: 345
+  cloudScale: 3
+  cloudBaseSpeed: 0.05
+  cloudHeight: 0.119
+  cloudCoverageDay: 0.437
+  cloudCoverageNight: 0.563
+  cloudDensityDay: 0.4
+  cloudDensityNight: 0.574
+  cloudColorDay: {r: 0.8544411, g: 0.8583287, b: 0.8584906, a: 1}
+  cloudColorSunset: {r: 1, g: 0.6, b: 0.3, a: 1}
+  cloudColorNight: {r: 0.06, g: 0.06, b: 0.1, a: 1}
+  cloudShadowDay: {r: 0.4, g: 0.45, b: 0.55, a: 1}
+  cloudShadowNight: {r: 0.03858135, g: 0.03858135, b: 0.16037738, a: 1}
+  sunDiscSize: 0.9995
+  sunDiscIntensity: 10
+  sunGlowFalloff: 4
+  sunGlowIntensityDay: 1.4
+  sunGlowIntensityNight: 0.1
+  coronaColor: {r: 1.5, g: 0.4, b: 0.15, a: 1}
+  moonDiscSize: 0.9993
+  moonLitColor: {r: 0.85, g: 0.9, b: 1, a: 1}
+  moonDarkColor: {r: 0.01, g: 0.01, b: 0.02, a: 1}
+  moonTerminatorSharpness: 3
+  hazeIntensityDay: 0.1
+  hazeIntensityNight: 0.03
+  dayRatio: 0.8
+  cycleDurationMinutes: 60
+  timeScale: 6
+  enableSeasons: 1
+  seasonalDayVariation: 0.2
+--- !u!114 &3445350609321324633
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0429152dacde2a84d850426a17fd1797, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Locomotion.LocomotionInputManager
+  _cinemachineBrain: {fileID: 0}
+  _thirdPersonCamera: {fileID: 0}
+  _firstPersonCamera: {fileID: 0}
+  _perspectiveSwapDelay: -1
+  _zoomSpeed: 2
+  _zoomLerpSpeed: 10
+  _cameraMinZoom: 1
+  _cameraMaxZoom: 5
+  _controller: {fileID: 0}
+  _headMeshRenderer: {fileID: 0}
+  <IsThirdPerson>k__BackingField: 0
+--- !u!114 &6173921462213140331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e9d08887ce7f474db7662cdc1cde781, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::WaterRippleManager
+  rippleSpeed: 1.52
+  rippleFrequency: 5.2
+  rippleLifetime: 5.64
+--- !u!114 &6720626528712342543
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e92b97b8919ca34db5cfc5171793966, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.GrabManager
+  raycastDistance: 3
+  raycastLayerMask:
+    serializedVersion: 2
+    m_Bits: 9
+  isGrabbingEnabled: 1
+  scrollSensitivity: 0.5
+  isLockingEnabled: 0
+  isFrozen: 0
+  rotationMode: 0
+  rotationSensitivity: 1.5
+--- !u!114 &112069774871293302
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bf1c186d8014ad945bc2a34d3db7193b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Outline.OutlineManager
+  raycastDistance: 3
+  raycastLayerMask:
+    serializedVersion: 2
+    m_Bits: 9
+  player: {fileID: 0}
+--- !u!114 &3407453402715185778
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72bfa8fd0ce912d45bd152cbc44cc51d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Actions.ActionSystem
+--- !u!114 &2053283229401983910
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 12ac9291a526420abfb54317468ecc8e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.HUD.UIInputManager

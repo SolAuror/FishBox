@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4853fddb3a8cf924cbc93f289257452b, type: 3}
+  m_Name: FootstepLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Locomotion.FootstepLibrary
+  _defaultSurface: {fileID: 11400000, guid: d6d93e5324ac9a34981b0e9484c6db0a, type: 2}
+  _mappings:
+  - material: {fileID: 13400000, guid: 335cb2b15e98946459b07b46bf0a2fb8, type: 2}
+    surface: {fileID: 11400000, guid: d6d93e5324ac9a34981b0e9484c6db0a, type: 2}

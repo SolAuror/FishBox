@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86a3dfc58b06fbd45b5e6d9c1f15df56, type: 3}
+  m_Name: Tang
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.FishDefinition
+  fishName: Tang
+  rarity: 0
+  isPredator: 0
+  baseValue: 13
+  catchItemPrefab: {fileID: 3835581444044970215, guid: 14599342bd47179479c8db4e19da5c73, type: 3}
+  minSize: 0.55
+  maxSize: 0.75
+  minWeight: 0.25
+  maxWeight: 0.8
+  catchDifficulty: 0.9
+  modelPrefab: {fileID: 919132149155446097, guid: 75b75519246074d42b514a68c1f47d9c, type: 3}
+  modelScaleMultiplier: 0.7
