@@ -158,7 +158,8 @@ namespace Sol.HUD
 
             if (!_suppressTooltip)
             {
-                if (TooltipUI.Instance != null) TooltipUI.Instance.Show(_slot.Item);
+                TooltipUI tooltip = TooltipUI.Instance ?? TooltipUI.ResolveInstance();
+                if (tooltip != null) tooltip.Show(_slot.Item);
                 if (ItemPreviewRenderer.Instance != null) ItemPreviewRenderer.Instance.Show(_slot.Item);
             }
         }
@@ -172,7 +173,8 @@ namespace Sol.HUD
 
             if (!_suppressTooltip)
             {
-                if (TooltipUI.Instance != null) TooltipUI.Instance.Hide();
+                TooltipUI tooltip = TooltipUI.Instance ?? TooltipUI.ResolveInstance();
+                if (tooltip != null) tooltip.Hide();
                 if (ItemPreviewRenderer.Instance != null) ItemPreviewRenderer.Instance.Clear();
             }
         }
@@ -222,8 +224,9 @@ namespace Sol.HUD
             {
                 _onClickOverride?.Invoke(_slot);
 
-                if (ContextMenuUI.Instance != null)
-                    ContextMenuUI.Instance.Show(_slot, _inventory, _interactor, eventData.position);
+                ContextMenuUI contextMenu = ContextMenuUI.Instance ?? ContextMenuUI.ResolveInstance();
+                if (contextMenu != null)
+                    contextMenu.Show(_slot, _inventory, _interactor, eventData.position);
             }
         }
 

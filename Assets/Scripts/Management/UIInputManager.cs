@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 using Sol.Locomotion;
 
@@ -109,29 +109,149 @@ namespace Sol.HUD
 
         private void HandleTabPerformed(InputAction.CallbackContext _)
         {
-            if (TradeUI.Instance != null && TradeUI.Instance.IsOpen)
+            if (IsTabBlockedByModal())
+                return;
+
+            ConversationWindowSystem conversationUi = UIStateOwnership.Resolve<ConversationWindowSystem>(activateIfInactive: false);
+            if (conversationUi != null && conversationUi.IsVisible)
             {
-                TradeUI.Instance.Close();
+                conversationUi.Hide();
                 return;
             }
 
-            if (InventoryToggle.Instance != null)
-                InventoryToggle.Instance.Toggle();
+            TradeUI tradeUi = UIStateOwnership.Resolve<TradeUI>(activateIfInactive: true);
+            if (tradeUi != null && tradeUi.IsOpen)
+            {
+                tradeUi.Close();
+                return;
+            }
+
+            InventoryToggle inventoryToggle = UIStateOwnership.Resolve<InventoryToggle>(activateIfInactive: true);
+            if (inventoryToggle != null)
+                inventoryToggle.Toggle();
         }
 
         private void HandleEscPerformed(InputAction.CallbackContext _)
         {
-            if (TradeUI.Instance != null && TradeUI.Instance.IsOpen)
-            {
-                TradeUI.Instance.Close();
+            if (TryCloseTopModal())
                 return;
-            }
 
-            if (InventoryToggle.Instance != null && InventoryToggle.Instance.IsOpen)
+            PauseMenuSystem pauseMenu = UIStateOwnership.Resolve<PauseMenuSystem>(activateIfInactive: true);
+            if (pauseMenu != null)
             {
-                InventoryToggle.Instance.Close();
+                pauseMenu.Toggle();
                 return;
             }
         }
+
+        private bool TryCloseTopModal()
+        {
+            DialoguePromptSystem promptUi = UIStateOwnership.Resolve<DialoguePromptSystem>(activateIfInactive: false);
+            if (promptUi != null && promptUi.IsOpen)
+            {
+                promptUi.Close();
+                return true;
+            }
+
+            ConversationWindowSystem conversationUi = UIStateOwnership.Resolve<ConversationWindowSystem>(activateIfInactive: false);
+            if (conversationUi != null && conversationUi.IsVisible)
+            {
+                conversationUi.Hide();
+                return true;
+            }
+
+            RadialMenuSystem radialMenu = UIStateOwnership.Resolve<RadialMenuSystem>(activateIfInactive: false);
+            if (radialMenu != null && radialMenu.IsOpen)
+            {
+                radialMenu.Close();
+                return true;
+            }
+
+            LoadMenuSystem loadMenu = UIStateOwnership.Resolve<LoadMenuSystem>(activateIfInactive: false);
+            if (loadMenu != null && loadMenu.IsOpen)
+            {
+                loadMenu.Close(false);
+                return true;
+            }
+
+            SaveMenuSystem saveMenu = UIStateOwnership.Resolve<SaveMenuSystem>(activateIfInactive: false);
+            if (saveMenu != null && saveMenu.IsOpen)
+            {
+                saveMenu.Close(false);
+                return true;
+            }
+
+            SettingsMenuSystem settingsMenu = UIStateOwnership.Resolve<SettingsMenuSystem>(activateIfInactive: false);
+            if (settingsMenu != null && settingsMenu.IsOpen)
+            {
+                settingsMenu.Close();
+                return true;
+            }
+
+            CharacterMenuSystem characterMenu = UIStateOwnership.Resolve<CharacterMenuSystem>(activateIfInactive: false);
+            if (characterMenu != null && characterMenu.IsOpen)
+            {
+                characterMenu.Close();
+                return true;
+            }
+
+            SkillMenuSystem skillMenu = UIStateOwnership.Resolve<SkillMenuSystem>(activateIfInactive: false);
+            if (skillMenu != null && skillMenu.IsOpen)
+            {
+                skillMenu.Close();
+                return true;
+            }
+
+            TradeUI tradeUi = UIStateOwnership.Resolve<TradeUI>(activateIfInactive: true);
+            if (tradeUi != null && tradeUi.IsOpen)
+            {
+                tradeUi.Close();
+                return true;
+            }
+
+            InventoryToggle inventoryToggle = UIStateOwnership.Resolve<InventoryToggle>(activateIfInactive: true);
+            if (inventoryToggle != null && inventoryToggle.IsOpen)
+            {
+                inventoryToggle.Close();
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsTabBlockedByModal()
+        {
+            PauseMenuSystem pauseMenu = UIStateOwnership.Resolve<PauseMenuSystem>(activateIfInactive: false);
+            if (pauseMenu != null && pauseMenu.IsOpen)
+                return true;
+
+            SaveMenuSystem saveMenu = UIStateOwnership.Resolve<SaveMenuSystem>(activateIfInactive: false);
+            if (saveMenu != null && saveMenu.IsOpen)
+                return true;
+
+            LoadMenuSystem loadMenu = UIStateOwnership.Resolve<LoadMenuSystem>(activateIfInactive: false);
+            if (loadMenu != null && loadMenu.IsOpen)
+                return true;
+
+            SettingsMenuSystem settingsMenu = UIStateOwnership.Resolve<SettingsMenuSystem>(activateIfInactive: false);
+            if (settingsMenu != null && settingsMenu.IsOpen)
+                return true;
+
+            CharacterMenuSystem characterMenu = UIStateOwnership.Resolve<CharacterMenuSystem>(activateIfInactive: false);
+            if (characterMenu != null && characterMenu.IsOpen)
+                return true;
+
+            SkillMenuSystem skillMenu = UIStateOwnership.Resolve<SkillMenuSystem>(activateIfInactive: false);
+            if (skillMenu != null && skillMenu.IsOpen)
+                return true;
+
+            DialoguePromptSystem promptUi = UIStateOwnership.Resolve<DialoguePromptSystem>(activateIfInactive: false);
+            if (promptUi != null && promptUi.IsOpen)
+                return true;
+
+            RadialMenuSystem radialMenu = UIStateOwnership.Resolve<RadialMenuSystem>(activateIfInactive: false);
+            return radialMenu != null && radialMenu.IsOpen;
+        }
     }
 }
+

@@ -67,6 +67,7 @@ namespace Sol.HUD
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            AutoResolveReferences();
             _canvas = GetComponentInParent<Canvas>();
             if (_panel != null) _panel.SetActive(false);
         }
@@ -74,6 +75,60 @@ namespace Sol.HUD
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        private void AutoResolveReferences()
+        {
+            if (_panel == null)
+                _panel = gameObject;
+
+            if (_panelRect == null)
+                _panelRect = _panel != null
+                    ? _panel.GetComponent<RectTransform>()
+                    : transform as RectTransform;
+
+            if (_buttonContainer == null && _panel != null)
+                _buttonContainer = _panel.transform;
+
+            if (_buttonPrefab == null && _buttonContainer != null)
+            {
+                Button[] candidates = _buttonContainer.GetComponentsInChildren<Button>(true);
+                for (int i = 0; i < candidates.Length; i++)
+                {
+                    Button candidate = candidates[i];
+                    if (candidate == null)
+                        continue;
+
+                    if (!candidate.transform.IsChildOf(_buttonContainer))
+                        continue;
+
+                    _buttonPrefab = candidate;
+                    break;
+                }
+            }
+        }
+
+        public static ContextMenuUI ResolveInstance()
+        {
+            if (Instance != null)
+                return Instance;
+
+            ContextMenuUI[] found = Object.FindObjectsByType<ContextMenuUI>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            if (found == null || found.Length == 0)
+                return null;
+
+            ContextMenuUI resolved = found[0];
+            if (resolved == null)
+                return null;
+
+            if (!resolved.gameObject.activeSelf)
+                resolved.gameObject.SetActive(true);
+            if (!resolved.enabled)
+                resolved.enabled = true;
+
+            return Instance ?? resolved;
         }
 
         private void Update()

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -12,6 +12,8 @@ namespace Sol
         public const string ItemPrefix = "ITM";
         public const string NpcPrefix = "NPC";
         public const string ContainerPrefix = "CNT";
+        public const string OwnerPrefix = "OWN";
+        public const string DefaultPlayerOwnerId = "PLY00001";
 
         private const int CodeWidth = 5;
         private const int MaxCodeValue = 99999;
@@ -135,3 +137,4 @@ namespace Sol
         GameAction GetInteraction(Interactor interactor);
     }
 }
+

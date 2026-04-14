@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 namespace Sol.ToD
@@ -21,7 +21,7 @@ public class Calendar : MonoBehaviour
     [Tooltip("Display name for each month. Must match the length of daysPerMonth.")]
     [SerializeField] string[] monthNames = {
         "Aurion", "Solven", "Thalmer", "Verdane",
-        "C�lith", "Embera", "Lithane", "Duskara",
+        "Cælith", "Embera", "Lithane", "Duskara",
         "Falmere", "Nocturn", "Wrethis", "Glacium"
     };
 
@@ -245,6 +245,16 @@ public class Calendar : MonoBehaviour
         RefreshCachedValues();
     }
 
+    /// <summary>Set the calendar date directly, including the running day counter.</summary>
+    public void SetDate(int day, int month, int year, int totalDays)
+    {
+        currentYear = year;
+        currentMonth = Mathf.Clamp(month, 1, MonthsPerYear);
+        currentDay = Mathf.Clamp(day, 1, GetDaysInMonth(currentMonth));
+        totalDaysElapsed = Mathf.Max(0, totalDays);
+        RefreshCachedValues();
+    }
+
     // ------------------------------------------------
     // Internal
     // ------------------------------------------------
@@ -263,3 +273,4 @@ public class Calendar : MonoBehaviour
     }
 }
 }
+

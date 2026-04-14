@@ -7,7 +7,6 @@ namespace Sol.Grab
 {
     public enum ItemType
     {
-        // Keep legacy numeric values stable for existing serialized prefabs/items.
         Consumable = 0,
         Weapon = 1,
         Armor = 2,
@@ -22,19 +21,19 @@ namespace Sol.Grab
         Gold = 11
     }
 
-    /// Attach to any world object that represents a pick-up-able item.
-    /// Requires a GrabbableComponent (physics grab) and a Collider (raycasting).
-    /// Automatically tags the GameObject "Item" when first added in the editor.
     [RequireComponent(typeof(GrabbableComponent))]
     [RequireComponent(typeof(Collider))]
     public class ItemComponent : MonoBehaviour, IInteractable
     {
         [Header("Item Info")]
-        [SerializeField] private string _itemId = "";
+        [SerializeField] private string _itemId = string.Empty;
         [SerializeField] private string _itemName = "Item";
         [SerializeField] private ItemType _itemType = ItemType.Material;
         [SerializeField] private int _value;
-        [SerializeField] [TextArea] private string _flavourText = "";
+        [SerializeField] [HideInInspector] private GameObject _itemOwner;
+        [SerializeField] private string _itemOwnerId = string.Empty;
+        [SerializeField] private bool _isStolen;
+        [SerializeField] [TextArea] private string _flavourText = string.Empty;
         [SerializeField] private Sprite _icon;
 
         [Header("Properties")]
@@ -51,7 +50,7 @@ namespace Sol.Grab
 
         [Header("Equipment")]
         [Tooltip("Bone/socket name to parent this item to when equipped")]
-        [SerializeField] private string _equipBone = "";
+        [SerializeField] private string _equipBone = string.Empty;
         [SerializeField] private Vector3 _equipOffset;
         [SerializeField] private Vector3 _equipRotation;
 
@@ -59,39 +58,40 @@ namespace Sol.Grab
         [Tooltip("Optional hand target used by the pickup reach. If unassigned, the system falls back to the item's collider or transform.")]
         [SerializeField] private Transform _pickupGrip;
 
-        public string ItemId       => _itemId;
-        public string ItemName     => _itemName;
-        public ItemType Type       => _itemType;
+        private GameObject _lastInteractorOwner;
+
+        public string ItemId => _itemId;
+        public string ItemName => _itemName;
+        public ItemType Type => _itemType;
         public string TypeDisplayName => IsMiscellaneousType(_itemType) ? "Miscellaneous" : _itemType.ToString();
-        public string ItemOwnerId  => string.Empty;
-        public GameObject ItemOwner => null;
-        public bool IsStolen       => false;
-        public int Value           => _value;
-        public string FlavourText  => _flavourText;
-        public Sprite Icon         => _icon;
-        public bool IsStackable    => _isStackable;
-        public bool IsConsumable   => _isConsumable || IsConsumableType(_itemType);
-        public bool IsTradeable    => _isTradeable;
-        public int MaxStackSize    => _maxStackSize;
-
-        // Weapon
+        public string ItemOwnerId
+        {
+            get
+            {
+                ResolveOwnerReference();
+                return _itemOwnerId;
+            }
+        }
+        public GameObject ItemOwner => ResolveOwnerReference();
+        public bool HasOwner => !string.IsNullOrWhiteSpace(ItemOwnerId);
+        public bool IsStolen => _isStolen;
+        public int Value => _value;
+        public string FlavourText => _flavourText;
+        public Sprite Icon => _icon;
+        public bool IsStackable => _isStackable;
+        public bool IsConsumable => _isConsumable || IsConsumableType(_itemType);
+        public bool IsTradeable => _isTradeable;
+        public int MaxStackSize => _maxStackSize;
         public float Damage => _damage;
-
-        // Armor
         public float Defense => _defense;
-
-        // Equipment
-        public string EquipBone    => _equipBone;
-        public Vector3 EquipOffset   => _equipOffset;
+        public string EquipBone => _equipBone;
+        public Vector3 EquipOffset => _equipOffset;
         public Vector3 EquipRotation => _equipRotation;
         public Transform PickupGrip => _pickupGrip;
 
-        // --- Item Actions ---
-
         public List<ItemActionType> GetAvailableActions()
         {
-            var actions = new List<ItemActionType>(3);
-
+            List<ItemActionType> actions = new(3);
             if (IsConsumable)
                 actions.Add(ItemActionType.Use);
 
@@ -124,47 +124,61 @@ namespace Sol.Grab
             return itemType == ItemType.Miscellaneous;
         }
 
-        // --- IInteractable ---
-
-        public string InteractionPrompt => $"Pick up {_itemName}";
+        public string InteractionPrompt => ShouldShowStealPrompt()
+            ? $"Steal {_itemName}"
+            : $"Pick up {_itemName}";
 
         public bool CanInteract(Interactor interactor)
         {
+            _lastInteractorOwner = interactor != null ? interactor.Owner : null;
             return true;
         }
 
         public GameAction GetInteraction(Interactor interactor)
         {
-            return new Actions.PickupItemAction(this);
+            return new PickupItemAction(this);
         }
 
         public bool IsOwnedBy(GameObject actor)
         {
-            return true;
+            if (!HasOwner)
+                return true;
+
+            string actorOwnerId = OwnerIdentity.ResolveOwnerId(actor);
+            return !string.IsNullOrWhiteSpace(actorOwnerId)
+                && string.Equals(ItemOwnerId, actorOwnerId, System.StringComparison.OrdinalIgnoreCase);
         }
 
         public bool WouldBeStealing(GameObject actor)
         {
-            return false;
+            if (actor == null || !actor.CompareTag("Player"))
+                return false;
+
+            if (!HasOwner)
+                return false;
+
+            return !IsOwnedBy(actor);
         }
 
         public void SetStolen(bool stolen)
         {
+            _isStolen = stolen;
         }
 
         public void SetOwner(GameObject owner)
         {
+            _itemOwner = owner;
+            _itemOwnerId = OwnerIdentity.ResolveOwnerId(owner);
         }
 
         public void SetOwnerId(string ownerId)
         {
+            _itemOwnerId = NormalizeOwnerId(ownerId);
+            _itemOwner = null;
+            ResolveOwnerReference();
         }
 
-        public void ConfigureRuntimeItem(
-            string itemName,
-            int value,
-            string flavourText = null,
-            Sprite icon = null)
+        public void ConfigureRuntimeItem(string itemName, int value, string flavourText = null, Sprite icon = null)
         {
             if (!string.IsNullOrWhiteSpace(itemName))
                 _itemName = itemName.Trim();
@@ -178,35 +192,23 @@ namespace Sol.Grab
                 _icon = icon;
         }
 
-        /// <summary>
-        /// Returns the best available pickup target for hand IK / preview.
-        /// Prefers the authored PickupGrip transform, then falls back to the collider,
-        /// and finally to the item transform itself.
-        /// </summary>
         public Pose GetPickupPose()
         {
             if (_pickupGrip != null)
                 return new Pose(_pickupGrip.position, _pickupGrip.rotation);
 
-            var itemCollider = GetComponent<Collider>();
+            Collider itemCollider = GetComponent<Collider>();
             if (itemCollider != null)
             {
                 Bounds bounds = itemCollider.bounds;
                 Vector3 targetPosition = bounds.center;
-
-                // Bias the fallback grip slightly upward so the hand aims toward the visible body
-                // of the item rather than clipping toward the support surface.
                 targetPosition.y = bounds.min.y + bounds.extents.y * 1.25f;
-
                 return new Pose(targetPosition, transform.rotation);
             }
 
             return new Pose(transform.position, transform.rotation);
         }
 
-        // --- Editor helpers ---
-
-        /// Auto-tag when the component is first added in the editor.
         private void Reset()
         {
             gameObject.tag = "Item";
@@ -214,6 +216,7 @@ namespace Sol.Grab
 
         private void Awake()
         {
+            ResolveOwnerReference();
         }
 
         private void OnValidate()
@@ -229,6 +232,50 @@ namespace Sol.Grab
                 Sol.EntityCodeUtility.ItemPrefix,
                 static item => item._itemId);
 #endif
+            _itemOwnerId = NormalizeOwnerId(_itemOwnerId);
+            if (_itemOwner != null)
+                _itemOwnerId = OwnerIdentity.ResolveOwnerId(_itemOwner);
+        }
+
+        private bool ShouldShowStealPrompt()
+        {
+            if (_lastInteractorOwner == null || !_lastInteractorOwner.CompareTag("Player"))
+                return false;
+
+            if (!HasOwner)
+                return false;
+
+            return !IsOwnedBy(_lastInteractorOwner);
+        }
+
+        private GameObject ResolveOwnerReference()
+        {
+            if (_itemOwner != null)
+            {
+                string resolvedOwnerId = OwnerIdentity.ResolveOwnerId(_itemOwner);
+                if (!string.IsNullOrWhiteSpace(resolvedOwnerId))
+                    _itemOwnerId = resolvedOwnerId;
+
+                return _itemOwner;
+            }
+
+            if (string.IsNullOrWhiteSpace(_itemOwnerId))
+                return null;
+
+            _itemOwner = OwnerRegistry.Resolve(_itemOwnerId);
+            return _itemOwner;
+        }
+
+        private static string NormalizeOwnerId(string rawOwnerId)
+        {
+            if (string.IsNullOrWhiteSpace(rawOwnerId))
+                return string.Empty;
+
+            string trimmed = rawOwnerId.Trim();
+            if (string.Equals(trimmed, Sol.EntityCodeUtility.DefaultPlayerOwnerId, System.StringComparison.OrdinalIgnoreCase))
+                return Sol.EntityCodeUtility.DefaultPlayerOwnerId;
+
+            return Sol.EntityCodeUtility.NormalizeOrEmpty(trimmed, Sol.EntityCodeUtility.OwnerPrefix);
         }
     }
 }

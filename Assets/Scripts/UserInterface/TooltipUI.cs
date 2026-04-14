@@ -41,6 +41,7 @@ namespace Sol.HUD
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            AutoResolveReferences();
             _canvas = GetComponentInParent<Canvas>();
             if (_canvas != null) _canvasRect = _canvas.transform as RectTransform;
 
@@ -56,9 +57,45 @@ namespace Sol.HUD
             }
         }
 
+        private void AutoResolveReferences()
+        {
+            if (_panel == null)
+                _panel = gameObject;
+
+            if (_rectTransform == null)
+            {
+                _rectTransform = _panel != null
+                    ? _panel.GetComponent<RectTransform>()
+                    : transform as RectTransform;
+            }
+        }
+
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        public static TooltipUI ResolveInstance()
+        {
+            if (Instance != null)
+                return Instance;
+
+            TooltipUI[] found = Object.FindObjectsByType<TooltipUI>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            if (found == null || found.Length == 0)
+                return null;
+
+            TooltipUI resolved = found[0];
+            if (resolved == null)
+                return null;
+
+            if (!resolved.gameObject.activeSelf)
+                resolved.gameObject.SetActive(true);
+            if (!resolved.enabled)
+                resolved.enabled = true;
+
+            return Instance ?? resolved;
         }
 
         public void Show(ItemComponent item)

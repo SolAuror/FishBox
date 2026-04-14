@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Sol.AI;
 using Sol.Actions;
@@ -9,8 +10,7 @@ using UnityEditor;
 namespace Sol
 {
     /// <summary>
-    /// Attach to an NPC to make their inventory lootable after death.
-    /// The simplified build no longer supports live NPC trading.
+    /// Attach to an NPC to make them tradeable while alive and lootable when dead.
     /// Requires <see cref="Inventory"/> on the same GameObject.
     /// </summary>
     [RequireComponent(typeof(Inventory))]
@@ -18,7 +18,21 @@ namespace Sol
     {
         private const string DefaultGoldPrefabPath = "Assets/ItemPrefabs/Gold.prefab";
 
+        private enum ConversationOptionId
+        {
+            Trade,
+            Goodbye
+        }
+
+        [SerializeField] private string _prompt = "Trade";
         [SerializeField] private string _lootPrompt = "Loot";
+        [Header("Conversation")]
+        [SerializeField] private bool _useConversationWindow = true;
+        [SerializeField] private string _talkPrompt = "Talk";
+        [SerializeField] private string _greetingLine = "What can I do for you?";
+        [SerializeField] private string _tradeOptionLabel = "Trade";
+        [SerializeField] private string _goodbyeOptionLabel = "Goodbye";
+        [SerializeField] private Sprite _speakerIcon;
         [Header("Corpse Loot")]
         [Tooltip("Gold item prefab used to convert numeric NPC gold into physical corpse loot.")]
         [SerializeField] private ItemComponent _goldLootItemTemplate;
@@ -30,41 +44,111 @@ namespace Sol
         private bool _triedResolveDefaultGoldTemplate;
         private bool IsLootingCorpse => _soul != null && !_soul.IsAlive;
 
-        public string InteractionPrompt => _lootPrompt;
+        public string InteractionPrompt =>
+            IsLootingCorpse
+                ? _lootPrompt
+                : (_useConversationWindow ? _talkPrompt : _prompt);
 
         private void Awake()
         {
             _inventory = GetComponent<Inventory>();
             _soul = GetComponent<NPCSoul>();
-            if (_soul != null) _soul.OnDeath += HandleDeath;
+            if (_soul != null)
+                _soul.OnDeath += HandleDeath;
 
-            // NPCs are living-actor inventories, not world containers.
             _inventory?.SetContainerType(InventoryContainerType.Inventory);
         }
 
         private void OnDestroy()
         {
-            if (_soul != null) _soul.OnDeath -= HandleDeath;
+            if (_soul != null)
+                _soul.OnDeath -= HandleDeath;
         }
 
         public bool CanInteract(Interactor interactor)
         {
-            // Only corpse looting remains in the simplified build.
             return interactor != null
                 && interactor.IsPlayer
                 && interactor.Inventory != null
-                && _inventory != null
-                && IsLootingCorpse;
+                && _inventory != null;
         }
 
         public GameAction GetInteraction(Interactor interactor)
         {
-            if (!IsLootingCorpse)
+            if (interactor == null || interactor.Inventory == null || _inventory == null)
                 return null;
 
-            ItemizeGoldForCorpseLoot(interactor);
+            if (IsLootingCorpse)
+            {
+                ItemizeGoldForCorpseLoot(interactor);
+                return new OpenTradeAction(interactor.Inventory, _inventory, lootMode: true);
+            }
 
-            return new OpenTradeAction(interactor.Inventory, _inventory, lootMode: true);
+            if (_useConversationWindow)
+                return BuildConversationAction(interactor);
+
+            return new OpenTradeAction(interactor.Inventory, _inventory);
+        }
+
+        private GameAction BuildConversationAction(Interactor interactor)
+        {
+            List<ConversationOptionId> optionIds = new List<ConversationOptionId>(2);
+            List<string> optionLabels = new List<string>(2);
+            AddConversationOption(ConversationOptionId.Trade, optionIds, optionLabels);
+            AddConversationOption(ConversationOptionId.Goodbye, optionIds, optionLabels);
+
+            string speakerName = _soul != null && !string.IsNullOrWhiteSpace(_soul.CharacterName)
+                ? _soul.CharacterName
+                : gameObject.name;
+
+            return new OpenConversationAction(
+                speakerName,
+                _greetingLine,
+                optionLabels,
+                optionIndex => HandleConversationOptionSelected(optionIndex, optionIds, interactor),
+                speakerIcon: _speakerIcon);
+        }
+
+        private void AddConversationOption(
+            ConversationOptionId optionId,
+            IList<ConversationOptionId> optionIds,
+            IList<string> optionLabels)
+        {
+            optionIds.Add(optionId);
+            optionLabels.Add(GetConversationOptionLabel(optionId));
+        }
+
+        private string GetConversationOptionLabel(ConversationOptionId optionId)
+        {
+            return optionId switch
+            {
+                ConversationOptionId.Trade => _tradeOptionLabel,
+                _ => _goodbyeOptionLabel
+            };
+        }
+
+        private void HandleConversationOptionSelected(
+            int optionIndex,
+            IReadOnlyList<ConversationOptionId> optionIds,
+            Interactor interactor)
+        {
+            if (optionIds == null || optionIndex < 0 || optionIndex >= optionIds.Count || interactor == null)
+                return;
+
+            if (optionIds[optionIndex] == ConversationOptionId.Trade)
+                OpenTradeFromConversation(interactor);
+        }
+
+        private void OpenTradeFromConversation(Interactor interactor)
+        {
+            if (interactor == null || interactor.Inventory == null || _inventory == null)
+                return;
+
+            Sol.HUD.TradeUI tradeUi = Sol.HUD.TradeUI.ResolveInstance();
+            if (tradeUi == null)
+                return;
+
+            tradeUi.Open(interactor.Inventory, _inventory, lootMode: false, freeTrade: false);
         }
 
         private void HandleDeath()
@@ -90,7 +174,7 @@ namespace Sol
 
             while (converted < availableGold && converted < attempts)
             {
-                var goldItem = Instantiate(goldTemplate, _inventory.transform);
+                ItemComponent goldItem = Instantiate(goldTemplate, _inventory.transform);
                 goldItem.gameObject.SetActive(false);
 
                 if (!_inventory.AddPhysical(goldItem))

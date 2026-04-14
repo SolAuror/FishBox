@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
@@ -48,6 +48,8 @@ namespace Sol
         [SerializeField] private List<InventorySeedEntry> _inspectorContents = new();
 
         [Header("World Container Security")]
+        [SerializeField] private GameObject _owner;
+        [SerializeField] private string _ownerId = string.Empty;
         [SerializeField] private bool _isLocked = false;
         [SerializeField] private bool _isLockpickable = true;
         [Tooltip("Required lock skill level when opening without a key.")]
@@ -63,6 +65,7 @@ namespace Sol
 
         private void Awake()
         {
+            ResolveOwnerIdentity();
             SeedFromInspector();
             NormalizeGoldSlots();
             SyncContainedItemOwnersToContainer();
@@ -75,6 +78,25 @@ namespace Sol
         public InventoryContainerType ContainerType => _containerType;
         public bool IsContainer => _containerType == InventoryContainerType.Container;
         public bool IsWorldContainer => IsContainer;
+        public GameObject Owner
+        {
+            get
+            {
+                ResolveOwnerIdentity();
+                return IsWorldContainer ? _owner : gameObject;
+            }
+        }
+        public string OwnerId
+        {
+            get
+            {
+                ResolveOwnerIdentity();
+                return IsWorldContainer
+                    ? _ownerId
+                    : OwnerIdentity.ResolveOwnerId(gameObject);
+            }
+        }
+        public bool HasOwner => !string.IsNullOrWhiteSpace(OwnerId);
         public bool IsLocked => IsWorldContainer && _isLocked;
         public bool IsLockpickable => IsWorldContainer && _isLockpickable;
         public int LockLevel => IsWorldContainer ? Mathf.Max(0, _lockLevel) : 0;
@@ -188,7 +210,12 @@ namespace Sol
 
         public bool IsOwnedBy(GameObject actor)
         {
-            return true;
+            if (!HasOwner)
+                return true;
+
+            string actorOwnerId = OwnerIdentity.ResolveOwnerId(actor);
+            return !string.IsNullOrWhiteSpace(actorOwnerId)
+                && string.Equals(OwnerId, actorOwnerId, StringComparison.OrdinalIgnoreCase);
         }
 
         public bool HasRequiredKey(Interactor interactor)
@@ -308,6 +335,9 @@ namespace Sol
 
             if (_isLocked && !HasRequiredKey(interactor))
                 return InventoryAccessResult.Locked;
+
+            if (enforceOwnership && HasOwner && !IsOwnedBy(interactor.Owner))
+                return InventoryAccessResult.NotOwner;
 
             return InventoryAccessResult.Allowed;
         }
@@ -497,6 +527,7 @@ namespace Sol
         {
             _capacity = Mathf.Max(1, _capacity);
             _gold = Mathf.Max(0, _gold);
+            ResolveOwnerIdentity();
             _lockLevel = Mathf.Max(0, _lockLevel);
             _requiredKeyItemName = _requiredKeyItemName?.Trim() ?? string.Empty;
             _requiredKeyItemId = NormalizeItemIdOrEmpty(_requiredKeyItemId);
@@ -553,10 +584,29 @@ namespace Sol
 
         private void ApplyContainerOwnerToItem(ItemComponent item)
         {
+            if (item == null || !IsWorldContainer || !HasOwner)
+                return;
+
+            item.SetOwnerId(OwnerId);
         }
 
         private void SyncContainedItemOwnersToContainer()
         {
+            if (!IsWorldContainer || !HasOwner)
+                return;
+
+            for (int i = 0; i < _slots.Count; i++)
+            {
+                InventorySlot slot = _slots[i];
+                if (slot == null)
+                    continue;
+
+                foreach (ItemComponent item in slot.EnumerateItems())
+                {
+                    if (item != null)
+                        item.SetOwnerId(OwnerId);
+                }
+            }
         }
 
         private void NormalizeGoldSlots()
@@ -625,6 +675,32 @@ namespace Sol
         private static string NormalizeItemIdOrEmpty(string rawItemId)
         {
             return EntityCodeUtility.NormalizeOrEmpty(rawItemId, EntityCodeUtility.ItemPrefix);
+        }
+
+        private void ResolveOwnerIdentity()
+        {
+            if (!IsWorldContainer)
+                return;
+
+            if (_owner != null)
+            {
+                _ownerId = OwnerIdentity.ResolveOwnerId(_owner);
+                return;
+            }
+
+            _ownerId = NormalizeOwnerIdOrEmpty(_ownerId);
+        }
+
+        private static string NormalizeOwnerIdOrEmpty(string rawOwnerId)
+        {
+            if (string.IsNullOrWhiteSpace(rawOwnerId))
+                return string.Empty;
+
+            string trimmed = rawOwnerId.Trim();
+            if (string.Equals(trimmed, EntityCodeUtility.DefaultPlayerOwnerId, StringComparison.OrdinalIgnoreCase))
+                return EntityCodeUtility.DefaultPlayerOwnerId;
+
+            return EntityCodeUtility.NormalizeOrEmpty(trimmed, EntityCodeUtility.OwnerPrefix);
         }
 
 #if UNITY_EDITOR
@@ -730,3 +806,4 @@ namespace Sol
 
     }
 }
+

@@ -1,4 +1,5 @@
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.UI;
 using Sol.Locomotion;
 
 namespace Sol.HUD
@@ -12,28 +13,43 @@ namespace Sol.HUD
         [SerializeField] private GameObject _inventoryPanel;
         [SerializeField] private TooltipUI _tooltip;
         [SerializeField] private ContextMenuUI _contextMenu;
+        [SerializeField] private Button _closeButton;
 
         public bool IsOpen { get; private set; }
 
         public static InventoryToggle Instance { get; private set; }
 
+        private bool _closeButtonWired;
+
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            TryResolveReferences();
+            EnsureCloseButtonWired();
+
+            if (UIInputManager.Instance == null)
+                gameObject.AddComponent<UIInputManager>();
         }
 
         private void OnDestroy()
         {
+            if (_closeButton != null && _closeButtonWired)
+                _closeButton.onClick.RemoveListener(Close);
+
             if (Instance == this) Instance = null;
         }
 
         private void Start()
         {
+            TryResolveReferences();
+            EnsureCloseButtonWired();
+
             if (_inventoryPanel != null)
                 _inventoryPanel.SetActive(false);
             else
-                Debug.LogWarning("[InventoryToggle] _inventoryPanel is not assigned — inventory will not appear on TAB.", this);
+                Debug.LogWarning("[InventoryToggle] _inventoryPanel is not assigned - inventory will not appear on TAB.", this);
         }
 
         public void Toggle()
@@ -44,11 +60,17 @@ namespace Sol.HUD
 
         public void Open()
         {
-            if (IsOpen) return;
+            if (IsOpen)
+                return;
+
             if (_inventoryPanel == null)
             {
-                Debug.LogWarning("[InventoryToggle] Cannot open inventory because _inventoryPanel is not assigned.", this);
-                return;
+                TryResolveReferences();
+                if (_inventoryPanel == null)
+                {
+                    Debug.LogWarning("[InventoryToggle] Cannot open inventory because _inventoryPanel is not assigned.", this);
+                    return;
+                }
             }
 
             UIStateOwnership.CloseConflictingUi(nameof(InventoryToggle));
@@ -61,12 +83,16 @@ namespace Sol.HUD
 
         public void Close()
         {
-            if (!IsOpen) return;
+            if (!IsOpen)
+                return;
+
             IsOpen = false;
 
-            // Hide sub-UIs.
-            if (_tooltip != null) _tooltip.Hide();
-            if (_contextMenu != null) _contextMenu.Hide();
+            if (_tooltip != null)
+                _tooltip.Hide();
+            if (_contextMenu != null)
+                _contextMenu.Hide();
+
             TooltipUI.Instance?.Hide();
             ContextMenuUI.Instance?.Hide();
 
@@ -76,17 +102,143 @@ namespace Sol.HUD
             UIStateOwnership.SetUiCapture(false);
         }
 
+        private void TryResolveReferences()
+        {
+            if (_inventoryPanel == null)
+            {
+                InventoryUI localInventoryUi = GetComponentInChildren<InventoryUI>(true);
+                if (localInventoryUi != null)
+                    _inventoryPanel = localInventoryUi.gameObject;
+            }
+
+            if (_tooltip == null)
+                _tooltip = TooltipUI.Instance ?? FindAny<TooltipUI>();
+
+            if (_contextMenu == null)
+                _contextMenu = ContextMenuUI.Instance ?? FindAny<ContextMenuUI>();
+
+            TryResolveCloseButton();
+        }
+
+        private void TryResolveCloseButton()
+        {
+            if (_closeButton != null)
+                return;
+
+            Transform searchRoot = _inventoryPanel != null ? _inventoryPanel.transform : transform;
+            Transform closeTransform = FindDeep(searchRoot, "CloseButton");
+            if (closeTransform == null)
+                closeTransform = FindDeep(searchRoot, "Close");
+
+            if (closeTransform != null)
+                _closeButton = closeTransform.GetComponent<Button>();
+        }
+
+        private void EnsureCloseButtonWired()
+        {
+            if (_closeButton == null || _closeButtonWired)
+                return;
+
+            _closeButton.onClick.AddListener(Close);
+            _closeButtonWired = true;
+        }
+
+        private static Transform FindDeep(Transform parent, string name)
+        {
+            if (parent == null)
+                return null;
+
+            if (parent.name == name)
+                return parent;
+
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                Transform result = FindDeep(parent.GetChild(i), name);
+                if (result != null)
+                    return result;
+            }
+
+            return null;
+        }
+
+        private static T FindAny<T>() where T : Component
+        {
+            T[] found = Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (found == null || found.Length == 0)
+                return null;
+
+            return found[0];
+        }
     }
 }
 
 namespace Sol.HUD
 {
     /// <summary>
-    /// Centralized UI modal ownership helpers to keep cursor/input state consistent
-    /// and prevent overlapping modal panels.
+    /// Centralized UI modal ownership helpers to keep cursor/input state
+    /// consistent and prevent overlapping modal panels.
     /// </summary>
     internal static class UIStateOwnership
     {
+        public static T Resolve<T>(bool activateIfInactive) where T : MonoBehaviour
+        {
+            T instance = GetKnownInstance<T>();
+            if (instance != null)
+                return instance;
+
+            T[] found = Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (found == null || found.Length == 0)
+                return null;
+
+            T resolved = found[0];
+            if (resolved != null)
+            {
+                if (activateIfInactive && !resolved.gameObject.activeSelf)
+                    resolved.gameObject.SetActive(true);
+
+                if (!resolved.enabled)
+                    resolved.enabled = true;
+            }
+
+            return GetKnownInstance<T>() ?? resolved;
+        }
+
+        public static T GetKnownInstance<T>() where T : MonoBehaviour
+        {
+            if (typeof(T) == typeof(InventoryToggle))
+                return InventoryToggle.Instance as T;
+            if (typeof(T) == typeof(TradeUI))
+                return TradeUI.Instance as T;
+            if (typeof(T) == typeof(ConversationWindowSystem))
+                return ConversationWindowSystem.Instance as T;
+            if (typeof(T) == typeof(PauseMenuSystem))
+                return PauseMenuSystem.Instance as T;
+            if (typeof(T) == typeof(SaveMenuSystem))
+                return SaveMenuSystem.Instance as T;
+            if (typeof(T) == typeof(LoadMenuSystem))
+                return LoadMenuSystem.Instance as T;
+            if (typeof(T) == typeof(SettingsMenuSystem))
+                return SettingsMenuSystem.Instance as T;
+            if (typeof(T) == typeof(CharacterMenuSystem))
+                return CharacterMenuSystem.Instance as T;
+            if (typeof(T) == typeof(SkillMenuSystem))
+                return SkillMenuSystem.Instance as T;
+            if (typeof(T) == typeof(DialoguePromptSystem))
+                return DialoguePromptSystem.Instance as T;
+            if (typeof(T) == typeof(RadialMenuSystem))
+                return RadialMenuSystem.Instance as T;
+            if (typeof(T) == typeof(ContextMenuUI))
+                return ContextMenuUI.Instance as T;
+            if (typeof(T) == typeof(TooltipUI))
+                return TooltipUI.Instance as T;
+            if (typeof(T) == typeof(ItemPreviewRenderer))
+                return ItemPreviewRenderer.Instance as T;
+            if (typeof(T) == typeof(UIInputManager))
+                return UIInputManager.Instance as T;
+
+            return null;
+        }
+
         public static void CloseConflictingUi(string owner)
         {
             if (owner != nameof(InventoryToggle) && InventoryToggle.Instance != null && InventoryToggle.Instance.IsOpen)
@@ -95,6 +247,36 @@ namespace Sol.HUD
             if (owner != nameof(TradeUI) && TradeUI.Instance != null && TradeUI.Instance.IsOpen)
                 TradeUI.Instance.Close();
 
+            if (owner != nameof(ConversationWindowSystem)
+                && ConversationWindowSystem.Instance != null
+                && ConversationWindowSystem.Instance.IsVisible)
+            {
+                ConversationWindowSystem.Instance.Hide();
+            }
+
+            if (owner != nameof(DialoguePromptSystem) && DialoguePromptSystem.Instance != null && DialoguePromptSystem.Instance.IsOpen)
+                DialoguePromptSystem.Instance.Close();
+
+            if (owner != nameof(SaveMenuSystem) && SaveMenuSystem.Instance != null && SaveMenuSystem.Instance.IsOpen)
+                SaveMenuSystem.Instance.Close(false);
+
+            if (owner != nameof(LoadMenuSystem) && LoadMenuSystem.Instance != null && LoadMenuSystem.Instance.IsOpen)
+                LoadMenuSystem.Instance.Close(false);
+
+            if (owner != nameof(SettingsMenuSystem) && SettingsMenuSystem.Instance != null && SettingsMenuSystem.Instance.IsOpen)
+                SettingsMenuSystem.Instance.Close();
+
+            if (owner != nameof(CharacterMenuSystem) && CharacterMenuSystem.Instance != null && CharacterMenuSystem.Instance.IsOpen)
+                CharacterMenuSystem.Instance.Close();
+
+            if (owner != nameof(SkillMenuSystem) && SkillMenuSystem.Instance != null && SkillMenuSystem.Instance.IsOpen)
+                SkillMenuSystem.Instance.Close();
+
+            if (owner != nameof(RadialMenuSystem) && RadialMenuSystem.Instance != null && RadialMenuSystem.Instance.IsOpen)
+                RadialMenuSystem.Instance.Close();
+
+            if (owner != nameof(PauseMenuSystem) && PauseMenuSystem.Instance != null && PauseMenuSystem.Instance.IsOpen)
+                PauseMenuSystem.Instance.Close();
         }
 
         public static void SetUiCapture(bool enabled)
@@ -127,7 +309,17 @@ namespace Sol.HUD
         private static bool IsAnyBlockingUiOpen()
         {
             return (InventoryToggle.Instance != null && InventoryToggle.Instance.IsOpen)
-                || (TradeUI.Instance != null && TradeUI.Instance.IsOpen);
+                || (TradeUI.Instance != null && TradeUI.Instance.IsOpen)
+                || (ConversationWindowSystem.Instance != null && ConversationWindowSystem.Instance.IsVisible)
+                || (PauseMenuSystem.Instance != null && PauseMenuSystem.Instance.IsOpen)
+                || (SaveMenuSystem.Instance != null && SaveMenuSystem.Instance.IsOpen)
+                || (LoadMenuSystem.Instance != null && LoadMenuSystem.Instance.IsOpen)
+                || (SettingsMenuSystem.Instance != null && SettingsMenuSystem.Instance.IsOpen)
+                || (CharacterMenuSystem.Instance != null && CharacterMenuSystem.Instance.IsOpen)
+                || (SkillMenuSystem.Instance != null && SkillMenuSystem.Instance.IsOpen)
+                || (DialoguePromptSystem.Instance != null && DialoguePromptSystem.Instance.IsOpen)
+                || (RadialMenuSystem.Instance != null && RadialMenuSystem.Instance.IsOpen);
         }
     }
 }
+

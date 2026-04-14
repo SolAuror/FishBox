@@ -1,4 +1,4 @@
-namespace Sol
+﻿namespace Sol
 {
     /// <summary>
     /// Transfers items between two inventories. Used by the trade UI.
@@ -124,7 +124,7 @@ namespace Sol
                 return false;
             }
 
-            itemToTransfer.SetStolen(false);
+            ApplyOwnershipAfterTransfer(itemToTransfer, from, to, boughtByPlayer: false, soldToNpc: false);
 
             // Remove from source only after successful add.
             from.Remove(slot, 1);
@@ -154,7 +154,7 @@ namespace Sol
                 return false;
             }
 
-            itemToTransfer.SetStolen(false);
+            ApplyOwnershipAfterTransfer(itemToTransfer, playerInv, npcInv, boughtByPlayer: false, soldToNpc: true);
 
             playerInv.Remove(slot, 1);
             npcInv.Gold -= price;
@@ -185,12 +185,66 @@ namespace Sol
                 return false;
             }
 
-            itemToTransfer.SetStolen(false);
+            ApplyOwnershipAfterTransfer(itemToTransfer, npcInv, playerInv, boughtByPlayer: true, soldToNpc: false);
 
             npcInv.Remove(slot, 1);
             playerInv.Gold -= price;
             npcInv.Gold += price;
             return true;
         }
+
+        private static void ApplyOwnershipAfterTransfer(
+            Grab.ItemComponent item,
+            Inventory from,
+            Inventory to,
+            bool boughtByPlayer,
+            bool soldToNpc)
+        {
+            if (item == null || to == null)
+                return;
+
+            bool destinationIsPlayer = to.Owner != null && to.Owner.CompareTag("Player");
+
+            if (boughtByPlayer)
+            {
+                item.SetOwner(to.Owner);
+                item.SetStolen(false);
+                return;
+            }
+
+            if (soldToNpc)
+            {
+                if (to.HasOwner)
+                    item.SetOwnerId(to.OwnerId);
+                else
+                    item.SetOwner(to.Owner);
+
+                item.SetStolen(false);
+                return;
+            }
+
+            if (destinationIsPlayer)
+            {
+                bool shouldBeStolen = from != null
+                    && from.HasOwner
+                    && !from.IsOwnedBy(to.Owner);
+
+                if (shouldBeStolen)
+                    item.SetOwnerId(from.OwnerId);
+                else
+                    item.SetOwner(to.Owner);
+
+                item.SetStolen(shouldBeStolen);
+                return;
+            }
+
+            if (to.HasOwner)
+                item.SetOwnerId(to.OwnerId);
+            else
+                item.SetOwner(to.Owner);
+
+            item.SetStolen(false);
+        }
     }
 }
+
