@@ -59,7 +59,8 @@ namespace Sol.Outline
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
         {
             if (_maskMaterial == null || _fullscreenMaterial == null) return;
-            if (s_activeOutlines.Count == 0) return;
+            PruneInactiveOutlines();
+            if (!HasRenderableOutlines()) return;
 
             _compositePass.maxOutlineWidth = settings.maxOutlineWidth;
             s_maxOutlineWidth = settings.maxOutlineWidth;
@@ -72,6 +73,34 @@ namespace Sol.Outline
         {
             CoreUtils.Destroy(_maskMaterial);
             CoreUtils.Destroy(_fullscreenMaterial);
+        }
+
+        private static void PruneInactiveOutlines()
+        {
+            for (int i = s_activeOutlines.Count - 1; i >= 0; i--)
+            {
+                OutlineComponent outline = s_activeOutlines[i];
+                if (outline == null || !outline.isActiveAndEnabled || !outline.IsOutlineActive)
+                    s_activeOutlines.RemoveAt(i);
+            }
+        }
+
+        private static bool HasRenderableOutlines()
+        {
+            for (int i = 0; i < s_activeOutlines.Count; i++)
+            {
+                OutlineComponent outline = s_activeOutlines[i];
+                if (outline == null || !outline.isActiveAndEnabled || !outline.IsOutlineActive)
+                    continue;
+
+                Renderer[] renderers = outline.GetRenderers();
+                if (renderers == null || renderers.Length == 0)
+                    continue;
+
+                return true;
+            }
+
+            return false;
         }
 
         // ----------------------------------------------------------------------
@@ -99,6 +128,9 @@ namespace Sol.Outline
 
             public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
             {
+                SolOutlineMaskData maskData = frameData.GetOrCreate<SolOutlineMaskData>();
+                maskData.maskTexture = TextureHandle.nullHandle;
+
                 var resourceData = frameData.Get<UniversalResourceData>();
                 var cameraData = frameData.Get<UniversalCameraData>();
 
@@ -186,7 +218,7 @@ namespace Sol.Outline
                 }
 
                 // Store the mask texture handle for the composite pass to pick up
-                frameData.GetOrCreate<SolOutlineMaskData>().maskTexture = maskTex;
+                maskData.maskTexture = maskTex;
             }
         }
 
@@ -212,7 +244,7 @@ namespace Sol.Outline
 
             public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
             {
-                var maskData = frameData.Get<SolOutlineMaskData>();
+                var maskData = frameData.GetOrCreate<SolOutlineMaskData>();
                 if (!maskData.maskTexture.IsValid()) return;
 
                 var resourceData = frameData.Get<UniversalResourceData>();

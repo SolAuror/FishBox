@@ -22,6 +22,14 @@ namespace Sol.AI
         [Min(0f)] public float catchDifficulty = 1f;
         [Min(0.1f)] public float baitInterestMultiplier = 1f;
 
+        [Header("Bait Preference")]
+        [Tooltip("Leave blank to treat any bait as neutral, with no favorite-bait bonus.")]
+        public string favoriteBaitItemId = string.Empty;
+        [Tooltip("Optional fallback bait name match when no specific item id is set.")]
+        public string favoriteBaitName = string.Empty;
+        [Min(1f)] public float favoriteBaitLureMultiplier = 1f;
+        [Min(1f)] public float favoriteBaitCatchMultiplier = 1f;
+
         [Header("Visuals")]
         public GameObject modelPrefab;
         [Min(0.01f)] public float modelScaleMultiplier = 1f;
@@ -31,6 +39,8 @@ namespace Sol.AI
             maxSize = Mathf.Max(minSize, maxSize);
             maxWeight = Mathf.Max(minWeight, maxWeight);
             baitInterestMultiplier = Mathf.Max(0.1f, baitInterestMultiplier);
+            favoriteBaitLureMultiplier = Mathf.Max(1f, favoriteBaitLureMultiplier);
+            favoriteBaitCatchMultiplier = Mathf.Max(1f, favoriteBaitCatchMultiplier);
             modelScaleMultiplier = Mathf.Max(0.01f, modelScaleMultiplier);
         }
     }

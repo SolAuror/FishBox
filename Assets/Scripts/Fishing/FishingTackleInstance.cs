@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Sol.AI;
+using Sol.Outline;
 
 namespace Sol.Fishing
 {
@@ -7,6 +9,10 @@ namespace Sol.Fishing
     public class FishingTackleInstance : MonoBehaviour
     {
         private static readonly List<FishingTackleInstance> s_ActiveInstances = new();
+        private static readonly Color CastOutlineColor = new(1f, 0.5f, 0f, 1f);
+        private static readonly Color InterestedOutlineColor = new(1f, 0.92f, 0.2f, 1f);
+        private static readonly Color HookedOutlineColor = new(0.2f, 1f, 0.35f, 1f);
+        private static readonly Color BiteFailOutlineColor = new(1f, 0.2f, 0.2f, 1f);
 
         private enum TackleState
         {
@@ -20,6 +26,10 @@ namespace Sol.Fishing
         private Transform _reelTarget;
         private Rigidbody _rigidbody;
         private Collider[] _colliders;
+        private OutlineComponent[] _outlineComponents;
+        private Color[] _outlineBaseColors;
+        private AI_Fish _committedFish;
+        private AI_Fish _hookedFish;
         private Vector3 _floatAnchorPosition;
         private Vector3 _floatRestPosition;
         private Vector3 _floatHorizontalVelocity;
@@ -44,11 +54,16 @@ namespace Sol.Fishing
         private float _manualReelSurfacePullStrength;
         private float _interestMultiplier = 1f;
         private float _interestRadius = 6f;
+        private float _hookEscapeDeadline;
+        private float _biteFailFlashUntilTime;
+        private string _baitItemId = string.Empty;
+        private string _baitName = string.Empty;
         private float _timer;
         private float _duration;
         private bool _shouldCancelCast;
         private bool _shouldCompleteReel;
         private bool _manualReelControl;
+        private bool _reelInputActive;
         private bool _collidersEnabled;
         private bool _hasFloatAnchor;
         private float _driftPhaseX;
@@ -57,10 +72,15 @@ namespace Sol.Fishing
         public static IReadOnlyList<FishingTackleInstance> ActiveInstances => s_ActiveInstances;
         public bool ShouldCancelCast => _shouldCancelCast;
         public bool ShouldCompleteReel => _shouldCompleteReel;
-        public bool CanAttractFish => _state == TackleState.Floating && !_shouldCancelCast && !_shouldCompleteReel;
+        public bool CanAttractFish => _state == TackleState.Floating && !_shouldCancelCast && !_shouldCompleteReel && _hookedFish == null;
         public float InterestMultiplier => _interestMultiplier;
         public float InterestRadius => _interestRadius;
+        public string BaitItemId => _baitItemId;
+        public string BaitName => _baitName;
+        public bool HasBait => !string.IsNullOrWhiteSpace(_baitItemId) || !string.IsNullOrWhiteSpace(_baitName);
         public WaterVolume WaterVolume => _waterVolume;
+        public AI_Fish CommittedFish => _committedFish;
+        public bool HasHookedFish => _hookedFish != null;
 
         private void OnEnable()
         {
@@ -76,6 +96,7 @@ namespace Sol.Fishing
         private void Awake()
         {
             EnsurePhysicsComponents();
+            CacheOutlineComponents();
         }
 
         public void Launch(
@@ -93,7 +114,9 @@ namespace Sol.Fishing
             float collisionEnableDelay,
             float waterContactTimeout,
             float interestMultiplier,
-            float interestRadius)
+            float interestRadius,
+            string baitItemId,
+            string baitName)
         {
             EnsurePhysicsComponents();
 
@@ -110,15 +133,21 @@ namespace Sol.Fishing
             _waterContactTimeout = Mathf.Max(0.1f, waterContactTimeout);
             _interestMultiplier = Mathf.Max(0.1f, interestMultiplier);
             _interestRadius = Mathf.Max(0.5f, interestRadius);
+            _baitItemId = string.IsNullOrWhiteSpace(baitItemId) ? string.Empty : baitItemId.Trim();
+            _baitName = string.IsNullOrWhiteSpace(baitName) ? string.Empty : baitName.Trim();
             _shouldCancelCast = false;
             _shouldCompleteReel = false;
             _manualReelControl = false;
+            _reelInputActive = false;
+            _hookEscapeDeadline = 0f;
+            _biteFailFlashUntilTime = 0f;
 
             transform.position = _startPosition;
             transform.rotation = Quaternion.LookRotation(GetLaunchDirection(_startPosition, _targetPosition, launchForward), Vector3.up);
             _lastPosition = transform.position;
             SetCollidersEnabled(false);
             _collisionEnableTime = Time.time + Mathf.Max(0f, collisionEnableDelay);
+            ApplyOutlineState();
 
             if (_rigidbody == null)
                 return;
@@ -180,6 +209,77 @@ namespace Sol.Fishing
             _manualReelLiftDistance = Mathf.Max(0.05f, liftDistance);
             _manualReelSurfacePullStrength = Mathf.Max(0.05f, surfacePullStrength);
             _shouldCompleteReel = false;
+            SetKinematicState(true);
+            SetCollidersEnabled(false);
+        }
+
+        public void SetReelInputActive(bool isReeling)
+        {
+            _reelInputActive = isReeling;
+        }
+
+        public void FlashBiteFail()
+        {
+            _biteFailFlashUntilTime = Time.time + 0.2f;
+            ApplyOutlineState();
+        }
+
+        public bool TryCommitFish(AI_Fish fish)
+        {
+            if (fish == null || !CanAttractFish)
+                return false;
+
+            if (_committedFish != null && _committedFish != fish)
+                return false;
+
+            _committedFish = fish;
+            ApplyOutlineState();
+            return true;
+        }
+
+        public void ReleaseCommittedFish(AI_Fish fish)
+        {
+            if (fish == null)
+                return;
+
+            if (_committedFish == fish)
+            {
+                _committedFish = null;
+                ApplyOutlineState();
+            }
+        }
+
+        public bool TryHookFish(AI_Fish fish)
+        {
+            if (fish == null || _hookedFish != null || _state != TackleState.Floating || _shouldCancelCast || _shouldCompleteReel)
+                return false;
+
+            if (_committedFish != null && _committedFish != fish)
+                return false;
+
+            if (!fish.TryHook(this))
+                return false;
+
+            _committedFish = fish;
+            _hookedFish = fish;
+            _hookEscapeDeadline = Time.time + 2f;
+            ApplyOutlineState();
+            UpdateHookedFishPose();
+            return true;
+        }
+
+        public AI_Fish ConsumeHookedFish()
+        {
+            if (_hookedFish == null)
+                return null;
+
+            AI_Fish fish = _hookedFish;
+            _hookedFish = null;
+            _committedFish = null;
+            _hookEscapeDeadline = 0f;
+            ApplyOutlineState();
+            fish.PrepareForCatchHandoff();
+            return fish;
         }
 
         public void SetFloatAnchor(
@@ -213,6 +313,10 @@ namespace Sol.Fishing
                     UpdateReel();
                     break;
             }
+
+            UpdateCommittedFishState();
+            UpdateHookedFishState();
+            UpdateBiteFailFlash();
         }
 
         private void UpdateFlight()
@@ -329,24 +433,22 @@ namespace Sol.Fishing
             Vector3 flatToTip = _manualReelTipTarget - currentPosition;
             flatToTip.y = 0f;
             bool shouldLift = flatToTip.magnitude <= _manualReelLiftDistance;
+            float reelStep = _manualReelSurfacePullStrength * Time.deltaTime;
 
             if (!shouldLift)
             {
-                EnsurePhysicsComponents();
-                _rigidbody.isKinematic = false;
-                _rigidbody.useGravity = false;
-                _rigidbody.detectCollisions = true;
-                SetCollidersEnabled(true);
-
                 Vector3 planarDelta = surfaceTarget - currentPosition;
                 planarDelta.y = 0f;
-                _rigidbody.linearVelocity = planarDelta * _manualReelSurfacePullStrength;
-                _rigidbody.position = new Vector3(_rigidbody.position.x, surfaceHeight, _rigidbody.position.z);
-                transform.position = _rigidbody.position;
+                Vector3 nextPlanar = Vector3.MoveTowards(currentPosition, currentPosition + planarDelta, reelStep);
+                nextPlanar.y = surfaceHeight;
+                transform.position = nextPlanar;
                 return;
             }
 
-            _shouldCompleteReel = true;
+            Vector3 nextPosition = Vector3.MoveTowards(currentPosition, _manualReelTipTarget, reelStep);
+            transform.position = nextPosition;
+            if ((nextPosition - _manualReelTipTarget).sqrMagnitude <= 0.01f)
+                _shouldCompleteReel = true;
         }
 
         private void UpdateFlightRotation(Vector3 currentPosition)
@@ -380,6 +482,24 @@ namespace Sol.Fishing
             _colliders = GetComponentsInChildren<Collider>(true);
         }
 
+        private void CacheOutlineComponents()
+        {
+            _outlineComponents = GetComponentsInChildren<OutlineComponent>(true);
+            if (_outlineComponents == null || _outlineComponents.Length == 0)
+            {
+                _outlineBaseColors = null;
+                return;
+            }
+
+            _outlineBaseColors = new Color[_outlineComponents.Length];
+            for (int i = 0; i < _outlineComponents.Length; i++)
+            {
+                _outlineBaseColors[i] = _outlineComponents[i] != null
+                    ? _outlineComponents[i].outlineColor
+                    : Color.clear;
+            }
+        }
+
         private void SetCollidersEnabled(bool enabled)
         {
             if (_colliders == null)
@@ -399,15 +519,30 @@ namespace Sol.Fishing
         {
             EnsurePhysicsComponents();
 
-            _rigidbody.isKinematic = isKinematic;
+            bool wasKinematic = _rigidbody.isKinematic;
+            if (isKinematic && !wasKinematic)
+            {
+                _rigidbody.linearVelocity = Vector3.zero;
+                _rigidbody.angularVelocity = Vector3.zero;
+            }
+
+            if (wasKinematic != isKinematic)
+                _rigidbody.isKinematic = isKinematic;
+
             _rigidbody.useGravity = !isKinematic;
             _rigidbody.detectCollisions = !isKinematic;
+        }
 
-            if (!isKinematic)
+        private void UpdateCommittedFishState()
+        {
+            if (_committedFish == null || _committedFish == _hookedFish)
                 return;
 
-            _rigidbody.linearVelocity = Vector3.zero;
-            _rigidbody.angularVelocity = Vector3.zero;
+            if (_committedFish.isActiveAndEnabled && !_committedFish.IsCaught && _committedFish.IsCommittedTo(this))
+                return;
+
+            _committedFish = null;
+            ApplyOutlineState();
         }
 
         private void BeginFloating()
@@ -443,6 +578,99 @@ namespace Sol.Fishing
             _floatHorizontalVelocity = Vector3.zero;
             _driftPhaseX = Random.Range(0f, Mathf.PI * 2f);
             _driftPhaseZ = Random.Range(0f, Mathf.PI * 2f);
+        }
+
+        private void UpdateHookedFishState()
+        {
+            if (_hookedFish == null)
+                return;
+
+            if (!_hookedFish.isActiveAndEnabled)
+            {
+                _hookedFish = null;
+                _committedFish = null;
+                _hookEscapeDeadline = 0f;
+                ApplyOutlineState();
+                return;
+            }
+
+            if (!_reelInputActive && _hookEscapeDeadline > 0f && Time.time >= _hookEscapeDeadline)
+            {
+                ReleaseHookedFish();
+                return;
+            }
+
+            UpdateHookedFishPose();
+        }
+
+        private void UpdateHookedFishPose()
+        {
+            if (_hookedFish == null)
+                return;
+
+            float followOffset = Mathf.Max(0.15f, _hookedFish.Size * 0.15f);
+            Vector3 followPosition = transform.position - (transform.up * followOffset);
+            Quaternion followRotation = transform.rotation;
+            _hookedFish.SetHookedPose(followPosition, followRotation);
+        }
+
+        private void ReleaseHookedFish()
+        {
+            if (_hookedFish == null)
+                return;
+
+            AI_Fish fish = _hookedFish;
+            _hookedFish = null;
+            _committedFish = null;
+            _hookEscapeDeadline = 0f;
+            _biteFailFlashUntilTime = Time.time + 0.2f;
+            ApplyOutlineState();
+            fish.ReleaseFromHook();
+        }
+
+        private void UpdateBiteFailFlash()
+        {
+            if (_biteFailFlashUntilTime <= 0f || Time.time < _biteFailFlashUntilTime)
+                return;
+
+            _biteFailFlashUntilTime = 0f;
+            ApplyOutlineState();
+        }
+
+        private void ApplyOutlineState()
+        {
+            if (_outlineComponents == null || _outlineComponents.Length == 0)
+                CacheOutlineComponents();
+
+            if (_outlineComponents == null || _outlineComponents.Length == 0)
+                return;
+
+            for (int i = 0; i < _outlineComponents.Length; i++)
+            {
+                OutlineComponent outline = _outlineComponents[i];
+                if (outline == null)
+                    continue;
+
+                if (_biteFailFlashUntilTime > Time.time)
+                {
+                    outline.outlineColor = BiteFailOutlineColor;
+                    continue;
+                }
+
+                if (_hookedFish != null)
+                {
+                    outline.outlineColor = HookedOutlineColor;
+                    continue;
+                }
+
+                if (_committedFish != null)
+                {
+                    outline.outlineColor = InterestedOutlineColor;
+                    continue;
+                }
+
+                outline.outlineColor = CastOutlineColor;
+            }
         }
 
         private bool TryGetSurfaceHeight(out float surfaceHeight)
@@ -532,6 +760,17 @@ namespace Sol.Fishing
             Vector3 point = transform.position;
             point.y -= Mathf.Abs(depthOffset);
             return point;
+        }
+
+        private void OnDestroy()
+        {
+            ReleaseHookedFish();
+            if (_committedFish != null)
+            {
+                AI_Fish committedFish = _committedFish;
+                _committedFish = null;
+                committedFish.ReleaseFromHook();
+            }
         }
     }
 }

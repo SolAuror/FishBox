@@ -50,7 +50,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: aec128e106671b6499891ad42afceb7d, type: 3}
       propertyPath: m_Name
-      value: Crate
+      value: Container.Crate
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: aec128e106671b6499891ad42afceb7d, type: 3}
       propertyPath: m_Layer
@@ -181,9 +181,12 @@ MonoBehaviour:
   _capacity: 10
   _gold: 0
   _containerType: 1
+  _inspectorContents: []
   _isLocked: 1
+  _isLockpickable: 1
   _lockLevel: 5
-  _owner: {fileID: 2480894952404956404}
+  _requiredKeyItemName: 
+  _requiredKeyItemId: 
 --- !u!114 &5105128801307712454
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -198,6 +201,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sol.ContainerInteractable
   _containerId: CNT00001
   _openPrompt: Open Crate
-  _stealPrompt: Steal from Crate
   _lockedPrompt: Locked
-  _blockUnownedAccess: 0
+  _pickSnapSoundCue: {fileID: 0}
+  _pickSnapVolume: 0.85

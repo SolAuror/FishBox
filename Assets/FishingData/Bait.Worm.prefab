@@ -75,6 +75,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       insertIndex: -1
       addedObject: {fileID: 814232823920571143}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 789812341478921245}
   m_SourcePrefab: {fileID: 100100000, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
 --- !u!1 &7786342083099220014 stripped
 GameObject:
@@ -187,3 +190,18 @@ MonoBehaviour:
   outlineWidth: 2
   alwaysVisible: 0
   priority: 0
+--- !u!114 &789812341478921245
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7786342083099220014}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e208d84db43d4914aa2e5ab593975a6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingBaitItem
+  _baitDefinition: {fileID: 0}
+  _interestMultiplier: 2
+  _radiusMultiplier: 1.35

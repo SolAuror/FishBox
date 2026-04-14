@@ -42,7 +42,7 @@ namespace Sol.AI
         [Header("Visuals")]
         [SerializeField] private Transform _modelRoot;
         [SerializeField] private GameObject[] _possibleModels;
-        [SerializeField, Min(0.01f)] private float _modelImportScaleCompensation = 10f;
+        [SerializeField, Min(0.01f)] private float _modelImportScaleCompensation = 1f;
 
         [Header("Outline")]
         [SerializeField] private Color _commonOutlineColor = new(0.7f, 0.95f, 0.95f, 1f);
@@ -67,6 +67,11 @@ namespace Sol.AI
         [SerializeField] private float _interestSwimSpeedMultiplier = 1.2f;
         [SerializeField] private float _interestRetargetMinTime = 0.25f;
         [SerializeField] private float _interestRetargetMaxTime = 0.65f;
+        [SerializeField, Min(1f)] private float _maxInterestDuration = 60f;
+        [SerializeField] private Vector2 _interestRetryDelayRange = new(4f, 7f);
+        [SerializeField, Min(1f)] private float _maxCommitTravelDistance = 50f;
+        [SerializeField, Range(0.05f, 1f)] private float _baseBiteChance = 0.9f;
+        [SerializeField] private Vector2 _biteRetryDelayRange = new(3f, 5f);
 
         [Header("Movement")]
         [SerializeField] private float _swimSpeed = 1.5f;
@@ -110,6 +115,9 @@ namespace Sol.AI
         private float _rarestSpeciesChanceNormalized = 1f;
         private float _mostCommonSpeciesChanceNormalized = 1f;
         private float _nextInterestResolveTime;
+        private float _interestStartTime = -1f;
+        private float _nextInterestAllowedTime;
+        private float _nextBiteAttemptTime;
 
         private float _size;
         private float _weight;
@@ -117,6 +125,7 @@ namespace Sol.AI
         private bool _isCaught;
         private string _prefix = string.Empty;
         private FishingTackleInstance _interestTackle;
+        private FishingTackleInstance _hookedTackle;
 
         // --- Public accessors ---
         public FishDefinition Definition => _definition;
@@ -131,9 +140,14 @@ namespace Sol.AI
         public float Size => _size;
         public float Weight => _weight;
         public int Value => Mathf.RoundToInt(_baseValue * Mathf.Max(_size, 0.1f) * GetRarityValueMultiplier());
-        public float CatchDifficulty => _catchDifficulty * (1f + _weight * 0.1f);
+        public float CatchDifficulty => (_catchDifficulty * (1f + _weight * 0.1f)) / GetFavoriteBaitCatchMultiplier();
         public bool IsCaught => _isCaught;
+        public bool IsHooked => _hookedTackle != null;
         public GameObject CatchItemPrefab => _catchItemPrefab;
+        public GameObject CatchVisualPrefab => _definition != null && _definition.modelPrefab != null
+            ? _definition.modelPrefab
+            : (_possibleModels != null && _possibleModels.Length > 0 ? _possibleModels[0] : null);
+        public Vector3 CatchVisualLocalScale => _modelRoot != null ? _modelRoot.localScale : Vector3.one;
 
         private void Awake()
         {
@@ -172,6 +186,9 @@ namespace Sol.AI
 
         private void Update()
         {
+            if (_hookedTackle != null)
+                return;
+
             if (Time.time >= _nextContextResolveTime)
                 ResolveContext(force: false);
 
@@ -183,8 +200,27 @@ namespace Sol.AI
 
             if (interestTackle != null)
             {
+                if (HasInterestTimedOut())
+                {
+                    AbandonInterest();
+                    PickNewTarget(shouldFlee: false);
+                    MoveTowardsTarget(_swimSpeed);
+                    return;
+                }
+
                 _isFleeing = false;
                 _interestTackle = interestTackle;
+
+                Vector3 biteTarget = interestTackle.GetFishInterestPoint(_interestDepthOffset);
+                float biteDistance = Mathf.Max(0.3f, _size * 0.35f);
+                if ((biteTarget - transform.position).sqrMagnitude <= biteDistance * biteDistance)
+                {
+                    HoldAtBitePoint(biteTarget);
+                    if (TryBiteTackle(interestTackle))
+                        return;
+
+                    return;
+                }
 
                 if (_retargetTimer <= 0f || HasReachedTarget() || !IsCurrentInterestTackleValid(_interestTackle))
                 {
@@ -196,7 +232,7 @@ namespace Sol.AI
                 return;
             }
 
-            _interestTackle = null;
+            ClearInterestTackle();
             if (shouldFlee != _isFleeing || _retargetTimer <= 0f || HasReachedTarget())
                 PickNewTarget(shouldFlee);
 
@@ -315,8 +351,14 @@ namespace Sol.AI
 
         private void InitializeFish()
         {
-            _size = Random.Range(_minSize, _maxSize);
-            _weight = Random.Range(_minWeight, _maxWeight);
+            float roll = Random.value;
+            float expectedSize = Mathf.Max(0.01f, (_minSize + _maxSize) * 0.5f);
+            float rawSize = Mathf.Lerp(_minSize, _maxSize, roll);
+            _size = Mathf.Clamp(rawSize, 0.5f, 1.5f);
+
+            float sizeMultiplier = Mathf.Clamp(_size / expectedSize, 0.5f, 1.5f);
+            float expectedWeight = Mathf.Lerp(_minWeight, _maxWeight, roll);
+            _weight = Mathf.Max(0.01f, expectedWeight * sizeMultiplier);
             _prefix = GetPrefixForCurrentRoll();
             _rarityPercent = CalculateRarityPercent();
             _rarity = GetRarityTierFromPercent(_rarityPercent);
@@ -524,26 +566,59 @@ namespace Sol.AI
             if (_interestTackle != null && IsCurrentInterestTackleValid(_interestTackle))
                 return _interestTackle;
 
+            ClearInterestTackle();
+
+            if (Time.time < _nextInterestAllowedTime)
+                return null;
+
             if (Time.time < _nextInterestResolveTime)
                 return null;
 
             _nextInterestResolveTime = Time.time + Mathf.Max(0.05f, _interestResolveInterval);
 
             FishingTackleInstance bestTackle = null;
-            float bestChance = 0f;
+            float bestScore = 0f;
+            FishingTackleInstance fallbackTackle = null;
+            float fallbackScore = float.MinValue;
             var activeTackles = FishingTackleInstance.ActiveInstances;
             for (int i = 0; i < activeTackles.Count; i++)
             {
                 FishingTackleInstance tackle = activeTackles[i];
-                if (!IsCurrentInterestTackleValid(tackle))
+                if (!IsAwareOfTackle(tackle))
                     continue;
 
-                float chance = CalculateInterestChance(tackle);
-                if (chance <= 0f || Random.value > chance || chance <= bestChance)
+                float awarenessChance = CalculateAwarenessChance(tackle);
+                if (awarenessChance <= 0f || Random.value > awarenessChance)
                     continue;
 
-                bestChance = chance;
+                float commitScore = CalculateCommitScore(tackle, awarenessChance);
+                if (commitScore > fallbackScore)
+                {
+                    fallbackScore = commitScore;
+                    fallbackTackle = tackle;
+                }
+
+                if (commitScore <= bestScore)
+                    continue;
+
+                if (!tackle.TryCommitFish(this))
+                    continue;
+
+                if (bestTackle != null && bestTackle != tackle)
+                    bestTackle.ReleaseCommittedFish(this);
+
+                bestScore = commitScore;
                 bestTackle = tackle;
+            }
+
+            if (bestTackle == null && fallbackTackle != null && fallbackTackle.TryCommitFish(this))
+                bestTackle = fallbackTackle;
+
+            _interestTackle = bestTackle;
+            if (_interestTackle != null)
+            {
+                _interestStartTime = Time.time;
+                ClampCommittedDistanceToTackle(_interestTackle);
             }
 
             return bestTackle;
@@ -554,24 +629,134 @@ namespace Sol.AI
             if (tackle == null || !tackle.isActiveAndEnabled || !tackle.CanAttractFish)
                 return false;
 
-            if (_waterVolume != null && tackle.WaterVolume != null && tackle.WaterVolume != _waterVolume)
+            if (!IsAwareOfTackle(tackle))
+                return false;
+
+            if (tackle.CommittedFish != null && tackle.CommittedFish != this)
                 return false;
 
             float loseDistance = tackle.InterestRadius * Mathf.Max(1f, _interestLoseDistanceMultiplier);
-            return (tackle.transform.position - transform.position).sqrMagnitude <= loseDistance * loseDistance;
+            float awarenessRange = Mathf.Max(loseDistance, GetWaterAwareRange());
+            return (tackle.transform.position - transform.position).sqrMagnitude <= awarenessRange * awarenessRange;
         }
 
-        private float CalculateInterestChance(FishingTackleInstance tackle)
+        private bool IsAwareOfTackle(FishingTackleInstance tackle)
+        {
+            if (tackle == null || !tackle.isActiveAndEnabled || !tackle.CanAttractFish)
+                return false;
+
+            if (_waterVolume != null && tackle.WaterVolume != null)
+                return tackle.WaterVolume == _waterVolume;
+
+            float awarenessRange = Mathf.Max(tackle.InterestRadius, GetWaterAwareRange());
+            return (tackle.transform.position - transform.position).sqrMagnitude <= awarenessRange * awarenessRange;
+        }
+
+        private float CalculateAwarenessChance(FishingTackleInstance tackle)
+        {
+            float speciesAffinity = _definition != null ? _definition.baitInterestMultiplier : 1f;
+            float favoriteBaitBonus = GetFavoriteBaitLureMultiplier(tackle);
+            float tackleFactor = Mathf.Max(0.1f, tackle.InterestMultiplier);
+            return Mathf.Clamp01(_baseTackleInterestChance * speciesAffinity * tackleFactor * favoriteBaitBonus);
+        }
+
+        private float CalculateCommitScore(FishingTackleInstance tackle, float awarenessChance)
         {
             Vector3 toTackle = tackle.transform.position - transform.position;
             float distance = toTackle.magnitude;
-            if (distance > tackle.InterestRadius)
-                return 0f;
+            float nearRange = Mathf.Max(0.01f, tackle.InterestRadius);
+            float awarenessRange = Mathf.Max(nearRange, GetWaterAwareRange());
+            float distanceWeight = distance <= nearRange
+                ? 1f
+                : Mathf.Lerp(1f, 0.2f, Mathf.InverseLerp(nearRange, awarenessRange, distance));
 
-            float speciesAffinity = _definition != null ? _definition.baitInterestMultiplier : 1f;
-            float distanceFactor = 1f - Mathf.Clamp01(distance / Mathf.Max(0.01f, tackle.InterestRadius));
-            float tackleFactor = Mathf.Max(0.1f, tackle.InterestMultiplier);
-            return Mathf.Clamp01(_baseTackleInterestChance * speciesAffinity * tackleFactor * Mathf.Lerp(0.35f, 1f, distanceFactor));
+            return awarenessChance * distanceWeight;
+        }
+
+        private bool TryBiteTackle(FishingTackleInstance tackle)
+        {
+            if (tackle == null)
+                return false;
+
+            if (Time.time < _nextBiteAttemptTime)
+                return false;
+
+            if (Random.value <= CalculateBiteChance(tackle))
+                return tackle.TryHookFish(this);
+
+            tackle.FlashBiteFail();
+            _nextBiteAttemptTime = Time.time + Random.Range(
+                Mathf.Min(_biteRetryDelayRange.x, _biteRetryDelayRange.y),
+                Mathf.Max(_biteRetryDelayRange.x, _biteRetryDelayRange.y));
+            return false;
+        }
+
+        private void HoldAtBitePoint(Vector3 biteTarget)
+        {
+            Vector3 clampedTarget = ClampToWater(biteTarget);
+            float holdSpeed = Mathf.Max(0.25f, _swimSpeed * _interestSwimSpeedMultiplier * 0.4f);
+            Vector3 nextPosition = Vector3.MoveTowards(transform.position, clampedTarget, holdSpeed * Time.deltaTime);
+            Vector3 travel = nextPosition - transform.position;
+            transform.position = nextPosition;
+
+            Vector3 lookDirection = clampedTarget - transform.position;
+            if (lookDirection.sqrMagnitude < 0.0001f)
+                lookDirection = travel;
+
+            if (lookDirection.sqrMagnitude > 0.0001f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(lookDirection.normalized, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, _turnSpeed * Time.deltaTime);
+            }
+        }
+
+        private float CalculateBiteChance(FishingTackleInstance tackle)
+        {
+            float tackleFactor = Mathf.Lerp(0.6f, 1.2f, Mathf.InverseLerp(0.1f, 2f, tackle.InterestMultiplier));
+            float difficultyFactor = 1f / Mathf.Max(0.35f, CatchDifficulty);
+            return Mathf.Clamp01(_baseBiteChance * tackleFactor * difficultyFactor);
+        }
+
+        private float GetFavoriteBaitLureMultiplier(FishingTackleInstance tackle)
+        {
+            if (!IsFavoriteBaitMatch(tackle) || _definition == null)
+                return 1f;
+
+            return Mathf.Max(1f, _definition.favoriteBaitLureMultiplier);
+        }
+
+        private float GetFavoriteBaitCatchMultiplier()
+        {
+            if (!IsFavoriteBaitMatch(_interestTackle) || _definition == null)
+                return 1f;
+
+            return Mathf.Max(1f, _definition.favoriteBaitCatchMultiplier);
+        }
+
+        private bool IsFavoriteBaitMatch(FishingTackleInstance tackle)
+        {
+            if (_definition == null || tackle == null || !tackle.HasBait)
+                return false;
+
+            bool hasFavoriteItemId = !string.IsNullOrWhiteSpace(_definition.favoriteBaitItemId);
+            bool hasFavoriteName = !string.IsNullOrWhiteSpace(_definition.favoriteBaitName);
+            if (!hasFavoriteItemId && !hasFavoriteName)
+                return false;
+
+            if (hasFavoriteItemId
+                && string.Equals(
+                    _definition.favoriteBaitItemId.Trim(),
+                    tackle.BaitItemId,
+                    System.StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return hasFavoriteName
+                && string.Equals(
+                    _definition.favoriteBaitName.Trim(),
+                    tackle.BaitName,
+                    System.StringComparison.OrdinalIgnoreCase);
         }
 
         private Vector3 GetInterestTarget(FishingTackleInstance tackle)
@@ -581,6 +766,66 @@ namespace Sol.AI
 
             Vector3 target = tackle.GetFishInterestPoint(_interestDepthOffset);
             return ClampToWater(target);
+        }
+
+        private void ClampCommittedDistanceToTackle(FishingTackleInstance tackle)
+        {
+            if (tackle == null)
+                return;
+
+            float maxTravelDistance = Mathf.Max(1f, _maxCommitTravelDistance);
+            Vector3 tacklePosition = tackle.transform.position;
+            Vector3 toFish = transform.position - tacklePosition;
+            float distance = toFish.magnitude;
+            if (distance <= maxTravelDistance)
+                return;
+
+            Vector3 direction = distance > 0.001f
+                ? toFish / distance
+                : Random.onUnitSphere;
+            direction.y *= 0.35f;
+            if (direction.sqrMagnitude < 0.0001f)
+                direction = Vector3.forward;
+
+            Vector3 clampedPosition = tacklePosition + (direction.normalized * maxTravelDistance);
+            transform.position = ClampToWater(clampedPosition);
+        }
+
+        private void ClearInterestTackle()
+        {
+            if (_interestTackle == null)
+                return;
+
+            _interestTackle.ReleaseCommittedFish(this);
+            _interestTackle = null;
+            _interestStartTime = -1f;
+        }
+
+        private bool HasInterestTimedOut()
+        {
+            return _interestTackle != null
+                && _interestStartTime >= 0f
+                && Time.time - _interestStartTime >= Mathf.Max(1f, _maxInterestDuration);
+        }
+
+        private void AbandonInterest()
+        {
+            ClearInterestTackle();
+            _nextBiteAttemptTime = 0f;
+            _nextInterestAllowedTime = Time.time + Random.Range(
+                Mathf.Min(_interestRetryDelayRange.x, _interestRetryDelayRange.y),
+                Mathf.Max(_interestRetryDelayRange.x, _interestRetryDelayRange.y));
+        }
+
+        private float GetWaterAwareRange()
+        {
+            if (_waterCollider == null)
+                CacheWaterCollider();
+
+            if (_waterCollider == null)
+                return Mathf.Max(_wanderRadius, _fleeRadius, 10f);
+
+            return _waterCollider.bounds.size.magnitude;
         }
 
         private Vector3 GetWanderTarget()
@@ -656,10 +901,54 @@ namespace Sol.AI
             if (_isCaught)
                 return null;
 
+            PrepareForCatchHandoff();
             _isCaught = true;
             ItemComponent caughtItem = CreateCaughtItem(inventory, dropParent);
             Destroy(gameObject);
             return caughtItem;
+        }
+
+        public bool TryHook(FishingTackleInstance tackle)
+        {
+            if (_isCaught || _hookedTackle != null || tackle == null)
+                return false;
+
+            _interestTackle = tackle;
+            _hookedTackle = tackle;
+            _retargetTimer = 0f;
+            _isFleeing = false;
+            return true;
+        }
+
+        public void ReleaseFromHook()
+        {
+            if (_hookedTackle == null && _interestTackle == null)
+                return;
+
+            _hookedTackle = null;
+            ClearInterestTackle();
+            ResolveContext(force: true);
+            PickNewTarget(shouldFlee: false);
+        }
+
+        public void PrepareForCatchHandoff()
+        {
+            _hookedTackle = null;
+            ClearInterestTackle();
+        }
+
+        public bool IsCommittedTo(FishingTackleInstance tackle)
+        {
+            return tackle != null && (_interestTackle == tackle || _hookedTackle == tackle);
+        }
+
+        public void SetHookedPose(Vector3 position, Quaternion rotation)
+        {
+            if (_isCaught)
+                return;
+
+            transform.position = position;
+            transform.rotation = rotation;
         }
 
         private ItemComponent CreateCaughtItem(Inventory inventory, Transform dropParent)

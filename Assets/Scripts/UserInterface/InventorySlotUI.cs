@@ -6,6 +6,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using Sol.Actions;
+using Sol.Fishing;
 using Sol.Grab;
 
 namespace Sol.HUD
@@ -212,7 +213,7 @@ namespace Sol.HUD
             {
                 if (ActionSystem.Instance != null)
                 {
-                    var action = CreateActionForType(_slot.Item.GetPrimaryAction());
+                    var action = CreatePrimaryAction();
                     if (action != null)
                         ActionSystem.Instance.Dispatch(action, _interactor.Owner);
                 }
@@ -235,6 +236,14 @@ namespace Sol.HUD
                 ItemActionType.Drop => new DropAction(_slot, _interactor),
                 _ => null
             };
+        }
+
+        private GameAction CreatePrimaryAction()
+        {
+            if (FishingInventoryLoadAction.CanHandle(_slot?.Item))
+                return new FishingInventoryLoadAction(_slot, _inventory, _interactor);
+
+            return CreateActionForType(_slot.Item.GetPrimaryAction());
         }
 
         private void ApplyStatTexts(ItemComponent item)

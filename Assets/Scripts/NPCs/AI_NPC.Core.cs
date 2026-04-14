@@ -156,6 +156,7 @@ namespace Sol.AI
         public bool CanChasePlayer()
         {
             return config != null
+                && config.autoChasePlayer
                 && config.chaseRadius > 0f
                 && TryGetPlayerPosition(out Vector3 playerPosition)
                 && (playerPosition - transform.position).sqrMagnitude <= config.chaseRadius * config.chaseRadius;

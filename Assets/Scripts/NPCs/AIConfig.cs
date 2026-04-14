@@ -26,6 +26,8 @@ namespace Sol.AI
         public float turnSpeed = 360f;
 
         [Header("Chase")]
+        [Tooltip("If enabled, the NPC will automatically enter chase when the player comes within chase radius. Leave disabled to require an explicit gameplay trigger.")]
+        public bool autoChasePlayer = false;
         [Tooltip("Distance at which the NPC begins chasing the player. Set to 0 to disable chase.")]
         public float chaseRadius = 8f;
         [Tooltip("Distance at which the NPC gives up chasing and returns to roaming.")]

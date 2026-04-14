@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.Serialization;
 using Sol.Locomotion;
 using Sol.Actions;
+using Sol.Fishing;
 using TMPro;
 using Sol.Grab;
 
@@ -56,6 +57,7 @@ namespace Sol.HUD
         private bool _hasLoggedMissingPlayerWarning;
         private LocomotionIK _playerLocomotionIK;
         private LocomotionAnimation _playerLocomotionAnimation;
+        private FishingRodState _playerFishingRodState;
         private ItemComponent _pendingPickupItem;
         private Pose _pickupIKPose;
         private bool _pickupIKUsesGripRotation;
@@ -65,6 +67,7 @@ namespace Sol.HUD
         private bool _eHeld;
         private float _eHoldTime;
         private bool _grabInitiated;
+        private bool _dropCatchPressed;
         private bool _isFirstPerson = true;
 
         private void Start()
@@ -114,12 +117,14 @@ namespace Sol.HUD
                 _playerInteractor = null;
                 _playerLocomotionIK = null;
                 _playerLocomotionAnimation = null;
+                _playerFishingRodState = null;
                 return;
             }
 
             _playerInteractor = new Interactor(owner, true);
             _playerLocomotionIK = owner.GetComponent<LocomotionIK>();
             _playerLocomotionAnimation = owner.GetComponent<LocomotionAnimation>();
+            _playerFishingRodState = owner.GetComponent<FishingRodState>();
         }
 
         private void TryRegisterActionTrace()
@@ -318,11 +323,10 @@ namespace Sol.HUD
 
             if (_promptText != null)
             {
-                bool show = CurrentInteractable != null
-                         && _playerInteractor != null
-                         && CurrentInteractable.CanInteract(_playerInteractor);
+                string prompt = GetActivePromptText();
+                bool show = !string.IsNullOrWhiteSpace(prompt);
                 _promptText.enabled = show;
-                if (show) _promptText.text = CurrentInteractable.InteractionPrompt;
+                if (show) _promptText.text = prompt;
             }
 
             if (_eHeld)
@@ -332,13 +336,26 @@ namespace Sol.HUD
                 {
                     _grabInitiated = true;
                     _pendingPickupItem = null;
-                    TryGrabLookedAtObject(ray, range);
+                    if (!TryGrabDisplayedCatch())
+                        TryGrabLookedAtObject(ray, range);
                 }
+            }
+
+            if (_dropCatchPressed)
+            {
+                _dropCatchPressed = false;
+                TryDropDisplayedCatch();
             }
 
             if (_interactPressed)
             {
                 _interactPressed = false;
+                if (!_grabInitiated && TryTakeDisplayedCatch())
+                {
+                    _pendingPickupItem = null;
+                    return;
+                }
+
                 IInteractable interactableToUse = _pendingPickupItem != null ? _pendingPickupItem : CurrentInteractable;
                 if (!_grabInitiated && interactableToUse != null
                     && _playerInteractor != null
@@ -466,7 +483,13 @@ namespace Sol.HUD
         public void OnLClick(InputAction.CallbackContext context) { }
         public void OnRClick(InputAction.CallbackContext context) { }
         public void OnMClick(InputAction.CallbackContext context) { }
-        public void OnQ(InputAction.CallbackContext context) { }
+        public void OnQ(InputAction.CallbackContext context)
+        {
+            if (!context.performed || IsUiInputBlocked())
+                return;
+
+            _dropCatchPressed = true;
+        }
         public void OnR(InputAction.CallbackContext context) { }
         public void OnT(InputAction.CallbackContext context) { }
         public void OnF(InputAction.CallbackContext context) { }
@@ -516,6 +539,7 @@ namespace Sol.HUD
             _eHoldTime = 0f;
             _grabInitiated = false;
             _interactPressed = false;
+            _dropCatchPressed = false;
         }
 
         private void StartPendingPickupIfItem()
@@ -580,6 +604,41 @@ namespace Sol.HUD
         {
             _pendingPickupItem = null;
             ClearPickupIK();
+        }
+
+        private string GetActivePromptText()
+        {
+            if (_playerFishingRodState != null && _playerFishingRodState.HasDisplayedCatch)
+                return _playerFishingRodState.DisplayedCatchPrompt;
+
+            if (CurrentInteractable != null
+                && _playerInteractor != null
+                && CurrentInteractable.CanInteract(_playerInteractor))
+            {
+                return CurrentInteractable.InteractionPrompt;
+            }
+
+            return string.Empty;
+        }
+
+        private bool TryTakeDisplayedCatch()
+        {
+            return _playerFishingRodState != null
+                && _playerInteractor != null
+                && _playerFishingRodState.TryTakeDisplayedCatch(_playerInteractor);
+        }
+
+        private bool TryDropDisplayedCatch()
+        {
+            return _playerFishingRodState != null
+                && _playerFishingRodState.TryDropDisplayedCatch();
+        }
+
+        private bool TryGrabDisplayedCatch()
+        {
+            return _playerFishingRodState != null
+                && _playerInteractor?.Owner != null
+                && _playerFishingRodState.TryGrabDisplayedCatch(_playerInteractor.Owner);
         }
     }
 }

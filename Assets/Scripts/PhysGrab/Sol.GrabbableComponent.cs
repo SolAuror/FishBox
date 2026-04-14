@@ -59,6 +59,15 @@ namespace Sol.Grab
             }
         }
 
+        public void RefreshStoredPhysicsState()
+        {
+            if (_rb == null)
+                return;
+
+            _hadGravity = _rb.useGravity;
+            _wasKinematic = _rb.isKinematic;
+        }
+
         /// <summary>
         /// Move toward the target position. Called each FixedUpdate by GrabManager.
         /// </summary>

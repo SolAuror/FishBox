@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Sol.AI;
+using Sol.Actions;
 using Sol.Grab;
 using Sol.Locomotion;
 using Sol.Outline;
@@ -69,6 +71,8 @@ namespace Sol.Fishing
         private Transform _restingTackleVisual;
         private LineRenderer _lineRenderer;
         private FishingTackleInstance _activeTackle;
+        private ItemComponent _displayedCatchItem;
+        private GrabbableComponent _displayedCatchGrabbable;
         private WaterVolume _pendingWaterVolume;
         private Vector3 _pendingCastTarget;
         private int _hasRodEquippedHash;
@@ -82,11 +86,16 @@ namespace Sol.Fishing
         private bool _castReleasedByEvent;
         private bool _isReeling;
         private float _reelProgress;
+        private float _reelTotalDistance;
         private Vector3 _reelStartPosition;
 
         public bool ShouldBlockDefaultAttack => _isRodEquipped;
         public bool HasLineOut => _activeTackle != null || _isCastPending;
         public bool HasEquippedRod => _isRodEquipped && _activeRod != null;
+        public bool HasDisplayedCatch => _displayedCatchItem != null;
+        public string DisplayedCatchPrompt => _displayedCatchItem == null
+            ? string.Empty
+            : $"E Take {_displayedCatchItem.ItemName}\nHold E Grab\nQ Drop";
 
         private void Awake()
         {
@@ -131,6 +140,7 @@ namespace Sol.Fishing
         private void Update()
         {
             ResolveEquippedRod(forceRefresh: false);
+            UpdateDisplayedCatchState();
             UpdateTackleState();
             UpdateLineRenderer();
 
@@ -143,7 +153,7 @@ namespace Sol.Fishing
                 return;
             }
 
-            if (!_locomotionInput.AttackPressed || _isCastPending)
+            if (!_locomotionInput.AttackPressed || _isCastPending || _displayedCatchItem != null)
                 return;
 
             _locomotionInput.SetAttackPressedFalse();
@@ -162,15 +172,86 @@ namespace Sol.Fishing
 
         public bool CanLoadTackle(ItemComponent item)
         {
-            if (!HasEquippedRod || HasLineOut || item == null)
+            if (!HasEquippedRod || HasLineOut || _displayedCatchItem != null || item == null)
                 return false;
 
-            return item.GetComponent<FishingTackleItem>() != null;
+            return _activeRod != null
+                && _activeRod.LoadedBaitItem == null
+                && item.GetComponent<FishingTackleItem>() != null;
+        }
+
+        public bool CanLoadBait(ItemComponent item)
+        {
+            if (!HasEquippedRod || HasLineOut || _displayedCatchItem != null || item == null)
+                return false;
+
+            return _activeRod != null
+                && _activeRod.LoadedTackleItem != null
+                && FishingBaitItem.IsSupportedBait(item);
+        }
+
+        public bool CanDetachTackle()
+        {
+            return HasEquippedRod
+                && !HasLineOut
+                && _displayedCatchItem == null
+                && _activeRod != null
+                && _activeRod.LoadedTackleItem != null
+                && _activeRod.LoadedBaitItem == null;
+        }
+
+        public bool CanDetachBait()
+        {
+            return HasEquippedRod && !HasLineOut && _displayedCatchItem == null && _activeRod != null && _activeRod.LoadedBaitItem != null;
+        }
+
+        public bool TryTakeDisplayedCatch(Interactor interactor)
+        {
+            if (_displayedCatchItem == null || interactor?.Inventory == null)
+                return false;
+
+            ItemComponent item = _displayedCatchItem;
+            DetachDisplayedCatchItemToWorld();
+
+            bool added = interactor.Inventory.Add(item);
+            if (added)
+            {
+                if (item != null)
+                    item.gameObject.SetActive(false);
+
+                return true;
+            }
+
+            AttachDisplayedCatchItem(item);
+            return false;
+        }
+
+        public bool TryDropDisplayedCatch()
+        {
+            if (_displayedCatchItem == null)
+                return false;
+
+            DetachDisplayedCatchItemToWorld();
+            return true;
+        }
+
+        public bool TryGrabDisplayedCatch(GameObject actor)
+        {
+            if (_displayedCatchItem == null || _displayedCatchGrabbable == null || actor == null || ActionSystem.Instance == null)
+                return false;
+
+            GrabbableComponent grabbable = _displayedCatchGrabbable;
+            DetachDisplayedCatchItemToWorld();
+
+            if (grabbable == null || grabbable.IsGrabbed)
+                return false;
+
+            return ActionSystem.Instance.Dispatch(new StartGrabAction(), actor, grabbable.gameObject);
         }
 
         public bool TryLoadTackle(InventorySlot slot, Inventory inventory)
         {
-            if (!HasEquippedRod || HasLineOut || slot?.Item == null || inventory == null)
+            if (slot?.Item == null || inventory == null || !CanLoadTackle(slot.Item))
                 return false;
 
             ItemComponent slotItem = slot.PopItem();
@@ -204,6 +285,72 @@ namespace Sol.Fishing
             return true;
         }
 
+        public bool TryLoadBait(InventorySlot slot, Inventory inventory)
+        {
+            if (slot?.Item == null || inventory == null || !CanLoadBait(slot.Item))
+                return false;
+
+            ItemComponent slotItem = slot.PopItem();
+            if (slotItem == null)
+                return false;
+
+            if (!inventory.Remove(slot, 1))
+                return false;
+
+            ItemComponent previousBait = _activeRod.UnloadBaitItem();
+            if (previousBait != null)
+            {
+                previousBait.transform.SetParent(inventory.transform, false);
+                previousBait.gameObject.SetActive(false);
+                if (!inventory.Add(previousBait))
+                {
+                    _activeRod.SetLoadedBaitItem(previousBait);
+                    slot.PushExtra(slotItem);
+                    slot.Count++;
+                    return false;
+                }
+            }
+
+            _activeRod.SetLoadedBaitItem(slotItem);
+            return true;
+        }
+
+        public bool TryDetachTackle(Inventory inventory)
+        {
+            if (!CanDetachTackle() || inventory == null)
+                return false;
+
+            ItemComponent tackle = _activeRod.UnloadTackleItem();
+            if (tackle == null)
+                return false;
+
+            tackle.transform.SetParent(inventory.transform, false);
+            tackle.gameObject.SetActive(false);
+            if (inventory.Add(tackle))
+                return true;
+
+            _activeRod.SetLoadedTackleItem(tackle);
+            return false;
+        }
+
+        public bool TryDetachBait(Inventory inventory)
+        {
+            if (!CanDetachBait() || inventory == null)
+                return false;
+
+            ItemComponent bait = _activeRod.UnloadBaitItem();
+            if (bait == null)
+                return false;
+
+            bait.transform.SetParent(inventory.transform, false);
+            bait.gameObject.SetActive(false);
+            if (inventory.Add(bait))
+                return true;
+
+            _activeRod.SetLoadedBaitItem(bait);
+            return false;
+        }
+
         private void HandleEquipmentChanged()
         {
             ResolveEquippedRod(forceRefresh: true);
@@ -234,6 +381,7 @@ namespace Sol.Fishing
             bool rodChanged = resolvedItem != _activeRodItem || resolvedRod != _activeRod;
             if (rodChanged)
             {
+                DetachDisplayedCatchItemToWorld();
                 ClearCastState(destroyTackle: true);
                 _activeRodItem = resolvedItem;
                 _activeRod = resolvedRod;
@@ -295,7 +443,7 @@ namespace Sol.Fishing
 
         private void BeginCast()
         {
-            if (_activeRodItem == null || _activeLineOrigin == null)
+            if (_activeRodItem == null || _activeLineOrigin == null || _displayedCatchItem != null)
                 return;
 
             if (!TryGetCastTarget(out Vector3 castTarget))
@@ -338,7 +486,9 @@ namespace Sol.Fishing
                 GetCastCollisionEnableDelay(),
                 GetCastWaterContactTimeout(),
                 GetTackleInterestMultiplier(),
-                GetTackleInterestRadius());
+                GetTackleInterestRadius(),
+                GetCurrentBaitItemId(),
+                GetCurrentBaitName());
 
             EnsureLineRenderer();
             UpdateRestingTackleVisual();
@@ -353,7 +503,10 @@ namespace Sol.Fishing
             }
 
             if (!_isReeling)
+            {
                 _reelStartPosition = _activeTackle.transform.position;
+                _reelTotalDistance = CalculateReelDistance(_reelStartPosition, _activeLineOrigin.position);
+            }
 
             _isReeling = true;
             SetAnimatorReelState(true, _reelProgress);
@@ -361,6 +514,9 @@ namespace Sol.Fishing
 
         private void UpdateTackleState()
         {
+            if (_activeTackle != null)
+                _activeTackle.SetReelInputActive(_isReeling);
+
             if (_activeTackle != null && _activeTackle.ShouldCancelCast)
             {
                 ClearCastState(destroyTackle: true);
@@ -420,8 +576,9 @@ namespace Sol.Fishing
                 return;
             }
 
-            float reelDuration = Mathf.Max(0.05f, GetReelDuration());
-            _reelProgress = Mathf.Clamp01(_reelProgress + (Time.deltaTime / reelDuration));
+            float reelSpeed = Mathf.Max(0.05f, GetReelSpeed());
+            float totalDistance = Mathf.Max(0.05f, _reelTotalDistance);
+            _reelProgress = Mathf.Clamp01(_reelProgress + ((reelSpeed * Time.deltaTime) / totalDistance));
             Vector3 rodTipPosition = _activeLineOrigin.position;
             Vector3 surfaceTarget = Vector3.Lerp(
                 _reelStartPosition,
@@ -441,6 +598,17 @@ namespace Sol.Fishing
 
         private void CompleteReel()
         {
+            if (_activeTackle != null && _activeTackle.HasHookedFish)
+            {
+                AI_Fish hookedFish = _activeTackle.ConsumeHookedFish();
+                if (hookedFish != null)
+                {
+                    ItemComponent caughtItem = hookedFish.Catch(null, _activeRod != null ? _activeRod.transform : transform);
+                    if (caughtItem != null)
+                        AttachDisplayedCatchItem(caughtItem);
+                }
+            }
+
             if (_activeTackle != null)
                 Destroy(_activeTackle.gameObject);
 
@@ -537,10 +705,6 @@ namespace Sol.Fishing
             if (itemComponent != null)
                 Destroy(itemComponent);
 
-            OutlineComponent outlineComponent = tackleObject.GetComponent<OutlineComponent>();
-            if (outlineComponent != null)
-                Destroy(outlineComponent);
-
             FishingTackleInstance tackleInstance = tackleObject.GetComponent<FishingTackleInstance>();
             if (tackleInstance == null)
                 tackleInstance = tackleObject.AddComponent<FishingTackleInstance>();
@@ -605,12 +769,18 @@ namespace Sol.Fishing
 
         private void UpdateRestingTackleVisual()
         {
-            if (_restingTackleVisual == null)
-                return;
+            bool showRestingTackle = _isRodEquipped && _activeTackle == null && !_isCastPending && _displayedCatchItem == null;
+            ItemComponent loadedTackleItem = _activeRod != null ? _activeRod.LoadedTackleItem : null;
 
-            bool showRestingTackle = _isRodEquipped && _activeTackle == null && !_isCastPending;
-            if (_restingTackleVisual.gameObject.activeSelf != showRestingTackle)
-                _restingTackleVisual.gameObject.SetActive(showRestingTackle);
+            if (loadedTackleItem != null)
+            {
+                if (loadedTackleItem.gameObject.activeSelf != showRestingTackle)
+                    loadedTackleItem.gameObject.SetActive(showRestingTackle);
+            }
+            else if (_restingTackleVisual != null && _restingTackleVisual.gameObject.activeSelf)
+            {
+                _restingTackleVisual.gameObject.SetActive(false);
+            }
         }
 
         private void ClearCastState(bool destroyTackle)
@@ -619,6 +789,7 @@ namespace Sol.Fishing
             _castReleasedByEvent = false;
             _isReeling = false;
             _reelProgress = 0f;
+            _reelTotalDistance = 0f;
 
             if (destroyTackle && _activeTackle != null)
                 Destroy(_activeTackle.gameObject);
@@ -631,6 +802,78 @@ namespace Sol.Fishing
             _locomotionController?.ClearMovementLock();
             SetAnimatorReelState(false, 0f);
 
+            UpdateRestingTackleVisual();
+        }
+
+        private void UpdateDisplayedCatchState()
+        {
+            if (_displayedCatchItem == null)
+                return;
+
+            if (!_displayedCatchItem.gameObject.activeInHierarchy)
+            {
+                ClearDisplayedCatchReference(_displayedCatchItem);
+                return;
+            }
+
+            if (_displayedCatchGrabbable != null && _displayedCatchGrabbable.IsGrabbed)
+                DetachDisplayedCatchItem();
+        }
+
+        private void AttachDisplayedCatchItem(ItemComponent item)
+        {
+            if (item == null || _activeRod == null)
+                return;
+
+            if (_displayedCatchItem != null && _displayedCatchItem != item)
+                DetachDisplayedCatchItemToWorld();
+
+            _displayedCatchItem = item;
+            _displayedCatchGrabbable = item.GetComponent<GrabbableComponent>()
+                ?? item.GetComponentInChildren<GrabbableComponent>(true);
+            _activeRod.SetDisplayedCatchItem(item);
+            UpdateRestingTackleVisual();
+        }
+
+        private void DetachDisplayedCatchItem()
+        {
+            if (_displayedCatchItem == null)
+                return;
+
+            ItemComponent item = _displayedCatchItem;
+            if (_activeRod != null)
+                _activeRod.ReleaseDisplayedCatchItem(item, keepWorldTransform: true);
+            else
+                item.transform.SetParent(null, true);
+
+            if (_displayedCatchGrabbable != null && _displayedCatchGrabbable.IsGrabbed)
+                _displayedCatchGrabbable.RefreshStoredPhysicsState();
+
+            ClearDisplayedCatchReference(item);
+        }
+
+        private void DetachDisplayedCatchItemToWorld()
+        {
+            if (_displayedCatchItem == null)
+                return;
+
+            ItemComponent item = _displayedCatchItem;
+            if (_activeRod != null)
+                _activeRod.ReleaseDisplayedCatchItem(item, keepWorldTransform: true);
+            else
+                item.transform.SetParent(null, true);
+
+            ClearDisplayedCatchReference(item);
+        }
+
+        private void ClearDisplayedCatchReference(ItemComponent item)
+        {
+            if (item == null || _displayedCatchItem != item)
+                return;
+
+            _activeRod?.ForgetDisplayedCatchItem(item);
+            _displayedCatchItem = null;
+            _displayedCatchGrabbable = null;
             UpdateRestingTackleVisual();
         }
 
@@ -691,6 +934,12 @@ namespace Sol.Fishing
         private float GetCastCollisionEnableDelay() => _activeRod != null ? _activeRod.CastCollisionEnableDelay : _fallbackCastCollisionEnableDelay;
         private float GetCastWaterContactTimeout() => _activeRod != null ? _activeRod.CastWaterContactTimeout : _fallbackCastWaterContactTimeout;
         private float GetReelDuration() => _activeRod != null ? _activeRod.ReelDuration : _fallbackReelDuration;
+        private float GetReelSpeed()
+        {
+            float maxCastDistance = GetMaxCastDistance();
+            float referenceDuration = GetReelDuration();
+            return maxCastDistance / Mathf.Max(0.05f, referenceDuration);
+        }
         private float GetReelLiftDistance() => _activeRod != null ? _activeRod.ReelLiftDistance : _fallbackReelLiftDistance;
         private float GetReelSurfacePullStrength() => _activeRod != null ? _activeRod.ReelSurfacePullStrength : _fallbackReelSurfacePullStrength;
         private float GetMovementLockDuration() => _activeRod != null ? _activeRod.MovementLockDuration : _fallbackMovementLockDuration;
@@ -705,9 +954,12 @@ namespace Sol.Fishing
         private float GetTackleInterestMultiplier()
         {
             if (_activeRod != null)
-                return _activeRod.DefaultBait != null
-                    ? _activeRod.DefaultBait.interestMultiplier
-                    : _activeRod.BaitlessInterestMultiplier;
+            {
+                return FishingBaitItem.ResolveInterestMultiplier(
+                    _activeRod.LoadedBaitItem,
+                    _activeRod.DefaultBait,
+                    _activeRod.BaitlessInterestMultiplier);
+            }
 
             return _fallbackBaitlessInterestMultiplier;
         }
@@ -715,13 +967,224 @@ namespace Sol.Fishing
         private float GetTackleInterestRadius()
         {
             float baseRadius = _activeRod != null ? _activeRod.CurrentLureRange : _fallbackTackleInterestRadius;
-            if (_activeRod != null && _activeRod.DefaultBait != null)
-                return baseRadius * _activeRod.DefaultBait.radiusMultiplier;
+            if (_activeRod != null)
+            {
+                return baseRadius * FishingBaitItem.ResolveRadiusMultiplier(_activeRod.LoadedBaitItem, _activeRod.DefaultBait);
+            }
 
             return baseRadius;
         }
+
+        private string GetCurrentBaitItemId()
+        {
+            return _activeRod != null
+                ? FishingBaitItem.ResolveBaitItemId(_activeRod.LoadedBaitItem)
+                : string.Empty;
+        }
+
+        private string GetCurrentBaitName()
+        {
+            if (_activeRod == null)
+                return string.Empty;
+
+            return FishingBaitItem.ResolveBaitName(_activeRod.LoadedBaitItem, _activeRod.DefaultBait);
+        }
+
+        private float CalculateReelDistance(Vector3 tacklePosition, Vector3 rodTipPosition)
+        {
+            Vector3 surfaceLegStart = new Vector3(tacklePosition.x, tacklePosition.y, tacklePosition.z);
+            Vector3 surfaceLegEnd = new Vector3(rodTipPosition.x, tacklePosition.y, rodTipPosition.z);
+            float surfaceDistance = Vector3.Distance(surfaceLegStart, surfaceLegEnd);
+            float liftDistance = Vector3.Distance(surfaceLegEnd, rodTipPosition);
+            return Mathf.Max(0.05f, surfaceDistance + liftDistance);
+        }
+
         private int GetLineSegments() => _activeRod != null ? _activeRod.LineSegments : _fallbackLineSegments;
         private float GetLineWidth() => _activeRod != null ? _activeRod.LineWidth : _fallbackLineWidth;
         private float GetLineSlack() => _activeRod != null ? _activeRod.LineSlack : _fallbackLineSlack;
+    }
+
+    /// <summary>
+    /// Treat bait and tackle like rod-bound equippables from inventory:
+    /// left-click loads them onto the first compatible rod instead of using or dropping them.
+    /// </summary>
+    public sealed class FishingInventoryLoadAction : ItemAction
+    {
+        private readonly InventorySlot _slot;
+        private readonly Inventory _inventory;
+        private readonly Interactor _interactor;
+
+        public bool Succeeded { get; private set; }
+
+        public FishingInventoryLoadAction(InventorySlot slot, Inventory inventory, Interactor interactor)
+        {
+            _slot = slot;
+            _inventory = inventory;
+            _interactor = interactor;
+        }
+
+        public static bool CanHandle(ItemComponent item)
+        {
+            if (item == null)
+                return false;
+
+            return item.GetComponent<FishingTackleItem>() != null || FishingBaitItem.IsSupportedBait(item);
+        }
+
+        public override bool CanExecute()
+        {
+            return _slot?.Item != null
+                && _inventory != null
+                && _interactor?.Owner != null
+                && Context?.Equipment != null
+                && Context.FishingRodState != null
+                && CanHandle(_slot.Item);
+        }
+
+        public override void OnStart()
+        {
+            Succeeded = TryLoadOntoFirstAvailableRod(
+                _slot,
+                _inventory,
+                Context.Equipment,
+                Context.FishingRodState);
+            Complete();
+        }
+
+        private static bool TryLoadOntoFirstAvailableRod(
+            InventorySlot slot,
+            Inventory inventory,
+            Equipment equipment,
+            FishingRodState fishingRodState)
+        {
+            if (slot?.Item == null || inventory == null || equipment == null || fishingRodState == null)
+                return false;
+
+            ItemComponent item = slot.Item;
+            if (!CanHandle(item))
+                return false;
+
+            if (TryLoadOntoEquippedRod(slot, inventory, fishingRodState))
+                return true;
+
+            ItemComponent rodToEquip = FindFirstCompatibleRod(item, inventory, equipment);
+            if (rodToEquip == null)
+                return false;
+
+            if (!EnsureRodEquipped(rodToEquip, equipment))
+                return false;
+
+            return TryLoadOntoEquippedRod(slot, inventory, fishingRodState);
+        }
+
+        private static bool TryLoadOntoEquippedRod(InventorySlot slot, Inventory inventory, FishingRodState fishingRodState)
+        {
+            if (slot?.Item == null || inventory == null || fishingRodState == null || fishingRodState.HasLineOut)
+                return false;
+
+            if (slot.Item.GetComponent<FishingTackleItem>() != null)
+                return fishingRodState.TryLoadTackle(slot, inventory);
+
+            if (FishingBaitItem.IsSupportedBait(slot.Item))
+                return fishingRodState.TryLoadBait(slot, inventory);
+
+            return false;
+        }
+
+        private static ItemComponent FindFirstCompatibleRod(ItemComponent item, Inventory inventory, Equipment equipment)
+        {
+            if (item == null || inventory == null || equipment == null)
+                return null;
+
+            for (int i = 0; i < inventory.Slots.Count; i++)
+            {
+                InventorySlot slot = inventory.Slots[i];
+                ItemComponent candidate = slot?.Item;
+                if (candidate == null)
+                    continue;
+
+                FishingRodItem rod = candidate.GetComponent<FishingRodItem>();
+                if (rod == null || !CanRodAcceptItem(rod, item))
+                    continue;
+
+                if (equipment.IsEquipped(candidate) || CanSwitchTo(candidate, equipment))
+                    return candidate;
+            }
+
+            return null;
+        }
+
+        private static bool CanRodAcceptItem(FishingRodItem rod, ItemComponent item)
+        {
+            if (rod == null || item == null)
+                return false;
+
+            if (item.GetComponent<FishingTackleItem>() != null)
+                return rod.LoadedBaitItem == null;
+
+            if (FishingBaitItem.IsSupportedBait(item))
+                return rod.LoadedTackleItem != null;
+
+            return false;
+        }
+
+        private static bool CanSwitchTo(ItemComponent rodItem, Equipment equipment)
+        {
+            if (rodItem == null || equipment == null)
+                return false;
+
+            EquipmentSlotType slot = ResolveEquipmentSlot(rodItem);
+            if (!equipment.IsSlotOccupied(slot))
+                return true;
+
+            foreach (var kv in equipment.Equipped)
+            {
+                if (kv.Key != slot)
+                    continue;
+
+                ItemComponent equippedItem = kv.Value;
+                return equippedItem != null && equippedItem.GetComponent<FishingRodItem>() != null;
+            }
+
+            return false;
+        }
+
+        private static bool EnsureRodEquipped(ItemComponent rodItem, Equipment equipment)
+        {
+            if (rodItem == null || equipment == null)
+                return false;
+
+            if (equipment.IsEquipped(rodItem))
+                return true;
+
+            EquipmentSlotType slot = ResolveEquipmentSlot(rodItem);
+            if (equipment.IsSlotOccupied(slot))
+            {
+                foreach (var kv in equipment.Equipped)
+                {
+                    if (kv.Key != slot || kv.Value == rodItem)
+                        continue;
+
+                    if (kv.Value == null || kv.Value.GetComponent<FishingRodItem>() == null)
+                        return false;
+
+                    equipment.Unequip(slot);
+                    break;
+                }
+            }
+
+            return equipment.Equip(rodItem);
+        }
+
+        private static EquipmentSlotType ResolveEquipmentSlot(ItemComponent item)
+        {
+            return item.Type switch
+            {
+                ItemType.Weapon => EquipmentSlotType.MainHand,
+                ItemType.Armor => EquipmentSlotType.Chest,
+                ItemType.Equipable => EquipmentSlotType.Back,
+                _ => EquipmentSlotType.MainHand
+            };
+        }
     }
 }
