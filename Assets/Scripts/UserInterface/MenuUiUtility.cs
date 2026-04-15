@@ -109,6 +109,53 @@ namespace Sol.HUD
             target.SetAsLastSibling();
         }
 
+        public static bool IsDescendantOf(Transform child, Transform ancestor)
+        {
+            if (child == null || ancestor == null)
+                return false;
+
+            Transform cursor = child;
+            while (cursor != null)
+            {
+                if (cursor == ancestor)
+                    return true;
+
+                cursor = cursor.parent;
+            }
+
+            return false;
+        }
+
+        public static Image EnsureRaycastImage(Button button)
+        {
+            if (button == null)
+                return null;
+
+            Image image = button.GetComponent<Image>();
+            if (image == null)
+                image = button.gameObject.AddComponent<Image>();
+
+            if (image.color.a <= 0f)
+                image.color = new Color(0f, 0f, 0f, 0.001f);
+
+            image.raycastTarget = true;
+            return image;
+        }
+
+        public static void MakeButtonClickable(Button button)
+        {
+            if (button == null)
+                return;
+
+            Image image = EnsureRaycastImage(button);
+            if (button.targetGraphic == null || button.targetGraphic.gameObject != button.gameObject)
+                button.targetGraphic = image;
+
+            TMP_Text[] textChildren = button.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < textChildren.Length; i++)
+                textChildren[i].raycastTarget = false;
+        }
+
         public static void SelectButton(Button button)
         {
             if (button == null || button.gameObject == null || !button.gameObject.activeInHierarchy)

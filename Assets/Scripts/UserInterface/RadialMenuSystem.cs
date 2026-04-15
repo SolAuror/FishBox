@@ -133,11 +133,61 @@ namespace Sol.HUD
             _timePreview ??= MenuUiUtility.FindTextByNames(transform, "TimePreview");
             _currentTimeDisplay ??= MenuUiUtility.FindTextByNames(transform, "CurrentTimeDisplay");
             _currentDateDisplay ??= MenuUiUtility.FindTextByNames(transform, "CurrentDateDisplay");
-            _confirmButton ??= MenuUiUtility.FindButtonByNames(transform, "Confirm", "ConfirmButton");
-            _cancelButton ??= MenuUiUtility.FindButtonByNames(transform, "Cancel", "CancelButton", "CloseButton");
+            if (!MenuUiUtility.IsDescendantOf(_confirmButton != null ? _confirmButton.transform : null, transform))
+                _confirmButton = MenuUiUtility.FindButtonByNames(transform, "Confirm", "ConfirmButton");
+            if (!MenuUiUtility.IsDescendantOf(_cancelButton != null ? _cancelButton.transform : null, transform))
+                _cancelButton = MenuUiUtility.FindButtonByNames(transform, "Cancel", "CancelButton", "CloseButton");
+
+            PrepareRadialButton(_confirmButton);
+            PrepareRadialButton(_cancelButton);
+            SanitizeDecorativeRaycasts();
 
             MenuUiUtility.WireButton(_confirmButton, Confirm);
             MenuUiUtility.WireButton(_cancelButton, Close);
+        }
+
+        private void PrepareRadialButton(Button button)
+        {
+            if (button == null)
+                return;
+
+            MenuUiUtility.MakeButtonClickable(button);
+            button.transform.SetAsLastSibling();
+        }
+
+        private void SanitizeDecorativeRaycasts()
+        {
+            Graphic[] graphics = GetComponentsInChildren<Graphic>(true);
+            for (int i = 0; i < graphics.Length; i++)
+            {
+                Graphic graphic = graphics[i];
+                if (graphic == null)
+                    continue;
+
+                Button ownerButton = graphic.GetComponent<Button>() ?? graphic.GetComponentInParent<Button>();
+                if (ownerButton == _confirmButton || ownerButton == _cancelButton)
+                {
+                    if (graphic is TMP_Text text)
+                        text.raycastTarget = false;
+                    continue;
+                }
+
+                graphic.raycastTarget = false;
+            }
+
+            if (_confirmButton != null)
+            {
+                Image confirmImage = _confirmButton.GetComponent<Image>();
+                if (confirmImage != null)
+                    confirmImage.raycastTarget = true;
+            }
+
+            if (_cancelButton != null)
+            {
+                Image cancelImage = _cancelButton.GetComponent<Image>();
+                if (cancelImage != null)
+                    cancelImage.raycastTarget = true;
+            }
         }
 
         private void ApplySelection(int hours)

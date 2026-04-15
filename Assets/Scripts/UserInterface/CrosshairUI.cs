@@ -72,6 +72,9 @@ namespace Sol.HUD
 
         private void Start()
         {
+            if (_promptText != null)
+                _promptText.raycastTarget = false;
+
             EnsurePlayerInteractorBound(logWarningIfMissing: true);
             TryRegisterCallbacks();
         }

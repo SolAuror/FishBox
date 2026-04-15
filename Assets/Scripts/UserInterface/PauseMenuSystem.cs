@@ -101,10 +101,35 @@ namespace Sol.HUD
             _saveGameButton ??= MenuUiUtility.FindButtonByNames(transform, "Save Game", "SaveButton");
             _loadGameButton ??= MenuUiUtility.FindButtonByNames(transform, "Load Game", "LoadButton");
 
+            PreparePauseButton(_resumeButton, 96f);
+            PreparePauseButton(_saveGameButton, 36f);
+            PreparePauseButton(_loadGameButton, -24f);
+            PreparePauseButton(_settingsButton, -84f);
+
             MenuUiUtility.WireButton(_resumeButton, Close);
             MenuUiUtility.WireButton(_settingsButton, OpenSettings);
             MenuUiUtility.WireButton(_saveGameButton, OpenSaveMenu);
             MenuUiUtility.WireButton(_loadGameButton, OpenLoadMenu);
+        }
+
+        private static void PreparePauseButton(Button button, float anchoredY)
+        {
+            if (button == null)
+                return;
+
+            RectTransform rect = button.transform as RectTransform;
+            if (rect != null)
+            {
+                rect.anchorMin = new Vector2(0.5f, 0.5f);
+                rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.anchoredPosition = new Vector2(0f, anchoredY);
+                rect.sizeDelta = new Vector2(320f, 44f);
+                rect.localScale = Vector3.one;
+            }
+
+            MenuUiUtility.MakeButtonClickable(button);
+            button.transform.SetAsLastSibling();
         }
 
         private void SetOpen(bool open)
