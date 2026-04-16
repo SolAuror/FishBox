@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Cinemachine;
+using Sol.HUD;
 
 namespace Sol.Locomotion
 {
@@ -85,6 +86,7 @@ namespace Sol.Locomotion
         {
             Cursor.lockState = CursorLockMode.Locked;
             TryResolveRuntimeBindings(applyPerspectiveIfNeeded: true);
+            SettingsMenuSystem.ApplyPersistedInputAndGameplaySettings();
         }
 
         private void OnEnable()

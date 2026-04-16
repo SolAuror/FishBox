@@ -63,16 +63,11 @@ namespace Sol.SaveLoad
             if (!IsValidSlotIndex(slotIndex))
                 return false;
 
-            string path = GetSlotPath(slotIndex);
-            if (!File.Exists(path))
+            if (!TryReadSaveData(slotIndex, out GameSaveData data) || data == null)
                 return false;
 
             try
             {
-                GameSaveData data = JsonUtility.FromJson<GameSaveData>(File.ReadAllText(path));
-                if (data == null)
-                    return false;
-
                 ApplySaveData(data);
                 _sessionStartTime = Time.realtimeSinceStartup - Mathf.Max(0f, data.Metadata.PlaytimeSeconds);
                 return true;
@@ -89,19 +84,7 @@ namespace Sol.SaveLoad
             if (!IsValidSlotIndex(slotIndex))
                 return null;
 
-            string path = GetSlotPath(slotIndex);
-            if (!File.Exists(path))
-                return null;
-
-            try
-            {
-                GameSaveData data = JsonUtility.FromJson<GameSaveData>(File.ReadAllText(path));
-                return data?.Metadata;
-            }
-            catch
-            {
-                return null;
-            }
+            return TryReadSaveData(slotIndex, out GameSaveData data) ? data?.Metadata : null;
         }
 
         public SaveMetadata[] GetAllSlotMetadata()
@@ -164,20 +147,60 @@ namespace Sol.SaveLoad
             return null;
         }
 
+        public string GetSlotInGameDate(int slotIndex)
+        {
+            if (!TryReadSaveData(slotIndex, out GameSaveData data) || data == null)
+                return string.Empty;
+
+            if (data.Metadata != null && !string.IsNullOrWhiteSpace(data.Metadata.InGameDate))
+                return data.Metadata.InGameDate.Trim();
+
+            return FormatInGameDate(data.Time);
+        }
+
+        public static string FormatPlaytime(float seconds)
+        {
+            seconds = Mathf.Max(0f, seconds);
+            int totalMinutes = Mathf.FloorToInt(seconds / 60f);
+            int hours = totalMinutes / 60;
+            int minutes = totalMinutes % 60;
+            return hours > 0 ? $"{hours}h {minutes}m" : $"{minutes}m";
+        }
+
+        public static string FormatInGameDate(TimeSaveData data)
+        {
+            if (data == null)
+                return string.Empty;
+
+            int day = Mathf.Max(1, data.Day);
+            int month = Mathf.Max(1, data.Month);
+            int year = data.Year;
+
+            Calendar runtimeCalendar = FindFirstObjectByType<Calendar>();
+            string monthName = runtimeCalendar != null
+                ? runtimeCalendar.GetMonthName(month)
+                : $"Month {month}";
+
+            return $"Day {day}, {monthName}, Year {year}";
+        }
+
         private GameSaveData CollectSaveData(int slotIndex, string saveName)
         {
+            TimeSaveData timeData = CollectTimeData();
+
             return new GameSaveData
             {
                 Metadata = new SaveMetadata
                 {
                     SlotIndex = slotIndex,
-                    SaveName = string.IsNullOrWhiteSpace(saveName) ? $"Save {slotIndex}" : saveName.Trim(),
-                    Timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                    SaveName = string.IsNullOrWhiteSpace(saveName) ? GetDefaultSaveName(slotIndex) : saveName.Trim(),
+                    Timestamp = DateTime.Now.ToString("dd MMM yyyy, HH:mm"),
+                    InGameDate = FormatInGameDate(timeData),
                     PlaytimeSeconds = Time.realtimeSinceStartup - _sessionStartTime,
                     ScreenshotFileName = $"slot_{slotIndex}.png"
                 },
                 Player = CollectPlayerData(),
-                Time = CollectTimeData(),
+                Time = timeData,
                 Containers = CollectContainerData(),
                 NPCs = CollectNpcData()
             };
@@ -777,6 +800,33 @@ namespace Sol.SaveLoad
             {
                 Debug.LogWarning($"[SaveManager] Screenshot capture failed for slot {slotIndex}: {ex.Message}");
             }
+        }
+
+        private static bool TryReadSaveData(int slotIndex, out GameSaveData data)
+        {
+            data = null;
+
+            if (!IsValidSlotIndex(slotIndex))
+                return false;
+
+            string path = GetSlotPath(slotIndex);
+            if (!File.Exists(path))
+                return false;
+
+            try
+            {
+                data = JsonUtility.FromJson<GameSaveData>(File.ReadAllText(path));
+                return data != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static string GetDefaultSaveName(int slotIndex)
+        {
+            return slotIndex == AutoSaveSlot ? "Autosave" : $"Save {slotIndex}";
         }
     }
 }

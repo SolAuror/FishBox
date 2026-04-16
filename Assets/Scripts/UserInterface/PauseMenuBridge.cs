@@ -80,6 +80,24 @@ namespace Sol.HUD
 
         private void HandleQuit()
         {
+            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(activateIfInactive: true);
+            if (prompt != null)
+            {
+                prompt.Show(
+                    "Quit to Desktop?",
+                    "Unsaved progress will be lost.",
+                    QuitApplication,
+                    () => PauseMenuSystem.ResolveInstance(activateIfInactive: true)?.Show(),
+                    confirmLabel: "Quit",
+                    cancelLabel: "Cancel");
+                return;
+            }
+
+            QuitApplication();
+        }
+
+        private static void QuitApplication()
+        {
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.isPlaying = false;
 #else

@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -17,13 +19,16 @@ namespace Sol.HUD
         public bool ReturnsToPause => _returnToPause;
 
         private readonly List<GameObject> _spawnedEntries = new();
+        private readonly List<Texture2D> _loadedThumbnails = new();
         private GameObject _slotEntryTemplate;
         private bool _returnToPause;
 
         protected override void Awake()
         {
             base.Awake();
-            if (_instance != this) return;
+            if (_instance != this)
+                return;
+
             AutoWire();
             SetOpen(false);
         }
@@ -40,6 +45,7 @@ namespace Sol.HUD
             MenuUiUtility.BringToFront(transform);
             MenuUiUtility.SetBackgroundUiRaycasts(transform, false);
             UIStateOwnership.SetUiCapture(true);
+            SetDefaultSaveName();
             RebuildSlots();
             MenuUiUtility.SelectButton(_newSaveButton != null ? _newSaveButton : _backButton);
         }
@@ -62,9 +68,49 @@ namespace Sol.HUD
                 PauseMenuSystem.ResolveInstance()?.Show();
         }
 
+        private void SetDefaultSaveName()
+        {
+            if (_saveNameInput == null)
+                return;
+
+            _saveNameInput.text = $"Save - {DateTime.Now:dd MMM HH:mm}";
+        }
+
         private void CreateNewSave()
         {
-            SaveToSlot(FindPreferredSaveSlot());
+            SaveManager manager = ResolveSaveManager();
+            if (manager == null)
+                return;
+
+            int emptySlot = FindPreferredSaveSlot(manager);
+            if (emptySlot >= 0)
+            {
+                SaveToSlot(emptySlot);
+                return;
+            }
+
+            int overwriteSlot = FindOldestManualSlot(manager);
+            if (overwriteSlot < 0)
+            {
+                SaveToSlot(SaveManager.AutoSaveSlot);
+                return;
+            }
+
+            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(activateIfInactive: true);
+            if (prompt != null)
+            {
+                int slot = overwriteSlot;
+                prompt.Show(
+                    "All Slots Full",
+                    $"Overwrite the oldest save in {BuildSlotName(slot)}?",
+                    () => SaveToSlot(slot),
+                    () => { },
+                    confirmLabel: "Overwrite",
+                    cancelLabel: "Cancel");
+                return;
+            }
+
+            SaveToSlot(overwriteSlot);
         }
 
         private void SaveToSlot(int slotIndex)
@@ -74,8 +120,20 @@ namespace Sol.HUD
                 return;
 
             string saveName = _saveNameInput != null ? _saveNameInput.text : null;
-            manager.SaveGame(slotIndex, saveName);
-            RebuildSlots();
+            if (!manager.SaveGame(slotIndex, saveName))
+                return;
+
+            StopAllCoroutines();
+            StartCoroutine(RefreshAfterScreenshotCapture());
+        }
+
+        private IEnumerator RefreshAfterScreenshotCapture()
+        {
+            yield return new WaitForEndOfFrame();
+            yield return null;
+
+            if (this != null && isActiveAndEnabled)
+                RebuildSlots();
         }
 
         private void RebuildSlots()
@@ -86,19 +144,25 @@ namespace Sol.HUD
             if (_contentParent == null || manager == null)
                 return;
 
-            bool emptySlotShown = false;
+            bool emptyManualSlotShown = false;
             for (int slotIndex = 0; slotIndex < SaveManager.MaxSlots; slotIndex++)
             {
-                if (manager.SlotExists(slotIndex))
+                bool hasSave = manager.SlotExists(slotIndex);
+                bool shouldShowEmptyManualSlot = slotIndex != SaveManager.AutoSaveSlot && !emptyManualSlotShown;
+
+                if (hasSave)
                 {
                     CreateSlotEntry(manager, slotIndex);
                 }
-                else if (!emptySlotShown)
+                else if (shouldShowEmptyManualSlot)
                 {
                     CreateSlotEntry(manager, slotIndex);
-                    emptySlotShown = true;
+                    emptyManualSlotShown = true;
                 }
             }
+
+            if (_scrollRect != null)
+                _scrollRect.verticalNormalizedPosition = 1f;
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(_contentParent as RectTransform);
         }
@@ -110,29 +174,105 @@ namespace Sol.HUD
                 return;
 
             SaveMetadata metadata = manager.GetSlotMetadata(slotIndex);
-            TMP_Text label = entry.GetComponentInChildren<TMP_Text>(true);
-            if (label != null)
-                label.text = BuildSaveSlotLabel(slotIndex, metadata);
+            bool hasSave = metadata != null;
 
-            Button saveBtn = MenuUiUtility.FindButtonByNames(entry.transform, "Save", "Save...")
-                ?? entry.GetComponent<Button>()
-                ?? entry.GetComponentInChildren<Button>(true);
-            if (saveBtn != null)
+            TMP_Text slotNameText = MenuUiUtility.FindTextByNames(entry.transform, "SlotName");
+            TMP_Text dateTimeText = MenuUiUtility.FindTextByNames(entry.transform, "DateTime");
+            TMP_Text playtimeText = MenuUiUtility.FindTextByNames(entry.transform, "Playtime");
+            RawImage thumbnailImage = MenuUiUtility.FindDeepComponent<RawImage>(entry.transform, "Thumbnail");
+
+            if (slotNameText != null)
+                slotNameText.text = hasSave
+                    ? string.IsNullOrWhiteSpace(metadata.SaveName) ? BuildSlotName(slotIndex) : metadata.SaveName.Trim()
+                    : $"{BuildSlotName(slotIndex)} - Empty";
+
+            if (dateTimeText != null)
+                dateTimeText.text = hasSave
+                    ? $"Real: {metadata.Timestamp}"
+                    : "Real: Empty";
+
+            if (playtimeText != null)
             {
-                saveBtn.onClick.RemoveAllListeners();
-                saveBtn.onClick.AddListener(() => SaveToSlot(slotIndex));
-                saveBtn.interactable = true;
+                string inGameDate = hasSave ? manager.GetSlotInGameDate(slotIndex) : string.Empty;
+                string playtime = hasSave ? SaveManager.FormatPlaytime(metadata.PlaytimeSeconds) : "0m";
+                playtimeText.text = hasSave
+                    ? $"World: {inGameDate}\nPlaytime: {playtime}"
+                    : "World: --\nPlaytime: 0m";
             }
 
-            Button deleteBtn = MenuUiUtility.FindButtonByNames(entry.transform, "Delete", "Delete...", "DeleteButton");
-            if (deleteBtn != null)
+            if (thumbnailImage != null)
             {
-                deleteBtn.onClick.RemoveAllListeners();
-                deleteBtn.onClick.AddListener(() => DeleteSlot(slotIndex));
+                Texture2D screenshot = hasSave ? manager.LoadScreenshot(slotIndex) : null;
+                thumbnailImage.texture = screenshot;
+                thumbnailImage.color = screenshot != null ? Color.white : new Color(0.2f, 0.2f, 0.2f, 0.5f);
+                if (screenshot != null)
+                    _loadedThumbnails.Add(screenshot);
+            }
+
+            Button selectButton = MenuUiUtility.FindButtonByNames(entry.transform, "SelectButton", "Save", "Save...")
+                ?? entry.GetComponent<Button>()
+                ?? entry.GetComponentInChildren<Button>(true);
+            if (selectButton != null)
+            {
+                selectButton.onClick.RemoveAllListeners();
+                selectButton.onClick.AddListener(() => HandleSlotSelected(slotIndex, hasSave));
+                selectButton.interactable = true;
+                SetButtonLabel(selectButton, hasSave ? "Overwrite" : "Save");
+            }
+
+            Button deleteButton = MenuUiUtility.FindButtonByNames(entry.transform, "Delete", "Delete...", "DeleteButton");
+            if (deleteButton != null)
+            {
+                deleteButton.onClick.RemoveAllListeners();
+                deleteButton.gameObject.SetActive(hasSave);
+                if (hasSave)
+                    deleteButton.onClick.AddListener(() => RequestDeleteSlot(slotIndex));
             }
 
             entry.SetActive(true);
             _spawnedEntries.Add(entry);
+        }
+
+        private void HandleSlotSelected(int slotIndex, bool hasSave)
+        {
+            if (!hasSave)
+            {
+                SaveToSlot(slotIndex);
+                return;
+            }
+
+            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(activateIfInactive: true);
+            if (prompt != null)
+            {
+                prompt.Show(
+                    "Overwrite Save?",
+                    "This will replace the existing save data.",
+                    () => SaveToSlot(slotIndex),
+                    () => { },
+                    confirmLabel: "Overwrite",
+                    cancelLabel: "Cancel");
+                return;
+            }
+
+            SaveToSlot(slotIndex);
+        }
+
+        private void RequestDeleteSlot(int slotIndex)
+        {
+            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(activateIfInactive: true);
+            if (prompt != null)
+            {
+                prompt.Show(
+                    "Delete Save?",
+                    "This save data will be permanently deleted.",
+                    () => DeleteSlot(slotIndex),
+                    () => { },
+                    confirmLabel: "Delete",
+                    cancelLabel: "Cancel");
+                return;
+            }
+
+            DeleteSlot(slotIndex);
         }
 
         private void DeleteSlot(int slotIndex)
@@ -141,7 +281,9 @@ namespace Sol.HUD
             if (manager == null)
                 return;
 
-            manager.DeleteSave(slotIndex);
+            if (!manager.DeleteSave(slotIndex))
+                return;
+
             RebuildSlots();
         }
 
@@ -150,21 +292,17 @@ namespace Sol.HUD
             if (_contentParent == null)
                 return null;
 
-            GameObject source = _slotEntryTemplate != null ? _slotEntryTemplate
-                : _newSaveButton != null ? _newSaveButton.gameObject
-                : _backButton != null ? _backButton.gameObject
-                : null;
-
-            if (source != null)
+            GameObject source = _slotEntryTemplate != null ? _slotEntryTemplate : null;
+            if (source == null)
             {
-                GameObject clone = Object.Instantiate(source, _contentParent);
-                clone.name = $"SaveSlot_{slotIndex:00}";
-                clone.SetActive(false);
-                return clone;
+                Debug.LogWarning("[SaveMenuSystem] No authored save slot template was found. Assign a template entry under the content root.", this);
+                return null;
             }
 
-            Debug.LogWarning("[SaveMenuSystem] No authored save slot template was found. Assign a prefab/template entry under the content root.", this);
-            return null;
+            GameObject clone = UnityEngine.Object.Instantiate(source, _contentParent);
+            clone.name = $"SaveSlot_{slotIndex:00}";
+            clone.SetActive(false);
+            return clone;
         }
 
         private void AutoWire()
@@ -174,8 +312,9 @@ namespace Sol.HUD
                 ?? MenuUiUtility.FindDeep(transform, "ContentArea")
                 ?? (_scrollRect != null ? _scrollRect.content : null);
             _backButton ??= MenuUiUtility.FindButtonByNames(transform, "Back", "CloseButton");
-            _newSaveButton ??= MenuUiUtility.FindButtonByNames(transform, "newSaveButton", "NewSaveButton", "Save");
-            _saveNameInput ??= GetComponentInChildren<TMP_InputField>(true);
+            _newSaveButton ??= MenuUiUtility.FindButtonByNames(transform, "NewSave", "newSaveButton", "NewSaveButton", "Save");
+            _saveNameInput ??= MenuUiUtility.FindDeepComponent<TMP_InputField>(transform, "SaveNameInput")
+                ?? GetComponentInChildren<TMP_InputField>(true);
 
             if (_slotEntryTemplate == null && _contentParent != null && _contentParent.childCount > 0)
             {
@@ -189,38 +328,71 @@ namespace Sol.HUD
 
         private void ClearEntries()
         {
+            for (int i = 0; i < _loadedThumbnails.Count; i++)
+            {
+                if (_loadedThumbnails[i] != null)
+                    UnityEngine.Object.Destroy(_loadedThumbnails[i]);
+            }
+            _loadedThumbnails.Clear();
+
             for (int i = _spawnedEntries.Count - 1; i >= 0; i--)
             {
                 if (_spawnedEntries[i] != null)
-                    Object.Destroy(_spawnedEntries[i]);
+                    UnityEngine.Object.Destroy(_spawnedEntries[i]);
             }
 
             _spawnedEntries.Clear();
 
-            if (_contentParent != null)
+            if (_contentParent == null)
+                return;
+
+            for (int i = _contentParent.childCount - 1; i >= 0; i--)
             {
-                for (int i = _contentParent.childCount - 1; i >= 0; i--)
-                {
-                    Transform child = _contentParent.GetChild(i);
-                    if (child != null && child.gameObject != _slotEntryTemplate)
-                        Object.Destroy(child.gameObject);
-                }
+                Transform child = _contentParent.GetChild(i);
+                if (child != null && child.gameObject != _slotEntryTemplate)
+                    UnityEngine.Object.Destroy(child.gameObject);
             }
         }
 
-        private int FindPreferredSaveSlot()
+        private static int FindPreferredSaveSlot(SaveManager manager)
         {
-            SaveManager manager = ResolveSaveManager();
             if (manager == null)
-                return 1;
+                return -1;
 
-            for (int i = 1; i < SaveManager.MaxSlots; i++)
+            for (int i = SaveManager.AutoSaveSlot + 1; i < SaveManager.MaxSlots; i++)
             {
                 if (!manager.SlotExists(i))
                     return i;
             }
 
-            return 1;
+            return -1;
+        }
+
+        private static int FindOldestManualSlot(SaveManager manager)
+        {
+            if (manager == null)
+                return -1;
+
+            int oldestSlot = -1;
+            DateTime oldestTimestamp = DateTime.MaxValue;
+
+            for (int i = SaveManager.AutoSaveSlot + 1; i < SaveManager.MaxSlots; i++)
+            {
+                SaveMetadata metadata = manager.GetSlotMetadata(i);
+                if (metadata == null)
+                    continue;
+
+                if (!DateTime.TryParse(metadata.Timestamp, out DateTime parsed))
+                    parsed = DateTime.MinValue;
+
+                if (oldestSlot < 0 || parsed < oldestTimestamp)
+                {
+                    oldestSlot = i;
+                    oldestTimestamp = parsed;
+                }
+            }
+
+            return oldestSlot;
         }
 
         private static SaveManager ResolveSaveManager()
@@ -228,24 +400,28 @@ namespace Sol.HUD
             if (SaveManager.Instance != null)
                 return SaveManager.Instance;
 
-            SaveManager manager = Object.FindFirstObjectByType<SaveManager>();
+            SaveManager manager = UnityEngine.Object.FindFirstObjectByType<SaveManager>();
             if (manager != null)
                 return manager;
 
             GameObject host = new GameObject("SaveManager");
-            Object.DontDestroyOnLoad(host);
+            UnityEngine.Object.DontDestroyOnLoad(host);
             return host.AddComponent<SaveManager>();
         }
 
-        private static string BuildSaveSlotLabel(int slotIndex, SaveMetadata metadata)
+        private static string BuildSlotName(int slotIndex)
         {
-            string slotName = $"Slot {slotIndex}";
-            if (metadata == null)
-                return $"{slotName}\nEMPTY";
+            return slotIndex == SaveManager.AutoSaveSlot ? "Autosave" : $"Slot {slotIndex}";
+        }
 
-            string name = string.IsNullOrWhiteSpace(metadata.SaveName) ? slotName : metadata.SaveName.Trim();
-            string timestamp = string.IsNullOrWhiteSpace(metadata.Timestamp) ? "Unknown Time" : metadata.Timestamp.Trim();
-            return $"{slotName}  {name}\n{timestamp}";
+        private static void SetButtonLabel(Button button, string label)
+        {
+            if (button == null || string.IsNullOrWhiteSpace(label))
+                return;
+
+            TMP_Text text = button.GetComponentInChildren<TMP_Text>(true);
+            if (text != null)
+                text.text = label;
         }
     }
 }

@@ -20,6 +20,7 @@ namespace Sol.SaveLoad
         public int SlotIndex;
         public string SaveName = string.Empty;
         public string Timestamp = string.Empty;
+        public string InGameDate = string.Empty;
         public float PlaytimeSeconds;
         public string ScreenshotFileName = string.Empty;
     }

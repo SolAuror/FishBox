@@ -7,6 +7,7 @@ using Sol.Actions;
 using Sol.Fishing;
 using TMPro;
 using Sol.Grab;
+using Sol.Settings;
 
 namespace Sol.HUD
 {
@@ -77,6 +78,7 @@ namespace Sol.HUD
 
             EnsurePlayerInteractorBound(logWarningIfMissing: true);
             TryRegisterCallbacks();
+            SetCrosshairVisible(SettingsPersistence.Current.ShowCrosshair);
         }
 
         private void OnEnable()
@@ -422,6 +424,12 @@ namespace Sol.HUD
 
             if (_crosshairImage != null)
                 _crosshairImage.sprite = _isFirstPerson ? _fpsCrosshair : _tpsCrosshair;
+        }
+
+        public void SetCrosshairVisible(bool visible)
+        {
+            if (_crosshairImage != null)
+                _crosshairImage.enabled = visible;
         }
 
         private Camera GetActiveGameplayCamera()
