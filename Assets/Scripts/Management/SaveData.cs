@@ -11,6 +11,7 @@ namespace Sol.SaveLoad
         public PlayerSaveData Player = new();
         public TimeSaveData Time = new();
         public List<ContainerSaveData> Containers = new();
+        public List<NPCSaveData> NPCs = new();
     }
 
     [Serializable]
@@ -70,6 +71,19 @@ namespace Sol.SaveLoad
     {
         public string SlotType = string.Empty;
         public ItemInstanceSaveData Item = new();
+    }
+
+    [Serializable]
+    public class NPCSaveData
+    {
+        /// <summary>Full hierarchy path used to match against the scene NPC.</summary>
+        public string NpcId = string.Empty;
+        public SerializableVector3 Position;
+        public SerializableQuaternion Rotation;
+        public float Health;
+        public float MaxHealth;
+        public int Gold;
+        public List<ItemInstanceSaveData> InventoryItems = new();
     }
 
     [Serializable]

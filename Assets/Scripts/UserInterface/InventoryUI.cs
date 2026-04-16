@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,6 +24,7 @@ namespace Sol.HUD
         private Interactor _interactor;
         private Coroutine _pendingRebuild;
         private bool _rebuildScheduled;
+        private readonly List<InventorySlotUI> _slotPool = new();
         private Action<InventorySlot> _slotClickOverride;
         private Action<InventorySlot> _slotRightClickOverride;
         private Action<InventorySlot> _slotShiftClickOverride;
@@ -149,16 +151,6 @@ namespace Sol.HUD
             if (_selectedSlot != null && (_inventory == null || !HasSlot(_selectedSlot)))
                 _selectedSlot = null;
 
-            for (int i = _slotContainer.childCount - 1; i >= 0; i--)
-            {
-                var child = _slotContainer.GetChild(i).gameObject;
-                if (child != _slotPrefab.gameObject)
-                {
-                    child.SetActive(false);
-                    Destroy(child);
-                }
-            }
-
             float slotHeight = 48f;
             var templateLE = _slotPrefab.GetComponent<LayoutElement>();
             if (templateLE != null && templateLE.preferredHeight > 0f)
@@ -170,6 +162,7 @@ namespace Sol.HUD
             if (_displayMode == InventorySlotDisplayMode.Inventory && _slotClickOverride == null)
                 effectiveSelectedPredicate = null;
 
+            int slotIndex = 0;
             foreach (var slot in _inventory.Slots)
             {
                 if (slot?.Item == null)
@@ -183,12 +176,18 @@ namespace Sol.HUD
                     && !slot.Item.IsTradeable)
                     continue;
 
-                var row = Instantiate(_slotPrefab, _slotContainer);
+                if (slotIndex >= _slotPool.Count)
+                {
+                    var newRow = Instantiate(_slotPrefab, _slotContainer);
+                    _slotPool.Add(newRow);
+                }
+
+                var row = _slotPool[slotIndex];
                 row.gameObject.SetActive(true);
 
                 var le = row.GetComponent<LayoutElement>();
-                if (le == null) le = row.gameObject.AddComponent<LayoutElement>();
-                le.preferredHeight = slotHeight;
+                if (le != null)
+                    le.preferredHeight = slotHeight;
 
                 row.Bind(
                     slot,
@@ -204,7 +203,12 @@ namespace Sol.HUD
                     _suppressTooltip,
                     effectiveSelectedPredicate,
                     _selectedQuantityProvider);
+
+                slotIndex++;
             }
+
+            for (int i = slotIndex; i < _slotPool.Count; i++)
+                _slotPool[i].gameObject.SetActive(false);
 
             if (_capacityText != null)
                 _capacityText.text = $"{_inventory.Count} / {_inventory.Capacity}";
@@ -216,8 +220,8 @@ namespace Sol.HUD
                     _goldText.text = $"{_inventory.Gold} g";
             }
 
-            RebuildLayout();
-
+            // Deferred rebuild lets TMP auto-size settle before measuring layout.
+            // The immediate call is intentionally omitted — one rebuild per frame is enough.
             CancelPendingRebuild();
             _rebuildScheduled = true;
             _pendingRebuild = PersistentCoroutineRunner.Run(DeferredRebuildRoutine());

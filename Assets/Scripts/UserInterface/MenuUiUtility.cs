@@ -87,8 +87,7 @@ namespace Sol.HUD
             if (target == null)
                 return null;
 
-            CanvasGroup group = target.GetComponent<CanvasGroup>();
-            return group != null ? group : target.AddComponent<CanvasGroup>();
+            return target.GetComponent<CanvasGroup>();
         }
 
         public static void SetCanvasGroupVisible(CanvasGroup group, bool visible)
@@ -126,20 +125,16 @@ namespace Sol.HUD
             return false;
         }
 
-        public static Image EnsureRaycastImage(Button button)
+        public static Graphic EnsureRaycastGraphic(Button button)
         {
             if (button == null)
                 return null;
 
-            Image image = button.GetComponent<Image>();
-            if (image == null)
-                image = button.gameObject.AddComponent<Image>();
+            Graphic graphic = button.targetGraphic;
+            if (graphic == null || graphic.gameObject != button.gameObject)
+                graphic = button.GetComponent<Graphic>();
 
-            if (image.color.a <= 0f)
-                image.color = new Color(0f, 0f, 0f, 0.001f);
-
-            image.raycastTarget = true;
-            return image;
+            return graphic;
         }
 
         public static void MakeButtonClickable(Button button)
@@ -147,13 +142,19 @@ namespace Sol.HUD
             if (button == null)
                 return;
 
-            Image image = EnsureRaycastImage(button);
-            if (button.targetGraphic == null || button.targetGraphic.gameObject != button.gameObject)
-                button.targetGraphic = image;
+            Graphic graphic = EnsureRaycastGraphic(button);
+            if (graphic != null)
+            {
+                button.targetGraphic = graphic;
+                graphic.raycastTarget = true;
+            }
 
-            TMP_Text[] textChildren = button.GetComponentsInChildren<TMP_Text>(true);
-            for (int i = 0; i < textChildren.Length; i++)
-                textChildren[i].raycastTarget = false;
+            if (graphic != null)
+            {
+                TMP_Text[] textChildren = button.GetComponentsInChildren<TMP_Text>(true);
+                for (int i = 0; i < textChildren.Length; i++)
+                    textChildren[i].raycastTarget = textChildren[i] == graphic;
+            }
         }
 
         public static void SelectButton(Button button)
@@ -184,8 +185,9 @@ namespace Sol.HUD
             Transform cursor = current;
             while (cursor != null)
             {
-                if (cursor.GetComponent<Canvas>() != null)
-                    return cursor;
+                Canvas canvas = cursor.GetComponent<Canvas>();
+                if (canvas != null)
+                    return canvas.rootCanvas != null ? canvas.rootCanvas.transform : canvas.transform;
 
                 cursor = cursor.parent;
             }
@@ -200,6 +202,9 @@ namespace Sol.HUD
                 return;
 
             CanvasGroup group = EnsureCanvasGroup(child.gameObject);
+            if (group == null)
+                return;
+
             group.blocksRaycasts = enabled;
             group.interactable = enabled;
         }

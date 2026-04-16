@@ -106,14 +106,6 @@ namespace Sol.HUD
             if (_icon == null)
                 Debug.LogWarning($"[InventorySlotUI] _icon is null on '{name}'. Wire Icon in the prefab Inspector.", this);
 
-            var rootImage = GetComponent<Image>();
-            if (rootImage == null)
-            {
-                rootImage = gameObject.AddComponent<Image>();
-                rootImage.color = Color.clear;
-            }
-            rootImage.raycastTarget = true;
-
             var item = slot.Item;
             if (_icon != null)
             {
@@ -128,7 +120,6 @@ namespace Sol.HUD
             if (_highlight != null)
             {
                 _highlight.enabled = true;
-                _highlight.raycastTarget = true;
                 _highlight.color = HighlightOff;
             }
 

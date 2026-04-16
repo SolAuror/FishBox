@@ -47,7 +47,11 @@ namespace Sol.Actions
                 return;
             }
 
-            tradeUi.Open(_playerInventory, _npcInventory, _lootMode, _freeTrade);
+            if (_lootMode)
+                tradeUi.OpenLoot(_playerInventory, _npcInventory);
+            else
+                tradeUi.OpenTrade(_playerInventory, _npcInventory, _freeTrade);
+
             Succeeded = tradeUi.IsOpen;
             if (!Succeeded)
             {
@@ -97,10 +101,10 @@ namespace Sol.Actions
 
         public override void OnStart()
         {
-            HUD.ConversationWindowSystem conversationUi = HUD.ConversationWindowSystem.ResolveInstance(createIfMissing: true);
+            HUD.ConversationWindowSystem conversationUi = ResolveConversationUi();
             if (conversationUi == null)
             {
-                Debug.LogWarning("[OpenConversationAction] ConversationWindowSystem instance is unavailable.");
+                Debug.LogWarning("[OpenConversationAction] ConversationWindowSystem instance not found.");
                 Cancel();
                 return;
             }
@@ -111,7 +115,9 @@ namespace Sol.Actions
                 _options,
                 HandleOptionSelected,
                 _onClosed,
-                _speakerIcon);
+                _speakerIcon,
+                Target != null ? Target.transform : null,
+                Context != null ? Context.Transform : null);
 
             Succeeded = conversationUi.IsVisible;
             if (!Succeeded)
@@ -127,6 +133,24 @@ namespace Sol.Actions
         {
             _onOptionSelected?.Invoke(optionIndex);
             HUD.ConversationWindowSystem.Instance?.Hide();
+        }
+
+        private static HUD.ConversationWindowSystem ResolveConversationUi()
+        {
+            if (HUD.ConversationWindowSystem.Instance != null)
+                return HUD.ConversationWindowSystem.Instance;
+
+            HUD.ConversationWindowSystem[] found = UnityEngine.Object.FindObjectsByType<HUD.ConversationWindowSystem>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            if (found == null || found.Length == 0)
+                return null;
+
+            HUD.ConversationWindowSystem resolved = found[0];
+            if (resolved != null && !resolved.gameObject.activeSelf)
+                resolved.gameObject.SetActive(true);
+
+            return HUD.ConversationWindowSystem.Instance ?? resolved;
         }
     }
 }

@@ -6,41 +6,27 @@ using Sol.SaveLoad;
 
 namespace Sol.HUD
 {
-    public sealed class LoadMenuSystem : MonoBehaviour
+    public sealed class LoadMenuSystem : MenuSystemBase<LoadMenuSystem>
     {
         [SerializeField] private ScrollRect _scrollRect;
         [SerializeField] private Transform _contentParent;
         [SerializeField] private Button _backButton;
 
-        public static LoadMenuSystem Instance { get; private set; }
-        public bool IsOpen => gameObject.activeSelf;
+        public bool ReturnsToPause => _returnToPause;
 
         private readonly List<GameObject> _spawnedEntries = new();
-        private CanvasGroup _canvasGroup;
+        private GameObject _slotEntryTemplate;
         private bool _returnToPause;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-            Instance = this;
-            _canvasGroup = MenuUiUtility.EnsureCanvasGroup(gameObject);
+            base.Awake();
+            if (_instance != this) return;
             AutoWire();
             SetOpen(false);
         }
 
-        private void OnDestroy()
-        {
-            if (Instance == this)
-                Instance = null;
-        }
-
-        public static LoadMenuSystem ResolveInstance(bool activateIfInactive = true)
-        {
-            LoadMenuSystem resolved = Instance ?? UIStateOwnership.Resolve<LoadMenuSystem>(activateIfInactive);
-            if (resolved != null)
-                resolved.AutoWire();
-            return resolved;
-        }
+        protected override void PostResolve() => AutoWire();
 
         public void Open(bool returnToPause = false)
         {
@@ -71,7 +57,7 @@ namespace Sol.HUD
             UIStateOwnership.SetUiCapture(false);
 
             if (reopenPause)
-                PauseMenuSystem.ResolveInstance()?.Open();
+                PauseMenuSystem.ResolveInstance()?.Show();
         }
 
         private void LoadSlot(int slotIndex)
@@ -93,60 +79,57 @@ namespace Sol.HUD
                 return;
 
             for (int slotIndex = 0; slotIndex < SaveManager.MaxSlots; slotIndex++)
-                CreateSlotEntry(manager, slotIndex);
+            {
+                if (manager.SlotExists(slotIndex))
+                    CreateSlotEntry(manager, slotIndex);
+            }
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(_contentParent as RectTransform);
         }
 
         private void CreateSlotEntry(SaveManager manager, int slotIndex)
         {
-            Button row = CreateEntryButton(slotIndex);
-            if (row == null)
+            GameObject entry = CreateEntry(slotIndex);
+            if (entry == null)
                 return;
 
             SaveMetadata metadata = manager.GetSlotMetadata(slotIndex);
-            TMP_Text label = row.GetComponentInChildren<TMP_Text>(true);
+            TMP_Text label = entry.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
                 label.text = BuildLoadSlotLabel(slotIndex, metadata);
 
-            row.onClick.RemoveAllListeners();
-            row.onClick.AddListener(() => LoadSlot(slotIndex));
-            row.interactable = metadata != null;
-            _spawnedEntries.Add(row.gameObject);
+            Button loadBtn = entry.GetComponent<Button>()
+                ?? entry.GetComponentInChildren<Button>(true);
+            if (loadBtn != null)
+            {
+                loadBtn.onClick.RemoveAllListeners();
+                loadBtn.onClick.AddListener(() => LoadSlot(slotIndex));
+                loadBtn.interactable = metadata != null;
+            }
+
+            entry.SetActive(true);
+            _spawnedEntries.Add(entry);
         }
 
-        private Button CreateEntryButton(int slotIndex)
+        private GameObject CreateEntry(int slotIndex)
         {
             if (_contentParent == null)
                 return null;
 
-            Button template = _backButton;
-            Button row;
-            if (template != null)
-            {
-                row = Object.Instantiate(template, _contentParent);
-                row.gameObject.SetActive(true);
-            }
-            else
-            {
-                GameObject rowObject = new GameObject($"LoadSlot_{slotIndex:00}", typeof(RectTransform), typeof(Image), typeof(Button));
-                rowObject.transform.SetParent(_contentParent, false);
-                row = rowObject.GetComponent<Button>();
+            GameObject source = _slotEntryTemplate != null ? _slotEntryTemplate
+                : _backButton != null ? _backButton.gameObject
+                : null;
 
-                GameObject labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
-                labelObject.transform.SetParent(row.transform, false);
-                RectTransform labelRect = labelObject.GetComponent<RectTransform>();
-                labelRect.anchorMin = Vector2.zero;
-                labelRect.anchorMax = Vector2.one;
-                labelRect.offsetMin = new Vector2(24f, 8f);
-                labelRect.offsetMax = new Vector2(-24f, -8f);
-                TextMeshProUGUI text = labelObject.GetComponent<TextMeshProUGUI>();
-                text.fontSize = 24f;
-                text.alignment = TextAlignmentOptions.Left;
+            if (source != null)
+            {
+                GameObject clone = Object.Instantiate(source, _contentParent);
+                clone.name = $"LoadSlot_{slotIndex:00}";
+                clone.SetActive(false);
+                return clone;
             }
 
-            row.name = $"LoadSlot_{slotIndex:00}";
-            return row;
+            Debug.LogWarning("[LoadMenuSystem] No authored load slot template was found. Assign a prefab/template entry under the content root.", this);
+            return null;
         }
 
         private void AutoWire()
@@ -156,14 +139,14 @@ namespace Sol.HUD
                 ?? MenuUiUtility.FindDeep(transform, "ContentArea")
                 ?? (_scrollRect != null ? _scrollRect.content : null);
             _backButton ??= MenuUiUtility.FindButtonByNames(transform, "Back", "CloseButton");
-            MenuUiUtility.WireButton(_backButton, Close);
-        }
 
-        private void SetOpen(bool open)
-        {
-            MenuUiUtility.SetVisible(gameObject, open);
-            _canvasGroup ??= MenuUiUtility.EnsureCanvasGroup(gameObject);
-            MenuUiUtility.SetCanvasGroupVisible(_canvasGroup, open);
+            if (_slotEntryTemplate == null && _contentParent != null && _contentParent.childCount > 0)
+            {
+                _slotEntryTemplate = _contentParent.GetChild(0).gameObject;
+                _slotEntryTemplate.SetActive(false);
+            }
+
+            MenuUiUtility.WireButton(_backButton, Close);
         }
 
         private void ClearEntries()
@@ -175,6 +158,16 @@ namespace Sol.HUD
             }
 
             _spawnedEntries.Clear();
+
+            if (_contentParent != null)
+            {
+                for (int i = _contentParent.childCount - 1; i >= 0; i--)
+                {
+                    Transform child = _contentParent.GetChild(i);
+                    if (child != null && child.gameObject != _slotEntryTemplate)
+                        Object.Destroy(child.gameObject);
+                }
+            }
         }
 
         private static SaveManager ResolveSaveManager()

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using UnityEngine.AI;
 using Sol.AI;
 using Sol.Grab;
 using Sol.Player;
@@ -177,7 +178,8 @@ namespace Sol.SaveLoad
                 },
                 Player = CollectPlayerData(),
                 Time = CollectTimeData(),
-                Containers = CollectContainerData()
+                Containers = CollectContainerData(),
+                NPCs = CollectNpcData()
             };
         }
 
@@ -297,7 +299,10 @@ namespace Sol.SaveLoad
                     }
 
                     if (string.IsNullOrWhiteSpace(item.ItemId))
+                    {
+                        Debug.LogWarning($"[SaveManager] Item '{item.ItemName}' in '{inventory.name}' has no ItemId — it will not be saved. Set an ItemId on the prefab.");
                         continue;
+                    }
 
                     items.Add(CaptureItemState(item));
                 }
@@ -335,6 +340,7 @@ namespace Sol.SaveLoad
             ApplyTimeData(data.Time);
             ApplyPlayerData(data.Player);
             ApplyContainerData(data.Containers);
+            ApplyNpcData(data.NPCs);
         }
 
         private void ApplyTimeData(TimeSaveData data)
@@ -413,6 +419,108 @@ namespace Sol.SaveLoad
 
                 RestoreInventory(inventory, saved.Gold, saved.Items);
             }
+        }
+
+        private List<NPCSaveData> CollectNpcData()
+        {
+            List<NPCSaveData> npcs = new();
+            AI_NPC[] allNpcs = FindObjectsByType<AI_NPC>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < allNpcs.Length; i++)
+            {
+                AI_NPC npc = allNpcs[i];
+                if (npc == null)
+                    continue;
+
+                string npcId = GetHierarchyPath(npc.transform);
+                if (string.IsNullOrWhiteSpace(npcId))
+                    continue;
+
+                NPCSoul soul = npc.Soul;
+                NPCSaveData data = new()
+                {
+                    NpcId = npcId,
+                    Position = npc.transform.position,
+                    Rotation = npc.transform.rotation,
+                    Health = soul != null ? soul.Health : 0f,
+                    MaxHealth = soul != null ? soul.MaxHealth : 0f
+                };
+
+                Inventory npcInventory = npc.Inventory;
+                if (npcInventory != null)
+                {
+                    int slottedGold;
+                    data.InventoryItems = CollectInventoryItems(npcInventory, null, out slottedGold);
+                    data.Gold = npcInventory.Gold + slottedGold;
+                }
+
+                npcs.Add(data);
+            }
+
+            return npcs;
+        }
+
+        private void ApplyNpcData(List<NPCSaveData> npcs)
+        {
+            if (npcs == null || npcs.Count == 0)
+                return;
+
+            AI_NPC[] allNpcs = FindObjectsByType<AI_NPC>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < allNpcs.Length; i++)
+            {
+                AI_NPC npc = allNpcs[i];
+                if (npc == null)
+                    continue;
+
+                string npcId = GetHierarchyPath(npc.transform);
+                NPCSaveData saved = null;
+                for (int j = 0; j < npcs.Count; j++)
+                {
+                    if (string.Equals(npcs[j].NpcId, npcId, StringComparison.Ordinal))
+                    {
+                        saved = npcs[j];
+                        break;
+                    }
+                }
+
+                if (saved == null)
+                    continue;
+
+                NavMeshAgent agent = npc.Agent;
+                if (agent != null)
+                    agent.Warp(saved.Position);
+                else
+                    npc.transform.position = saved.Position;
+
+                npc.transform.rotation = saved.Rotation;
+
+                NPCSoul soul = npc.Soul;
+                if (soul != null)
+                {
+                    if (saved.MaxHealth > 0f)
+                        soul.MaxHealth = saved.MaxHealth;
+                    soul.Health = saved.Health;
+                }
+
+                Inventory npcInventory = npc.Inventory;
+                if (npcInventory != null)
+                    RestoreInventory(npcInventory, saved.Gold, saved.InventoryItems);
+            }
+        }
+
+        private static string GetHierarchyPath(Transform transform)
+        {
+            if (transform == null)
+                return string.Empty;
+
+            System.Text.StringBuilder sb = new(transform.name);
+            Transform parent = transform.parent;
+            while (parent != null)
+            {
+                sb.Insert(0, parent.name + "/");
+                parent = parent.parent;
+            }
+
+            return sb.ToString();
         }
 
         private void RestoreInventoryAndEquipment(

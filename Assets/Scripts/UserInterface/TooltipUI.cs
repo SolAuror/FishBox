@@ -33,6 +33,7 @@ namespace Sol.HUD
         public static TooltipUI Instance { get; private set; }
 
         private ItemComponent _currentItem;
+        private bool _layoutDirty;
 
         private Canvas _canvas;
         private RectTransform _canvasRect;
@@ -41,6 +42,7 @@ namespace Sol.HUD
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            UIStateOwnership.Register<TooltipUI>(this);
             AutoResolveReferences();
             _canvas = GetComponentInParent<Canvas>();
             if (_canvas != null) _canvasRect = _canvas.transform as RectTransform;
@@ -50,9 +52,16 @@ namespace Sol.HUD
             if (_panel != null)
             {
                 var cg = _panel.GetComponent<CanvasGroup>();
-                if (cg == null) cg = _panel.AddComponent<CanvasGroup>();
-                cg.blocksRaycasts = false;
-                cg.interactable = false;
+                if (cg != null)
+                {
+                    cg.blocksRaycasts = false;
+                    cg.interactable = false;
+                }
+                else
+                {
+                    Debug.LogWarning($"[TooltipUI] CanvasGroup is not assigned on '{_panel.name}'. Author it in the prefab to disable tooltip raycasts.", this);
+                }
+
                 _panel.SetActive(false);
             }
         }
@@ -72,6 +81,7 @@ namespace Sol.HUD
 
         private void OnDestroy()
         {
+            UIStateOwnership.Unregister<TooltipUI>();
             if (Instance == this) Instance = null;
         }
 
@@ -127,6 +137,7 @@ namespace Sol.HUD
             }
 
             if (_panel != null) _panel.SetActive(true);
+            _layoutDirty = true;
         }
 
         public void Hide()
@@ -149,8 +160,12 @@ namespace Sol.HUD
             RectTransform rt = _rectTransform != null ? _rectTransform : transform as RectTransform;
             if (rt == null) return;
 
-            // Force layout rebuild so size reflects current content.
-            LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+            // Force layout rebuild once after content changes.
+            if (_layoutDirty)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(rt);
+                _layoutDirty = false;
+            }
 
             // Size in screen pixels.
             float scaler = _canvas != null ? _canvas.scaleFactor : 1f;

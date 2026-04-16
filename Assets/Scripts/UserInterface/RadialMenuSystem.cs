@@ -1,12 +1,13 @@
 using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using Sol.ToD;
 
 namespace Sol.HUD
 {
-    public sealed class RadialMenuSystem : MonoBehaviour
+    public sealed class RadialMenuSystem : MenuSystemBase<RadialMenuSystem>
     {
         [SerializeField] private RectTransform _clockHand;
         [SerializeField] private TMP_Text _timeDisplay;
@@ -23,55 +24,49 @@ namespace Sol.HUD
         [SerializeField] private float _staminaPerHour = 12.5f;
         [SerializeField] private int _startHour = 6;
 
-        public static RadialMenuSystem Instance { get; private set; }
-        public bool IsOpen => gameObject.activeSelf;
         public int SelectedHours => _selectedHours;
 
-        private CanvasGroup _canvasGroup;
+        private Canvas _rootCanvas;
         private Action<int> _confirmAction;
         private Action _cancelAction;
         private Func<int, string> _secondaryPreviewProvider;
         private int _selectedHours = 8;
+        private bool _isDragging;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-            Instance = this;
-            _canvasGroup = MenuUiUtility.EnsureCanvasGroup(gameObject);
+            base.Awake();
+            if (_instance != this) return;
             AutoWire();
             ApplySelection(_startHour);
             SetOpen(false);
         }
 
-        private void OnDestroy()
-        {
-            if (Instance == this)
-                Instance = null;
-        }
+        protected override void PostResolve() => AutoWire();
 
         private void Update()
         {
             if (!IsOpen)
                 return;
 
-            if (Input.mouseScrollDelta.y > 0f)
-                ApplySelection(_selectedHours + 1);
-            else if (Input.mouseScrollDelta.y < 0f)
-                ApplySelection(_selectedHours - 1);
-        }
+            Mouse mouse = Mouse.current;
+            if (mouse == null)
+                return;
 
-        public static RadialMenuSystem ResolveInstance(bool activateIfInactive = true)
-        {
-            RadialMenuSystem resolved = Instance ?? UIStateOwnership.Resolve<RadialMenuSystem>(activateIfInactive);
-            if (resolved != null)
-                resolved.AutoWire();
-            return resolved;
+            HandlePointerInput();
+
+            float scrollY = mouse.scroll.ReadValue().y;
+            if (scrollY > 0f)
+                ApplySelection(_selectedHours + 1);
+            else if (scrollY < 0f)
+                ApplySelection(_selectedHours - 1);
         }
 
         public void Open(Action<int> onConfirm = null, Action onCancel = null, int initialHours = 8)
         {
             _confirmAction = onConfirm;
             _cancelAction = onCancel;
+            _isDragging = false;
             AutoWire();
             ApplySelection(initialHours);
             UIStateOwnership.CloseConflictingUi(nameof(RadialMenuSystem));
@@ -88,6 +83,7 @@ namespace Sol.HUD
             if (!IsOpen)
                 return;
 
+            _isDragging = false;
             Action cancel = _cancelAction;
             _confirmAction = null;
             _cancelAction = null;
@@ -127,6 +123,8 @@ namespace Sol.HUD
 
         private void AutoWire()
         {
+            _rootCanvas ??= GetComponentInParent<Canvas>();
+            _circleCenter ??= MenuUiUtility.FindDeep(transform, "CircleBackground") as RectTransform;
             _timeDisplay ??= MenuUiUtility.FindTextByNames(transform, "TimeDisplay", "TimePreview");
             _hoursLabel ??= MenuUiUtility.FindTextByNames(transform, "HoursLabel", "Hours");
             _staminaPreview ??= MenuUiUtility.FindTextByNames(transform, "StaminaPreview");
@@ -138,95 +136,149 @@ namespace Sol.HUD
             if (!MenuUiUtility.IsDescendantOf(_cancelButton != null ? _cancelButton.transform : null, transform))
                 _cancelButton = MenuUiUtility.FindButtonByNames(transform, "Cancel", "CancelButton", "CloseButton");
 
-            PrepareRadialButton(_confirmButton);
-            PrepareRadialButton(_cancelButton);
-            SanitizeDecorativeRaycasts();
-
             MenuUiUtility.WireButton(_confirmButton, Confirm);
             MenuUiUtility.WireButton(_cancelButton, Close);
         }
 
-        private void PrepareRadialButton(Button button)
+        private void HandlePointerInput()
         {
-            if (button == null)
+            if (_circleCenter == null)
                 return;
 
-            MenuUiUtility.MakeButtonClickable(button);
-            button.transform.SetAsLastSibling();
-        }
+            Mouse mouse = Mouse.current;
+            if (mouse == null)
+                return;
 
-        private void SanitizeDecorativeRaycasts()
-        {
-            Graphic[] graphics = GetComponentsInChildren<Graphic>(true);
-            for (int i = 0; i < graphics.Length; i++)
+            bool mousePressed = mouse.leftButton.wasPressedThisFrame;
+            bool mouseHeld = mouse.leftButton.isPressed;
+
+            if (mousePressed && TryGetCircleLocalPoint(out Vector2 pressedPoint))
             {
-                Graphic graphic = graphics[i];
-                if (graphic == null)
-                    continue;
-
-                Button ownerButton = graphic.GetComponent<Button>() ?? graphic.GetComponentInParent<Button>();
-                if (ownerButton == _confirmButton || ownerButton == _cancelButton)
+                float radius = _circleCenter.rect.width * 0.5f;
+                if (pressedPoint.magnitude <= radius)
                 {
-                    if (graphic is TMP_Text text)
-                        text.raycastTarget = false;
-                    continue;
+                    _isDragging = true;
+                    ApplySelection(HoursFromLocalPoint(pressedPoint));
                 }
-
-                graphic.raycastTarget = false;
             }
 
-            if (_confirmButton != null)
-            {
-                Image confirmImage = _confirmButton.GetComponent<Image>();
-                if (confirmImage != null)
-                    confirmImage.raycastTarget = true;
-            }
+            if (!mouseHeld)
+                _isDragging = false;
 
-            if (_cancelButton != null)
-            {
-                Image cancelImage = _cancelButton.GetComponent<Image>();
-                if (cancelImage != null)
-                    cancelImage.raycastTarget = true;
-            }
+            if (_isDragging && TryGetCircleLocalPoint(out Vector2 currentPoint))
+                ApplySelection(HoursFromLocalPoint(currentPoint));
         }
 
         private void ApplySelection(int hours)
         {
             _selectedHours = Mathf.Clamp(hours, Mathf.Max(1, _minHours), Mathf.Max(_minHours, _maxHours));
 
+            float currentHour = ResolveCurrentHour();
+            float resultHour = Mathf.Repeat(currentHour + _selectedHours, 24f);
+            string previewText = BuildRecoveryPreview(_selectedHours);
+
             if (_hoursLabel != null)
-                _hoursLabel.text = $"{_selectedHours} HOURS";
+            {
+                _hoursLabel.text = _selectedHours == 1
+                    ? "Wait 1 hour"
+                    : $"Wait {_selectedHours} hours";
+            }
 
             if (_timeDisplay != null)
-                _timeDisplay.text = $"{_selectedHours:00}:00";
-
-            if (_timePreview != null)
-                _timePreview.text = $"+{_selectedHours}h";
+                _timeDisplay.text = FormatHour(resultHour);
 
             if (_staminaPreview != null)
+                _staminaPreview.text = previewText;
+
+            if (_timePreview != null)
             {
-                _staminaPreview.text = _secondaryPreviewProvider != null
-                    ? _secondaryPreviewProvider(_selectedHours)
-                    : $"-{_selectedHours * _staminaPerHour:0.#} STM";
+                bool useFallbackPreview = _staminaPreview == null && !string.IsNullOrWhiteSpace(previewText);
+                _timePreview.gameObject.SetActive(useFallbackPreview);
+                _timePreview.text = useFallbackPreview ? previewText : string.Empty;
             }
 
             if (_clockHand != null)
-                _clockHand.localEulerAngles = new Vector3(0f, 0f, -(_selectedHours / 24f) * 360f);
+                _clockHand.localEulerAngles = new Vector3(0f, 0f, -_selectedHours * GetDegreesPerHour());
 
-            TimeOfDay timeOfDay = UnityEngine.Object.FindFirstObjectByType<TimeOfDay>();
             if (_currentTimeDisplay != null)
-                _currentTimeDisplay.text = timeOfDay != null ? $"{timeOfDay.CurrentTime:0.0}h" : string.Empty;
+                _currentTimeDisplay.text = $"Current time: {FormatHour(currentHour)}";
 
-            Calendar calendar = timeOfDay != null ? timeOfDay.Calendar : UnityEngine.Object.FindFirstObjectByType<Calendar>();
-            if (_currentDateDisplay != null && calendar != null)
-                _currentDateDisplay.text = $"{calendar.Day}/{calendar.Month}/{calendar.Year}";
+            if (_currentDateDisplay != null)
+                _currentDateDisplay.text = $"Date: {ResolveCurrentDate()}";
         }
 
-        private void SetOpen(bool open)
+        private bool TryGetCircleLocalPoint(out Vector2 localPoint)
         {
-            MenuUiUtility.SetVisible(gameObject, open);
-            _canvasGroup ??= MenuUiUtility.EnsureCanvasGroup(gameObject);
-            MenuUiUtility.SetCanvasGroupVisible(_canvasGroup, open);
+            localPoint = Vector2.zero;
+            if (_circleCenter == null)
+                return false;
+
+            Mouse mouse = Mouse.current;
+            if (mouse == null)
+                return false;
+
+            _rootCanvas ??= GetComponentInParent<Canvas>();
+            Camera eventCamera = null;
+            if (_rootCanvas != null && _rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
+                eventCamera = _rootCanvas.worldCamera;
+
+            return RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                _circleCenter,
+                mouse.position.ReadValue(),
+                eventCamera,
+                out localPoint);
+        }
+
+        private int HoursFromLocalPoint(Vector2 localPoint)
+        {
+            float angle = Mathf.Atan2(localPoint.x, localPoint.y) * Mathf.Rad2Deg;
+            if (angle < 0f)
+                angle += 360f;
+
+            int hours = Mathf.RoundToInt(angle / GetDegreesPerHour());
+            if (hours <= 0)
+                hours = _maxHours;
+
+            return Mathf.Clamp(hours, _minHours, _maxHours);
+        }
+
+        private float ResolveCurrentHour()
+        {
+            TimeOfDay timeOfDay = UnityEngine.Object.FindFirstObjectByType<TimeOfDay>();
+            return timeOfDay != null ? Mathf.Repeat(timeOfDay.Hour, 24f) : Mathf.Clamp(_startHour, 0f, 23f);
+        }
+
+        private string ResolveCurrentDate()
+        {
+            Calendar calendar = UnityEngine.Object.FindFirstObjectByType<Calendar>();
+            return calendar != null ? calendar.DateString : "Unknown date";
+        }
+
+        private string BuildRecoveryPreview(int hours)
+        {
+            if (_secondaryPreviewProvider != null)
+                return _secondaryPreviewProvider(hours);
+
+            float energyRecoveryPercent = Mathf.Clamp(hours * _staminaPerHour, 0f, 100f);
+            return $"You will recover {energyRecoveryPercent:0.#}% Energy";
+        }
+
+        private float GetDegreesPerHour()
+        {
+            return 360f / Mathf.Max(1, _maxHours);
+        }
+
+        private static string FormatHour(float hour24)
+        {
+            int totalMinutes = Mathf.FloorToInt(Mathf.Repeat(hour24, 24f) * 60f);
+            int hour = totalMinutes / 60;
+            int minute = totalMinutes % 60;
+            int displayHour = hour % 12;
+            if (displayHour == 0)
+                displayHour = 12;
+
+            string meridiem = hour >= 12 ? "PM" : "AM";
+            return $"{displayHour}:{minute:00} {meridiem}";
         }
     }
 }

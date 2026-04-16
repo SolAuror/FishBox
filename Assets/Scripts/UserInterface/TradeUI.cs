@@ -52,11 +52,13 @@ namespace Sol.HUD
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            UIStateOwnership.Register<TradeUI>(this);
             TryResolveInventoryPanelReferences();
         }
 
         private void OnDestroy()
         {
+            UIStateOwnership.Unregister<TradeUI>();
             if (Instance == this) Instance = null;
         }
 
@@ -83,7 +85,22 @@ namespace Sol.HUD
             return resolved;
         }
 
+        public void OpenTrade(Inventory playerInventory, Inventory npcInventory, bool freeTrade = false)
+        {
+            OpenInternal(playerInventory, npcInventory, lootMode: false, freeTrade);
+        }
+
+        public void OpenLoot(Inventory playerInventory, Inventory lootInventory)
+        {
+            OpenInternal(playerInventory, lootInventory, lootMode: true, freeTrade: false);
+        }
+
         public void Open(Inventory playerInventory, Inventory npcInventory, bool lootMode = false, bool freeTrade = false)
+        {
+            OpenInternal(playerInventory, npcInventory, lootMode, freeTrade);
+        }
+
+        private void OpenInternal(Inventory playerInventory, Inventory npcInventory, bool lootMode, bool freeTrade)
         {
             if (IsOpen || playerInventory == null || npcInventory == null) return;
             if (_playerInventoryUI == null || _npcInventoryUI == null) TryResolveInventoryPanelReferences();

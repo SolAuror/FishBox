@@ -6,41 +6,24 @@ using Sol.Player;
 
 namespace Sol.HUD
 {
-    public sealed class CharacterMenuSystem : MonoBehaviour
+    public sealed class CharacterMenuSystem : MenuSystemBase<CharacterMenuSystem>
     {
         [SerializeField] private RawImage _characterPreview;
         [SerializeField] private TMP_Text _characterName;
         [SerializeField] private Transform _playerRoot;
-        [SerializeField] private CanvasGroup _canvasGroup;
-
-        public static CharacterMenuSystem Instance { get; private set; }
-        public bool IsOpen => gameObject.activeSelf;
 
         private Button _closeButton;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-            Instance = this;
-            _canvasGroup ??= MenuUiUtility.EnsureCanvasGroup(gameObject);
+            base.Awake();
+            if (_instance != this) return;
             AutoWire();
             RefreshPlayerData();
             SetOpen(false);
         }
 
-        private void OnDestroy()
-        {
-            if (Instance == this)
-                Instance = null;
-        }
-
-        public static CharacterMenuSystem ResolveInstance(bool activateIfInactive = true)
-        {
-            CharacterMenuSystem resolved = Instance ?? UIStateOwnership.Resolve<CharacterMenuSystem>(activateIfInactive);
-            if (resolved != null)
-                resolved.AutoWire();
-            return resolved;
-        }
+        protected override void PostResolve() => AutoWire();
 
         public void Open()
         {
@@ -99,13 +82,6 @@ namespace Sol.HUD
             _characterName.text = fallback;
             if (_characterPreview != null)
                 _characterPreview.gameObject.SetActive(_characterPreview.texture != null);
-        }
-
-        private void SetOpen(bool open)
-        {
-            MenuUiUtility.SetVisible(gameObject, open);
-            _canvasGroup ??= MenuUiUtility.EnsureCanvasGroup(gameObject);
-            MenuUiUtility.SetCanvasGroupVisible(_canvasGroup, open);
         }
     }
 }

@@ -37,6 +37,7 @@ namespace Sol.HUD
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            UIStateOwnership.Register<ItemPreviewRenderer>(this);
 
             RenderTexture = new RenderTexture(_textureSize, _textureSize, 16);
             RenderTexture.antiAliasing = 2;
@@ -51,6 +52,7 @@ namespace Sol.HUD
 
         private void OnDestroy()
         {
+            UIStateOwnership.Unregister<ItemPreviewRenderer>();
             if (Instance == this) Instance = null;
             if (_currentInstance != null) Destroy(_currentInstance);
             if (RenderTexture != null) RenderTexture.Release();

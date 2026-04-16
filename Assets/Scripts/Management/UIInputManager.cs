@@ -10,11 +10,17 @@ namespace Sol.HUD
     [DefaultExecutionOrder(-2)]
     public sealed class UIInputManager : MonoBehaviour
     {
+        private const float DuplicateInputGuardWindow = 0.15f;
+
         public static UIInputManager Instance { get; private set; }
 
         private bool _callbacksRegistered;
         private InputAction _uiTab;
         private InputAction _uiEsc;
+        private int _lastTabHandledFrame = -1;
+        private int _lastEscHandledFrame = -1;
+        private float _lastTabHandledTime = float.NegativeInfinity;
+        private float _lastEscHandledTime = float.NegativeInfinity;
 
         private void Awake()
         {
@@ -40,6 +46,7 @@ namespace Sol.HUD
                 return;
             }
             Instance = this;
+            UIStateOwnership.Register<UIInputManager>(this);
         }
 
         private void Start()
@@ -57,6 +64,16 @@ namespace Sol.HUD
         {
             if (!_callbacksRegistered)
                 TryRegisterCallbacks();
+
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null)
+                return;
+
+            if (keyboard.tabKey.wasPressedThisFrame && _lastTabHandledFrame != Time.frameCount)
+                HandleTabRequest();
+
+            if (keyboard.escapeKey.wasPressedThisFrame && _lastEscHandledFrame != Time.frameCount)
+                HandleEscRequest();
         }
 
         private void OnDisable()
@@ -67,6 +84,7 @@ namespace Sol.HUD
         private void OnDestroy()
         {
             UnregisterCallbacks();
+            UIStateOwnership.Unregister<UIInputManager>();
             if (Instance == this) Instance = null;
         }
 
@@ -109,15 +127,19 @@ namespace Sol.HUD
 
         private void HandleTabPerformed(InputAction.CallbackContext _)
         {
-            if (IsTabBlockedByModal())
+            HandleTabRequest();
+        }
+
+        private void HandleTabRequest()
+        {
+            if (Time.unscaledTime - _lastTabHandledTime < DuplicateInputGuardWindow)
                 return;
 
-            ConversationWindowSystem conversationUi = UIStateOwnership.Resolve<ConversationWindowSystem>(activateIfInactive: false);
-            if (conversationUi != null && conversationUi.IsVisible)
-            {
-                conversationUi.Hide();
+            _lastTabHandledFrame = Time.frameCount;
+            _lastTabHandledTime = Time.unscaledTime;
+
+            if (IsTabBlockedByModal())
                 return;
-            }
 
             TradeUI tradeUi = UIStateOwnership.Resolve<TradeUI>(activateIfInactive: true);
             if (tradeUi != null && tradeUi.IsOpen)
@@ -133,15 +155,58 @@ namespace Sol.HUD
 
         private void HandleEscPerformed(InputAction.CallbackContext _)
         {
+            HandleEscRequest();
+        }
+
+        private void HandleEscRequest()
+        {
+            if (Time.unscaledTime - _lastEscHandledTime < DuplicateInputGuardWindow)
+                return;
+
+            _lastEscHandledFrame = Time.frameCount;
+            _lastEscHandledTime = Time.unscaledTime;
+
+            if (TryReturnFromPauseSubmenu())
+                return;
+
             if (TryCloseTopModal())
                 return;
 
-            PauseMenuSystem pauseMenu = UIStateOwnership.Resolve<PauseMenuSystem>(activateIfInactive: true);
+            PauseMenuSystem pauseMenu = PauseMenuSystem.ResolveInstance(activateIfInactive: true);
             if (pauseMenu != null)
             {
-                pauseMenu.Toggle();
+                pauseMenu.Show();
                 return;
             }
+        }
+
+        private bool TryReturnFromPauseSubmenu()
+        {
+            SettingsMenuSystem settingsMenu = UIStateOwnership.Resolve<SettingsMenuSystem>(activateIfInactive: false);
+            if (settingsMenu != null && settingsMenu.IsOpen && settingsMenu.ReturnsToPause)
+            {
+                settingsMenu.Close(reopenPause: false);
+                PauseMenuSystem.ResolveInstance(activateIfInactive: true)?.Show();
+                return true;
+            }
+
+            SaveMenuSystem saveMenu = UIStateOwnership.Resolve<SaveMenuSystem>(activateIfInactive: false);
+            if (saveMenu != null && saveMenu.IsOpen && saveMenu.ReturnsToPause)
+            {
+                saveMenu.Close(reopenPause: false);
+                PauseMenuSystem.ResolveInstance(activateIfInactive: true)?.Show();
+                return true;
+            }
+
+            LoadMenuSystem loadMenu = UIStateOwnership.Resolve<LoadMenuSystem>(activateIfInactive: false);
+            if (loadMenu != null && loadMenu.IsOpen && loadMenu.ReturnsToPause)
+            {
+                loadMenu.Close(reopenPause: false);
+                PauseMenuSystem.ResolveInstance(activateIfInactive: true)?.Show();
+                return true;
+            }
+
+            return false;
         }
 
         private bool TryCloseTopModal()
@@ -170,21 +235,21 @@ namespace Sol.HUD
             LoadMenuSystem loadMenu = UIStateOwnership.Resolve<LoadMenuSystem>(activateIfInactive: false);
             if (loadMenu != null && loadMenu.IsOpen)
             {
-                loadMenu.Close(false);
+                loadMenu.Close(reopenPause: false);
                 return true;
             }
 
             SaveMenuSystem saveMenu = UIStateOwnership.Resolve<SaveMenuSystem>(activateIfInactive: false);
             if (saveMenu != null && saveMenu.IsOpen)
             {
-                saveMenu.Close(false);
+                saveMenu.Close(reopenPause: false);
                 return true;
             }
 
             SettingsMenuSystem settingsMenu = UIStateOwnership.Resolve<SettingsMenuSystem>(activateIfInactive: false);
             if (settingsMenu != null && settingsMenu.IsOpen)
             {
-                settingsMenu.Close();
+                settingsMenu.Close(reopenPause: false);
                 return true;
             }
 
@@ -202,14 +267,21 @@ namespace Sol.HUD
                 return true;
             }
 
-            TradeUI tradeUi = UIStateOwnership.Resolve<TradeUI>(activateIfInactive: true);
+            PauseMenuSystem pauseMenu = UIStateOwnership.Resolve<PauseMenuSystem>(activateIfInactive: false);
+            if (pauseMenu != null && pauseMenu.IsOpen)
+            {
+                pauseMenu.Resume();
+                return true;
+            }
+
+            TradeUI tradeUi = UIStateOwnership.Resolve<TradeUI>(activateIfInactive: false);
             if (tradeUi != null && tradeUi.IsOpen)
             {
                 tradeUi.Close();
                 return true;
             }
 
-            InventoryToggle inventoryToggle = UIStateOwnership.Resolve<InventoryToggle>(activateIfInactive: true);
+            InventoryToggle inventoryToggle = UIStateOwnership.Resolve<InventoryToggle>(activateIfInactive: false);
             if (inventoryToggle != null && inventoryToggle.IsOpen)
             {
                 inventoryToggle.Close();
@@ -247,6 +319,10 @@ namespace Sol.HUD
 
             DialoguePromptSystem promptUi = UIStateOwnership.Resolve<DialoguePromptSystem>(activateIfInactive: false);
             if (promptUi != null && promptUi.IsOpen)
+                return true;
+
+            ConversationWindowSystem conversationUi = UIStateOwnership.Resolve<ConversationWindowSystem>(activateIfInactive: false);
+            if (conversationUi != null && conversationUi.IsVisible)
                 return true;
 
             RadialMenuSystem radialMenu = UIStateOwnership.Resolve<RadialMenuSystem>(activateIfInactive: false);

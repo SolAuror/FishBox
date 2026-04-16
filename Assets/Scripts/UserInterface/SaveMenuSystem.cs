@@ -6,7 +6,7 @@ using Sol.SaveLoad;
 
 namespace Sol.HUD
 {
-    public sealed class SaveMenuSystem : MonoBehaviour
+    public sealed class SaveMenuSystem : MenuSystemBase<SaveMenuSystem>
     {
         [SerializeField] private ScrollRect _scrollRect;
         [SerializeField] private Transform _contentParent;
@@ -14,35 +14,21 @@ namespace Sol.HUD
         [SerializeField] private Button _newSaveButton;
         [SerializeField] private TMP_InputField _saveNameInput;
 
-        public static SaveMenuSystem Instance { get; private set; }
-        public bool IsOpen => gameObject.activeSelf;
+        public bool ReturnsToPause => _returnToPause;
 
         private readonly List<GameObject> _spawnedEntries = new();
-        private CanvasGroup _canvasGroup;
+        private GameObject _slotEntryTemplate;
         private bool _returnToPause;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-            Instance = this;
-            _canvasGroup = MenuUiUtility.EnsureCanvasGroup(gameObject);
+            base.Awake();
+            if (_instance != this) return;
             AutoWire();
             SetOpen(false);
         }
 
-        private void OnDestroy()
-        {
-            if (Instance == this)
-                Instance = null;
-        }
-
-        public static SaveMenuSystem ResolveInstance(bool activateIfInactive = true)
-        {
-            SaveMenuSystem resolved = Instance ?? UIStateOwnership.Resolve<SaveMenuSystem>(activateIfInactive);
-            if (resolved != null)
-                resolved.AutoWire();
-            return resolved;
-        }
+        protected override void PostResolve() => AutoWire();
 
         public void Open(bool returnToPause = false)
         {
@@ -73,7 +59,7 @@ namespace Sol.HUD
             UIStateOwnership.SetUiCapture(false);
 
             if (reopenPause)
-                PauseMenuSystem.ResolveInstance()?.Open();
+                PauseMenuSystem.ResolveInstance()?.Show();
         }
 
         private void CreateNewSave()
@@ -100,61 +86,85 @@ namespace Sol.HUD
             if (_contentParent == null || manager == null)
                 return;
 
+            bool emptySlotShown = false;
             for (int slotIndex = 0; slotIndex < SaveManager.MaxSlots; slotIndex++)
-                CreateSlotEntry(manager, slotIndex);
+            {
+                if (manager.SlotExists(slotIndex))
+                {
+                    CreateSlotEntry(manager, slotIndex);
+                }
+                else if (!emptySlotShown)
+                {
+                    CreateSlotEntry(manager, slotIndex);
+                    emptySlotShown = true;
+                }
+            }
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(_contentParent as RectTransform);
         }
 
         private void CreateSlotEntry(SaveManager manager, int slotIndex)
         {
-            Button row = CreateEntryButton(slotIndex);
-            if (row == null)
+            GameObject entry = CreateEntry(slotIndex);
+            if (entry == null)
                 return;
 
             SaveMetadata metadata = manager.GetSlotMetadata(slotIndex);
-            TMP_Text label = row.GetComponentInChildren<TMP_Text>(true);
+            TMP_Text label = entry.GetComponentInChildren<TMP_Text>(true);
             if (label != null)
                 label.text = BuildSaveSlotLabel(slotIndex, metadata);
 
-            row.onClick.RemoveAllListeners();
-            row.onClick.AddListener(() => SaveToSlot(slotIndex));
-            row.interactable = true;
-            _spawnedEntries.Add(row.gameObject);
+            Button saveBtn = MenuUiUtility.FindButtonByNames(entry.transform, "Save", "Save...")
+                ?? entry.GetComponent<Button>()
+                ?? entry.GetComponentInChildren<Button>(true);
+            if (saveBtn != null)
+            {
+                saveBtn.onClick.RemoveAllListeners();
+                saveBtn.onClick.AddListener(() => SaveToSlot(slotIndex));
+                saveBtn.interactable = true;
+            }
+
+            Button deleteBtn = MenuUiUtility.FindButtonByNames(entry.transform, "Delete", "Delete...", "DeleteButton");
+            if (deleteBtn != null)
+            {
+                deleteBtn.onClick.RemoveAllListeners();
+                deleteBtn.onClick.AddListener(() => DeleteSlot(slotIndex));
+            }
+
+            entry.SetActive(true);
+            _spawnedEntries.Add(entry);
         }
 
-        private Button CreateEntryButton(int slotIndex)
+        private void DeleteSlot(int slotIndex)
+        {
+            SaveManager manager = ResolveSaveManager();
+            if (manager == null)
+                return;
+
+            manager.DeleteSave(slotIndex);
+            RebuildSlots();
+        }
+
+        private GameObject CreateEntry(int slotIndex)
         {
             if (_contentParent == null)
                 return null;
 
-            Button template = _newSaveButton ?? _backButton;
-            Button row;
-            if (template != null)
-            {
-                row = Object.Instantiate(template, _contentParent);
-                row.gameObject.SetActive(true);
-            }
-            else
-            {
-                GameObject rowObject = new GameObject($"SaveSlot_{slotIndex:00}", typeof(RectTransform), typeof(Image), typeof(Button));
-                rowObject.transform.SetParent(_contentParent, false);
-                row = rowObject.GetComponent<Button>();
+            GameObject source = _slotEntryTemplate != null ? _slotEntryTemplate
+                : _newSaveButton != null ? _newSaveButton.gameObject
+                : _backButton != null ? _backButton.gameObject
+                : null;
 
-                GameObject labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
-                labelObject.transform.SetParent(row.transform, false);
-                RectTransform labelRect = labelObject.GetComponent<RectTransform>();
-                labelRect.anchorMin = Vector2.zero;
-                labelRect.anchorMax = Vector2.one;
-                labelRect.offsetMin = new Vector2(24f, 8f);
-                labelRect.offsetMax = new Vector2(-24f, -8f);
-                TextMeshProUGUI text = labelObject.GetComponent<TextMeshProUGUI>();
-                text.fontSize = 24f;
-                text.alignment = TextAlignmentOptions.Left;
+            if (source != null)
+            {
+                GameObject clone = Object.Instantiate(source, _contentParent);
+                clone.name = $"SaveSlot_{slotIndex:00}";
+                clone.SetActive(false);
+                return clone;
             }
 
-            row.name = $"SaveSlot_{slotIndex:00}";
-            return row;
+            Debug.LogWarning("[SaveMenuSystem] No authored save slot template was found. Assign a prefab/template entry under the content root.", this);
+            return null;
         }
 
         private void AutoWire()
@@ -167,15 +177,14 @@ namespace Sol.HUD
             _newSaveButton ??= MenuUiUtility.FindButtonByNames(transform, "newSaveButton", "NewSaveButton", "Save");
             _saveNameInput ??= GetComponentInChildren<TMP_InputField>(true);
 
+            if (_slotEntryTemplate == null && _contentParent != null && _contentParent.childCount > 0)
+            {
+                _slotEntryTemplate = _contentParent.GetChild(0).gameObject;
+                _slotEntryTemplate.SetActive(false);
+            }
+
             MenuUiUtility.WireButton(_backButton, Close);
             MenuUiUtility.WireButton(_newSaveButton, CreateNewSave);
-        }
-
-        private void SetOpen(bool open)
-        {
-            MenuUiUtility.SetVisible(gameObject, open);
-            _canvasGroup ??= MenuUiUtility.EnsureCanvasGroup(gameObject);
-            MenuUiUtility.SetCanvasGroupVisible(_canvasGroup, open);
         }
 
         private void ClearEntries()
@@ -187,6 +196,16 @@ namespace Sol.HUD
             }
 
             _spawnedEntries.Clear();
+
+            if (_contentParent != null)
+            {
+                for (int i = _contentParent.childCount - 1; i >= 0; i--)
+                {
+                    Transform child = _contentParent.GetChild(i);
+                    if (child != null && child.gameObject != _slotEntryTemplate)
+                        Object.Destroy(child.gameObject);
+                }
+            }
         }
 
         private int FindPreferredSaveSlot()

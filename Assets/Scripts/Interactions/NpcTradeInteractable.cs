@@ -79,15 +79,23 @@ namespace Sol
                 return null;
 
             if (IsLootingCorpse)
-            {
-                ItemizeGoldForCorpseLoot(interactor);
-                return new OpenTradeAction(interactor.Inventory, _inventory, lootMode: true);
-            }
+                return BuildLootAction(interactor);
 
             if (_useConversationWindow)
                 return BuildConversationAction(interactor);
 
-            return new OpenTradeAction(interactor.Inventory, _inventory);
+            return BuildTradeAction(interactor);
+        }
+
+        private GameAction BuildLootAction(Interactor interactor)
+        {
+            ItemizeGoldForCorpseLoot(interactor);
+            return new OpenTradeAction(interactor.Inventory, _inventory, lootMode: true);
+        }
+
+        private GameAction BuildTradeAction(Interactor interactor)
+        {
+            return new OpenTradeAction(interactor.Inventory, _inventory, lootMode: false);
         }
 
         private GameAction BuildConversationAction(Interactor interactor)
@@ -148,7 +156,7 @@ namespace Sol
             if (tradeUi == null)
                 return;
 
-            tradeUi.Open(interactor.Inventory, _inventory, lootMode: false, freeTrade: false);
+            tradeUi.OpenTrade(interactor.Inventory, _inventory, freeTrade: false);
         }
 
         private void HandleDeath()

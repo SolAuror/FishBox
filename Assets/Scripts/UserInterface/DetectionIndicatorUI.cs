@@ -34,6 +34,8 @@ namespace Sol.HUD
         private void Awake()
         {
             _canvasGroup ??= MenuUiUtility.EnsureCanvasGroup(gameObject);
+            if (_canvasGroup == null)
+                Debug.LogWarning($"[DetectionIndicatorUI] CanvasGroup is not assigned on '{name}'. Author it in the prefab instead of relying on runtime creation.", this);
             ResolvePlayer();
             ApplyVisuals(immediate: true);
         }

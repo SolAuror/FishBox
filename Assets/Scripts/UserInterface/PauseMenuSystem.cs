@@ -1,66 +1,79 @@
+using System;
+using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Sol.HUD
 {
-    public sealed class PauseMenuSystem : MonoBehaviour
+    public sealed class PauseMenuSystem : MenuSystemBase<PauseMenuSystem>
     {
+        [SerializeField] private RectTransform _panelRect;
         [SerializeField] private Button _resumeButton;
         [SerializeField] private Button _settingsButton;
         [SerializeField] private Button _saveGameButton;
         [SerializeField] private Button _loadGameButton;
+        [SerializeField] private Button _quitButton;
+        [SerializeField] private bool _pauseTimeOnShow = true;
 
-        public static PauseMenuSystem Instance { get; private set; }
-        public bool IsOpen => gameObject.activeSelf;
+        public event Action OnResume;
+        public event Action OnSettings;
+        public event Action OnSaveGame;
+        public event Action OnLoadGame;
+        public event Action OnQuit;
 
-        private CanvasGroup _canvasGroup;
+        public bool IsVisible => IsOpen;
 
-        private void Awake()
+        private float _previousTimeScale;
+
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-            Instance = this;
-            _canvasGroup = MenuUiUtility.EnsureCanvasGroup(gameObject);
+            base.Awake();
+            if (_instance != this) return;
+            EnsureUiEventSystem();
             AutoWire();
+            WireButtons();
+            SetupNavigation();
             SetOpen(false);
         }
 
-        private void OnDestroy()
-        {
-            if (Instance == this)
-                Instance = null;
-        }
-
-        public static PauseMenuSystem ResolveInstance(bool activateIfInactive = true)
+        public new static PauseMenuSystem ResolveInstance(bool activateIfInactive = true)
         {
             PauseMenuSystem resolved = Instance ?? UIStateOwnership.Resolve<PauseMenuSystem>(activateIfInactive);
             if (resolved == null)
             {
-                PauseMenuSystem[] found = Object.FindObjectsByType<PauseMenuSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                PauseMenuSystem[] found = UnityEngine.Object.FindObjectsByType<PauseMenuSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
                 if (found != null && found.Length > 0)
                     resolved = found[0];
             }
 
             if (resolved != null)
+            {
+                EnsureUiEventSystem();
                 resolved.AutoWire();
+                resolved.WireButtons();
+                resolved.SetupNavigation();
+            }
 
             return resolved;
         }
 
-        public void Toggle()
-        {
-            if (IsOpen)
-                Close();
-            else
-                Open();
-        }
-
-        public void Open()
+        public void Show()
         {
             if (IsOpen)
                 return;
 
-            AutoWire();
+            EnsureUiEventSystem();
+            PrepareForInteraction();
             UIStateOwnership.CloseConflictingUi(nameof(PauseMenuSystem));
+
+            if (_pauseTimeOnShow)
+            {
+                _previousTimeScale = Time.timeScale;
+                Time.timeScale = 0f;
+            }
+
             SetOpen(true);
             MenuUiUtility.BringToFront(transform.parent);
             MenuUiUtility.BringToFront(transform);
@@ -69,74 +82,240 @@ namespace Sol.HUD
             MenuUiUtility.SelectButton(_resumeButton);
         }
 
-        public void Close()
+        public void Hide()
         {
             if (!IsOpen)
                 return;
 
             SetOpen(false);
+
+            if (_pauseTimeOnShow)
+                Time.timeScale = _previousTimeScale;
+
             MenuUiUtility.SetBackgroundUiRaycasts(transform, true);
             UIStateOwnership.SetUiCapture(false);
         }
 
-        private void OpenSettings()
+        public void Resume()
         {
-            SettingsMenuSystem.ResolveInstance()?.Open(returnToPause: true);
+            if (!IsOpen)
+                return;
+
+            DoResume();
         }
 
-        private void OpenSaveMenu()
+        public void Toggle()
         {
-            SaveMenuSystem.ResolveInstance()?.Open(returnToPause: true);
+            if (IsOpen)
+                Resume();
+            else
+                Show();
         }
 
-        private void OpenLoadMenu()
+        public void Open()
         {
-            LoadMenuSystem.ResolveInstance()?.Open(returnToPause: true);
+            Show();
+        }
+
+        public void Close()
+        {
+            Hide();
+        }
+
+        private void DoResume()
+        {
+            Hide();
+            OnResume?.Invoke();
+        }
+
+        private void DoSettings()
+        {
+            OnSettings?.Invoke();
+
+            if (SettingsMenuSystem.Instance == null || !SettingsMenuSystem.Instance.IsOpen)
+            {
+                Hide();
+                SettingsMenuSystem settingsMenu = SettingsMenuSystem.ResolveInstance(activateIfInactive: true);
+                settingsMenu?.Open(returnToPause: true);
+            }
+        }
+
+        private void DoSaveGame()
+        {
+            OnSaveGame?.Invoke();
+
+            if (SaveMenuSystem.Instance == null || !SaveMenuSystem.Instance.IsOpen)
+            {
+                Hide();
+                SaveMenuSystem saveMenu = SaveMenuSystem.ResolveInstance(activateIfInactive: true);
+                saveMenu?.Open(returnToPause: true);
+            }
+        }
+
+        private void DoLoadGame()
+        {
+            OnLoadGame?.Invoke();
+
+            if (LoadMenuSystem.Instance == null || !LoadMenuSystem.Instance.IsOpen)
+            {
+                Hide();
+                LoadMenuSystem loadMenu = LoadMenuSystem.ResolveInstance(activateIfInactive: true);
+                loadMenu?.Open(returnToPause: true);
+            }
+        }
+
+        private void DoQuit()
+        {
+            if (_pauseTimeOnShow)
+                Time.timeScale = _previousTimeScale;
+
+            OnQuit?.Invoke();
         }
 
         private void AutoWire()
         {
+            _panelRect ??= MenuUiUtility.FindRectByNames(transform, "Panel");
             _resumeButton ??= MenuUiUtility.FindButtonByNames(transform, "Resume", "ResumeButton");
             _settingsButton ??= MenuUiUtility.FindButtonByNames(transform, "Settings", "SettingsButton");
             _saveGameButton ??= MenuUiUtility.FindButtonByNames(transform, "Save Game", "SaveButton");
             _loadGameButton ??= MenuUiUtility.FindButtonByNames(transform, "Load Game", "LoadButton");
-
-            PreparePauseButton(_resumeButton, 96f);
-            PreparePauseButton(_saveGameButton, 36f);
-            PreparePauseButton(_loadGameButton, -24f);
-            PreparePauseButton(_settingsButton, -84f);
-
-            MenuUiUtility.WireButton(_resumeButton, Close);
-            MenuUiUtility.WireButton(_settingsButton, OpenSettings);
-            MenuUiUtility.WireButton(_saveGameButton, OpenSaveMenu);
-            MenuUiUtility.WireButton(_loadGameButton, OpenLoadMenu);
+            _quitButton ??= MenuUiUtility.FindButtonByNames(transform, "Quit to Menu", "Quit", "QuitButton");
         }
 
-        private static void PreparePauseButton(Button button, float anchoredY)
+        private void WireButtons()
         {
-            if (button == null)
+            MenuUiUtility.WireButton(_resumeButton, DoResume);
+            MenuUiUtility.WireButton(_settingsButton, DoSettings);
+            MenuUiUtility.WireButton(_saveGameButton, DoSaveGame);
+            MenuUiUtility.WireButton(_loadGameButton, DoLoadGame);
+            MenuUiUtility.WireButton(_quitButton, DoQuit);
+        }
+
+        private void SetupNavigation()
+        {
+            Button[] buttons = { _resumeButton, _settingsButton, _saveGameButton, _loadGameButton, _quitButton };
+
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                if (buttons[i] == null)
+                    continue;
+
+                Navigation navigation = buttons[i].navigation;
+                navigation.mode = Navigation.Mode.Explicit;
+                navigation.selectOnUp = FindPrevious(buttons, i);
+                navigation.selectOnDown = FindNext(buttons, i);
+                buttons[i].navigation = navigation;
+            }
+        }
+
+        private void PrepareForInteraction()
+        {
+            EnsureRootCanvasScale();
+            HideTransientUiBlockers();
+            EnsureButtonsInteractable();
+        }
+
+        private void EnsureRootCanvasScale()
+        {
+            Canvas canvas = GetComponentInParent<Canvas>();
+            Transform root = canvas != null && canvas.rootCanvas != null
+                ? canvas.rootCanvas.transform
+                : canvas != null
+                    ? canvas.transform
+                    : null;
+
+            if (root == null)
                 return;
 
-            RectTransform rect = button.transform as RectTransform;
-            if (rect != null)
-            {
-                rect.anchorMin = new Vector2(0.5f, 0.5f);
-                rect.anchorMax = new Vector2(0.5f, 0.5f);
-                rect.pivot = new Vector2(0.5f, 0.5f);
-                rect.anchoredPosition = new Vector2(0f, anchoredY);
-                rect.sizeDelta = new Vector2(320f, 44f);
-                rect.localScale = Vector3.one;
-            }
-
-            MenuUiUtility.MakeButtonClickable(button);
-            button.transform.SetAsLastSibling();
+            Vector3 scale = root.localScale;
+            if (Mathf.Approximately(scale.x, 0f) || Mathf.Approximately(scale.y, 0f) || Mathf.Approximately(scale.z, 0f))
+                root.localScale = Vector3.one;
         }
 
-        private void SetOpen(bool open)
+        private void HideTransientUiBlockers()
         {
-            MenuUiUtility.SetVisible(gameObject, open);
-            _canvasGroup ??= MenuUiUtility.EnsureCanvasGroup(gameObject);
-            MenuUiUtility.SetCanvasGroupVisible(_canvasGroup, open);
+            TooltipUI.Instance?.Hide();
+            ContextMenuUI.Instance?.Hide();
+        }
+
+        private void EnsureButtonsInteractable()
+        {
+            Button[] buttons = { _resumeButton, _settingsButton, _saveGameButton, _loadGameButton, _quitButton };
+            for (int i = 0; i < buttons.Length; i++)
+            {
+                Button button = buttons[i];
+                if (button == null)
+                    continue;
+
+                button.interactable = true;
+                MenuUiUtility.MakeButtonClickable(button);
+            }
+        }
+
+        private static Selectable FindPrevious(Button[] buttons, int current)
+        {
+            for (int i = current - 1; i >= 0; i--)
+            {
+                if (buttons[i] != null)
+                    return buttons[i];
+            }
+
+            for (int i = buttons.Length - 1; i > current; i--)
+            {
+                if (buttons[i] != null)
+                    return buttons[i];
+            }
+
+            return null;
+        }
+
+        private static Selectable FindNext(Button[] buttons, int current)
+        {
+            for (int i = current + 1; i < buttons.Length; i++)
+            {
+                if (buttons[i] != null)
+                    return buttons[i];
+            }
+
+            for (int i = 0; i < current; i++)
+            {
+                if (buttons[i] != null)
+                    return buttons[i];
+            }
+
+            return null;
+        }
+
+        private static void EnsureUiEventSystem()
+        {
+            EventSystem eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                GameObject eventSystemGO = new GameObject("EventSystem");
+                eventSystem = eventSystemGO.AddComponent<EventSystem>();
+            }
+            else if (!eventSystem.enabled)
+            {
+                eventSystem.enabled = true;
+            }
+
+            InputSystemUIInputModule inputModule = eventSystem.GetComponent<InputSystemUIInputModule>();
+            if (inputModule == null)
+            {
+                inputModule = eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
+            }
+            else if (!inputModule.enabled)
+            {
+                inputModule.enabled = true;
+            }
+
+            StandaloneInputModule legacyModule = eventSystem.GetComponent<StandaloneInputModule>();
+            if (legacyModule != null)
+                legacyModule.enabled = false;
+
+            UIInputModuleFix fix = eventSystem.GetComponent<UIInputModuleFix>();
+            if (fix == null)
+                fix = eventSystem.gameObject.AddComponent<UIInputModuleFix>();
         }
     }
 }

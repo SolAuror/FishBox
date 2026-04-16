@@ -532,8 +532,7 @@ namespace Sol.HUD
             if (LocomotionInputManager.Instance != null && LocomotionInputManager.Instance.UIInputBlocked)
                 return true;
 
-            return (InventoryToggle.Instance != null && InventoryToggle.Instance.IsOpen)
-                || (TradeUI.Instance != null && TradeUI.Instance.IsOpen);
+            return UIStateOwnership.IsBlockingUiOpen();
         }
 
         private void ResetInteractionInputState()

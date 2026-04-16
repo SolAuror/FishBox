@@ -10,16 +10,20 @@ namespace Sol.Outline
     public class OutlineManager : MonoBehaviour
     {
         [Tooltip("Max raycast distance for hover detection")]
-        public float raycastDistance = 100f;
+        [SerializeField] private float raycastDistance = 100f;
 
         [Tooltip("Layer mask for raycast (optional)")]
-        public LayerMask raycastLayerMask = ~0;
+        [SerializeField] private LayerMask raycastLayerMask = ~0;
 
         [Tooltip("Player root for CanInteract checks (auto-detected if null)")]
-        public GameObject player;
+        [SerializeField] private GameObject player;
 
         private OutlineComponent _currentOutlinedObject;
         private Interactor _playerInteractor;
+
+        private Collider _lastHitCollider;
+        private IInteractable _cachedInteractable;
+        private OutlineComponent _cachedOutlineComponent;
 
         public static OutlineManager Instance { get; private set; }
 
@@ -57,6 +61,19 @@ namespace Sol.Outline
                 _playerInteractor = new Interactor(player, true);
             }
 
+            // Skip outline detection while any blocking UI is open.
+            if (Sol.HUD.UIStateOwnership.IsBlockingUiOpen())
+            {
+                if (_currentOutlinedObject != null)
+                {
+                    if (!_currentOutlinedObject.alwaysVisible)
+                        _currentOutlinedObject.HideOutline();
+                    _currentOutlinedObject = null;
+                }
+                _lastHitCollider = null;
+                return;
+            }
+
             // Raycast from screen center (works in both first and third person).
             Ray ray = activeCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
 
@@ -65,20 +82,25 @@ namespace Sol.Outline
             // Raycast to find what's being hovered over
             if (Physics.Raycast(ray, out RaycastHit hit, raycastDistance, raycastLayerMask))
             {
-                // Only outline objects that are interactable and can be interacted with
-                var interactable = hit.collider.GetComponent<IInteractable>()
-                                ?? hit.collider.GetComponentInParent<IInteractable>();
-
-                if (interactable != null && interactable.CanInteract(_playerInteractor))
+                // Re-query components only when the hit collider changes.
+                if (hit.collider != _lastHitCollider)
                 {
-                    hoveredComponent = hit.collider.GetComponent<OutlineComponent>();
-                    if (hoveredComponent == null)
-                        hoveredComponent = hit.collider.GetComponentInParent<OutlineComponent>();
-
-                    // Skip objects that are set to alwaysVisible (they manage themselves)
-                    if (hoveredComponent != null && hoveredComponent.alwaysVisible)
-                        hoveredComponent = null;
+                    _lastHitCollider = hit.collider;
+                    _cachedInteractable = hit.collider.GetComponent<IInteractable>()
+                                       ?? hit.collider.GetComponentInParent<IInteractable>();
+                    _cachedOutlineComponent = hit.collider.GetComponent<OutlineComponent>()
+                                           ?? hit.collider.GetComponentInParent<OutlineComponent>();
                 }
+
+                if (_cachedInteractable != null && _cachedInteractable.CanInteract(_playerInteractor))
+                {
+                    if (_cachedOutlineComponent != null && !_cachedOutlineComponent.alwaysVisible)
+                        hoveredComponent = _cachedOutlineComponent;
+                }
+            }
+            else
+            {
+                _lastHitCollider = null;
             }
 
             // Update outline state

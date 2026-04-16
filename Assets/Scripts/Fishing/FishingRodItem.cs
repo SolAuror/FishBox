@@ -204,18 +204,7 @@ namespace Sol.Fishing
 
         private Transform FindChildByName(string childName)
         {
-            if (string.IsNullOrWhiteSpace(childName))
-                return null;
-
-            Transform[] children = GetComponentsInChildren<Transform>(true);
-            for (int i = 0; i < children.Length; i++)
-            {
-                Transform child = children[i];
-                if (child != null && child.name == childName)
-                    return child;
-            }
-
-            return null;
+            return FindChildByName(transform, childName);
         }
 
         private void SanitizeAttachedTackle()
@@ -228,21 +217,42 @@ namespace Sol.Fishing
 
             if (_loadedBaitItem != null)
             {
-                AttachItemToPoint(_loadedBaitItem, GetBaitAttachmentPoint());
-                SetAttachedTackleState(_loadedBaitItem.transform, false);
+                if (CanAttachRuntimeItem(_loadedBaitItem, GetBaitAttachmentPoint()))
+                {
+                    AttachItemToPoint(_loadedBaitItem, GetBaitAttachmentPoint());
+                    SetAttachedTackleState(_loadedBaitItem.transform, false);
+                }
+                else
+                {
+                    _loadedBaitItem = null;
+                }
             }
 
             if (_loadedTackleItem != null)
             {
-                AttachItemToPoint(_loadedTackleItem, TacklePoint);
-                SetAttachedTackleState(_loadedTackleItem.transform, false);
+                if (CanAttachRuntimeItem(_loadedTackleItem, TacklePoint))
+                {
+                    AttachItemToPoint(_loadedTackleItem, TacklePoint);
+                    SetAttachedTackleState(_loadedTackleItem.transform, false);
+                }
+                else
+                {
+                    _loadedTackleItem = null;
+                }
             }
 
             if (_displayedCatchItem != null)
             {
-                AttachItemToPointPreservingWorldScale(_displayedCatchItem, TacklePoint, Quaternion.Euler(_caughtFishLocalEulerAngles));
-                PositionDisplayedCatchBelowPoint(_displayedCatchItem.transform, TacklePoint);
-                SetDisplayedCatchState(_displayedCatchItem.transform, attachedToRod: true);
+                if (CanAttachRuntimeItem(_displayedCatchItem, TacklePoint))
+                {
+                    AttachItemToPointPreservingWorldScale(_displayedCatchItem, TacklePoint, Quaternion.Euler(_caughtFishLocalEulerAngles));
+                    PositionDisplayedCatchBelowPoint(_displayedCatchItem.transform, TacklePoint);
+                    SetDisplayedCatchState(_displayedCatchItem.transform, attachedToRod: true);
+                }
+                else
+                {
+                    _displayedCatchItem = null;
+                }
             }
         }
 
@@ -262,7 +272,7 @@ namespace Sol.Fishing
 
         private static void AttachItemToPoint(ItemComponent item, Transform attachPoint, Quaternion localRotation)
         {
-            if (item == null || attachPoint == null)
+            if (!CanAttachRuntimeItem(item, attachPoint))
                 return;
 
             Transform itemTransform = item.transform;
@@ -275,7 +285,7 @@ namespace Sol.Fishing
 
         private static void AttachItemToPointPreservingWorldScale(ItemComponent item, Transform attachPoint, Quaternion localRotation)
         {
-            if (item == null || attachPoint == null)
+            if (!CanAttachRuntimeItem(item, attachPoint))
                 return;
 
             Transform itemTransform = item.transform;
@@ -284,6 +294,20 @@ namespace Sol.Fishing
             itemTransform.localPosition = Vector3.zero;
             itemTransform.localRotation = localRotation;
             itemTransform.localScale = DivideScale(worldScale, attachPoint.lossyScale);
+        }
+
+        private static bool CanAttachRuntimeItem(ItemComponent item, Transform attachPoint)
+        {
+            if (item == null || attachPoint == null)
+                return false;
+
+            GameObject itemObject = item.gameObject;
+            GameObject attachObject = attachPoint.gameObject;
+            if (itemObject == null || attachObject == null)
+                return false;
+
+            // Prefab-asset references can survive into serialized fields; never reparent them at runtime.
+            return itemObject.scene.IsValid() && attachObject.scene.IsValid();
         }
 
         private void PositionDisplayedCatchBelowPoint(Transform itemTransform, Transform attachPoint)

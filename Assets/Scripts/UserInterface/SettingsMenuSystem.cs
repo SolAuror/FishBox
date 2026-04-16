@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace Sol.HUD
 {
-    public sealed class SettingsMenuSystem : MonoBehaviour
+    public sealed class SettingsMenuSystem : MenuSystemBase<SettingsMenuSystem>
     {
         [SerializeField] private Button _tabAudio;
         [SerializeField] private Button _tabGraphics;
@@ -38,34 +38,19 @@ namespace Sol.HUD
         [SerializeField] private Button _resetDefaultsButton;
         [SerializeField] private Button _backButton;
 
-        public static SettingsMenuSystem Instance { get; private set; }
-        public bool IsOpen => gameObject.activeSelf;
+        public bool ReturnsToPause => _returnToPause;
 
-        private CanvasGroup _canvasGroup;
         private bool _returnToPause;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-            Instance = this;
-            _canvasGroup = MenuUiUtility.EnsureCanvasGroup(gameObject);
+            base.Awake();
+            if (_instance != this) return;
             AutoWire();
             SetOpen(false);
         }
 
-        private void OnDestroy()
-        {
-            if (Instance == this)
-                Instance = null;
-        }
-
-        public static SettingsMenuSystem ResolveInstance(bool activateIfInactive = true)
-        {
-            SettingsMenuSystem resolved = Instance ?? UIStateOwnership.Resolve<SettingsMenuSystem>(activateIfInactive);
-            if (resolved != null)
-                resolved.AutoWire();
-            return resolved;
-        }
+        protected override void PostResolve() => AutoWire();
 
         public void Open(bool returnToPause = false)
         {
@@ -83,6 +68,11 @@ namespace Sol.HUD
 
         public void Close()
         {
+            Close(_returnToPause);
+        }
+
+        public void Close(bool reopenPause)
+        {
             if (!IsOpen)
                 return;
 
@@ -90,8 +80,8 @@ namespace Sol.HUD
             MenuUiUtility.SetBackgroundUiRaycasts(transform, true);
             UIStateOwnership.SetUiCapture(false);
 
-            if (_returnToPause)
-                PauseMenuSystem.ResolveInstance()?.Open();
+            if (reopenPause)
+                PauseMenuSystem.ResolveInstance()?.Show();
         }
 
         private void AutoWire()
@@ -132,13 +122,6 @@ namespace Sol.HUD
         private void ResetDefaults()
         {
             ActivateTab("audio");
-        }
-
-        private void SetOpen(bool open)
-        {
-            MenuUiUtility.SetVisible(gameObject, open);
-            _canvasGroup ??= MenuUiUtility.EnsureCanvasGroup(gameObject);
-            MenuUiUtility.SetCanvasGroupVisible(_canvasGroup, open);
         }
 
         private static void SetPanelVisible(Object panelReference, bool visible)

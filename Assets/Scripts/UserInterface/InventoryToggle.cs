@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using UnityEngine;
 using UnityEngine.UI;
 using Sol.Locomotion;
 
@@ -25,6 +27,7 @@ namespace Sol.HUD
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            UIStateOwnership.Register<InventoryToggle>(this);
 
             TryResolveReferences();
             EnsureCloseButtonWired();
@@ -38,6 +41,7 @@ namespace Sol.HUD
             if (_closeButton != null && _closeButtonWired)
                 _closeButton.onClick.RemoveListener(Close);
 
+            UIStateOwnership.Unregister<InventoryToggle>();
             if (Instance == this) Instance = null;
         }
 
@@ -126,9 +130,9 @@ namespace Sol.HUD
                 return;
 
             Transform searchRoot = _inventoryPanel != null ? _inventoryPanel.transform : transform;
-            Transform closeTransform = FindDeep(searchRoot, "CloseButton");
+            Transform closeTransform = MenuUiUtility.FindDeep(searchRoot, "CloseButton");
             if (closeTransform == null)
-                closeTransform = FindDeep(searchRoot, "Close");
+                closeTransform = MenuUiUtility.FindDeep(searchRoot, "Close");
 
             if (closeTransform != null)
                 _closeButton = closeTransform.GetComponent<Button>();
@@ -143,27 +147,9 @@ namespace Sol.HUD
             _closeButtonWired = true;
         }
 
-        private static Transform FindDeep(Transform parent, string name)
-        {
-            if (parent == null)
-                return null;
-
-            if (parent.name == name)
-                return parent;
-
-            for (int i = 0; i < parent.childCount; i++)
-            {
-                Transform result = FindDeep(parent.GetChild(i), name);
-                if (result != null)
-                    return result;
-            }
-
-            return null;
-        }
-
         private static T FindAny<T>() where T : Component
         {
-            T[] found = Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            T[] found = UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             if (found == null || found.Length == 0)
                 return null;
 
@@ -180,13 +166,26 @@ namespace Sol.HUD
     /// </summary>
     internal static class UIStateOwnership
     {
+        private static readonly Dictionary<Type, MonoBehaviour> _registry = new();
+
+        public static void Register<T>(T instance) where T : MonoBehaviour
+        {
+            if (instance != null)
+                _registry[typeof(T)] = instance;
+        }
+
+        public static void Unregister<T>() where T : MonoBehaviour
+        {
+            _registry.Remove(typeof(T));
+        }
+
         public static T Resolve<T>(bool activateIfInactive) where T : MonoBehaviour
         {
             T instance = GetKnownInstance<T>();
             if (instance != null)
                 return instance;
 
-            T[] found = Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            T[] found = UnityEngine.Object.FindObjectsByType<T>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             if (found == null || found.Length == 0)
                 return null;
 
@@ -205,37 +204,8 @@ namespace Sol.HUD
 
         public static T GetKnownInstance<T>() where T : MonoBehaviour
         {
-            if (typeof(T) == typeof(InventoryToggle))
-                return InventoryToggle.Instance as T;
-            if (typeof(T) == typeof(TradeUI))
-                return TradeUI.Instance as T;
-            if (typeof(T) == typeof(ConversationWindowSystem))
-                return ConversationWindowSystem.Instance as T;
-            if (typeof(T) == typeof(PauseMenuSystem))
-                return PauseMenuSystem.Instance as T;
-            if (typeof(T) == typeof(SaveMenuSystem))
-                return SaveMenuSystem.Instance as T;
-            if (typeof(T) == typeof(LoadMenuSystem))
-                return LoadMenuSystem.Instance as T;
-            if (typeof(T) == typeof(SettingsMenuSystem))
-                return SettingsMenuSystem.Instance as T;
-            if (typeof(T) == typeof(CharacterMenuSystem))
-                return CharacterMenuSystem.Instance as T;
-            if (typeof(T) == typeof(SkillMenuSystem))
-                return SkillMenuSystem.Instance as T;
-            if (typeof(T) == typeof(DialoguePromptSystem))
-                return DialoguePromptSystem.Instance as T;
-            if (typeof(T) == typeof(RadialMenuSystem))
-                return RadialMenuSystem.Instance as T;
-            if (typeof(T) == typeof(ContextMenuUI))
-                return ContextMenuUI.Instance as T;
-            if (typeof(T) == typeof(TooltipUI))
-                return TooltipUI.Instance as T;
-            if (typeof(T) == typeof(ItemPreviewRenderer))
-                return ItemPreviewRenderer.Instance as T;
-            if (typeof(T) == typeof(UIInputManager))
-                return UIInputManager.Instance as T;
-
+            if (_registry.TryGetValue(typeof(T), out MonoBehaviour instance))
+                return instance as T;
             return null;
         }
 
@@ -291,7 +261,7 @@ namespace Sol.HUD
                 return;
             }
 
-            if (IsAnyBlockingUiOpen())
+            if (IsBlockingUiOpen())
                 return;
 
             Cursor.lockState = CursorLockMode.Locked;
@@ -302,11 +272,6 @@ namespace Sol.HUD
         }
 
         public static bool IsBlockingUiOpen()
-        {
-            return IsAnyBlockingUiOpen();
-        }
-
-        private static bool IsAnyBlockingUiOpen()
         {
             return (InventoryToggle.Instance != null && InventoryToggle.Instance.IsOpen)
                 || (TradeUI.Instance != null && TradeUI.Instance.IsOpen)

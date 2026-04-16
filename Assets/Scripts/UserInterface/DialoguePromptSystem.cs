@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Sol.HUD
 {
-    public sealed class DialoguePromptSystem : MonoBehaviour
+    public sealed class DialoguePromptSystem : MenuSystemBase<DialoguePromptSystem>
     {
         [SerializeField] private Image _icon;
         [SerializeField] private TMP_Text _titleText;
@@ -13,35 +13,18 @@ namespace Sol.HUD
         [SerializeField] private Button _confirmButton;
         [SerializeField] private Button _cancelButton;
 
-        public static DialoguePromptSystem Instance { get; private set; }
-        public bool IsOpen => gameObject.activeSelf;
-
         private Action _confirmAction;
         private Action _cancelAction;
-        private CanvasGroup _canvasGroup;
 
-        private void Awake()
+        protected override void Awake()
         {
-            if (Instance != null && Instance != this) { Destroy(gameObject); return; }
-            Instance = this;
-            _canvasGroup = MenuUiUtility.EnsureCanvasGroup(gameObject);
+            base.Awake();
+            if (_instance != this) return;
             AutoWire();
             SetOpen(false);
         }
 
-        private void OnDestroy()
-        {
-            if (Instance == this)
-                Instance = null;
-        }
-
-        public static DialoguePromptSystem ResolveInstance(bool activateIfInactive = true)
-        {
-            DialoguePromptSystem resolved = Instance ?? UIStateOwnership.Resolve<DialoguePromptSystem>(activateIfInactive);
-            if (resolved != null)
-                resolved.AutoWire();
-            return resolved;
-        }
+        protected override void PostResolve() => AutoWire();
 
         public void Show(
             string title,
@@ -116,13 +99,6 @@ namespace Sol.HUD
 
             MenuUiUtility.WireButton(_confirmButton, OnConfirm);
             MenuUiUtility.WireButton(_cancelButton, OnCancel);
-        }
-
-        private void SetOpen(bool open)
-        {
-            MenuUiUtility.SetVisible(gameObject, open);
-            _canvasGroup ??= MenuUiUtility.EnsureCanvasGroup(gameObject);
-            MenuUiUtility.SetCanvasGroupVisible(_canvasGroup, open);
         }
 
         private static void SetButtonLabel(Button button, string label)

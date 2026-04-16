@@ -8,8 +8,10 @@ namespace Sol.Locomotion
     ///
     /// Requires:
     ///   - An AudioSource (added automatically if missing)
-    ///   - A reference to the LocomotionController (auto-found in parent)
     ///   - A FootstepLibrary asset assigned in the Inspector
+    /// Optional:
+    ///   - A LocomotionController in parents for movement-state volume scaling and landing events.
+    ///     When absent (e.g. on NPCs) footsteps play at default volume using the library default surface.
     /// </summary>
     [AddComponentMenu("Sol/Locomotion/Footstep Player")]
     [RequireComponent(typeof(AudioSource))]
@@ -44,14 +46,11 @@ namespace Sol.Locomotion
             _audio.loop = false;
 
             _controller = GetComponentInParent<LocomotionController>();
-            if (_controller == null)
+            if (_controller != null)
             {
-                Debug.LogWarning("[FootstepPlayer] No LocomotionController found in parents.", this);
-                return;
+                _cc = _controller.GetComponent<CharacterController>();
+                _controller.OnLanded += OnLanded;
             }
-
-            _cc = _controller.GetComponent<CharacterController>();
-            _controller.OnLanded += OnLanded;
         }
 
         private void OnDestroy()
@@ -65,13 +64,14 @@ namespace Sol.Locomotion
         /// </summary>
         public void OnFootstep()
         {
-            if (_library == null || _controller == null) return;
+            if (_library == null) return;
             if (Time.time - _lastStepTime < _minInterval) return;
 
-            // Only play when grounded.
+            // Only play when grounded (skipped if no CharacterController — e.g. NPC).
             if (_cc != null && !_cc.isGrounded) return;
 
-            var surface = _library.Resolve(_controller.CurrentGroundMaterial);
+            PhysicsMaterial groundMat = _controller != null ? _controller.CurrentGroundMaterial : null;
+            var surface = _library.Resolve(groundMat);
             if (surface == null) return;
 
             var clip = surface.GetRandomFootstep();

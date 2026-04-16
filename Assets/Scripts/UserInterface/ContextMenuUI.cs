@@ -67,6 +67,7 @@ namespace Sol.HUD
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+            UIStateOwnership.Register<ContextMenuUI>(this);
             AutoResolveReferences();
             _canvas = GetComponentInParent<Canvas>();
             if (_panel != null) _panel.SetActive(false);
@@ -74,6 +75,7 @@ namespace Sol.HUD
 
         private void OnDestroy()
         {
+            UIStateOwnership.Unregister<ContextMenuUI>();
             if (Instance == this) Instance = null;
         }
 
