@@ -102,10 +102,10 @@ namespace Sol.HUD
                 slotNameText.text = string.IsNullOrWhiteSpace(metadata.SaveName) ? BuildSlotName(slotIndex) : metadata.SaveName.Trim();
 
             if (dateTimeText != null)
-                dateTimeText.text = $"Real: {metadata.Timestamp}";
+                dateTimeText.text = manager.GetSlotInGameDate(slotIndex);
 
             if (playtimeText != null)
-                playtimeText.text = $"World: {manager.GetSlotInGameDate(slotIndex)}\nPlaytime: {SaveManager.FormatPlaytime(metadata.PlaytimeSeconds)}";
+                playtimeText.text = $"{metadata.Timestamp} | {SaveManager.FormatPlaytime(metadata.PlaytimeSeconds)}";
 
             if (thumbnailImage != null)
             {
@@ -150,7 +150,8 @@ namespace Sol.HUD
                     () => LoadSlot(slotIndex),
                     () => { },
                     confirmLabel: "Load",
-                    cancelLabel: "Cancel");
+                    cancelLabel: "Cancel",
+                    closeConflictingUi: false);
                 return;
             }
 
@@ -179,7 +180,8 @@ namespace Sol.HUD
                     () => DeleteSlot(slotIndex),
                     () => { },
                     confirmLabel: "Delete",
-                    cancelLabel: "Cancel");
+                    cancelLabel: "Cancel",
+                    closeConflictingUi: false);
                 return;
             }
 

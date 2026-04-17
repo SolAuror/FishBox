@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 using Sol.AI;
 
@@ -37,6 +39,7 @@ namespace Sol.HUD
         private NavMeshAgent _speakerAgent;
         private bool _speakerAgentStopLockApplied;
         private bool _speakerAgentWasStopped;
+        private bool _speakerAgentUpdateRotationWasEnabled;
 
         private void Awake()
         {
@@ -48,6 +51,7 @@ namespace Sol.HUD
 
             Instance = this;
             UIStateOwnership.Register<ConversationWindowSystem>(this);
+            EnsureUiEventSystem();
             AutoWire();
             SetWindowVisible(false);
         }
@@ -90,7 +94,10 @@ namespace Sol.HUD
                 resolved.gameObject.SetActive(true);
 
             if (resolved != null)
+            {
+                EnsureUiEventSystem();
                 resolved.AutoWire();
+            }
 
             return Instance ?? resolved;
         }
@@ -105,6 +112,7 @@ namespace Sol.HUD
             Transform speakerTransform = null,
             Transform listenerTransform = null)
         {
+            EnsureUiEventSystem();
             AutoWire();
             UIStateOwnership.CloseConflictingUi(nameof(ConversationWindowSystem));
 
@@ -132,6 +140,7 @@ namespace Sol.HUD
                 _speakerRoleText.text = _speakerRoleLine;
 
             RebuildOptions(options);
+            SetupNavigation();
             _speakerTransform = speakerTransform;
             _listenerTransform = listenerTransform;
             ApplyConversationSpeakerLock();
@@ -203,10 +212,10 @@ namespace Sol.HUD
         {
             Button optionButton = Instantiate(_optionTemplateButton, _optionsRoot);
             optionButton.gameObject.SetActive(true);
+            optionButton.interactable = true;
             optionButton.name = $"Option_{optionIndex + 1:00}";
             optionButton.onClick.RemoveAllListeners();
             optionButton.onClick.AddListener(() => SelectOption(optionIndex));
-
             TextMeshProUGUI labelText = optionButton.GetComponentInChildren<TextMeshProUGUI>(true);
             if (labelText != null)
                 labelText.text = $"> {label}";
@@ -247,9 +256,9 @@ namespace Sol.HUD
             if (_optionsRoot == null)
                 _optionsRoot = FindDeep(transform, "OptionsList") as RectTransform;
             if (_optionTemplateButton == null)
-                _optionTemplateButton = FindDeep(transform, "OptionTemplate")?.GetComponent<Button>();
+                _optionTemplateButton = MenuUiUtility.FindButtonByNames(transform, "OptionTemplate", "OptionsButton", "OptionButton");
             if (_cancelButton == null)
-                _cancelButton = FindDeep(transform, "Cancel")?.GetComponent<Button>();
+                _cancelButton = MenuUiUtility.FindButtonByNames(transform, "Cancel", "CloseButton", "Close", "Back");
             if (_topicHintText == null)
                 _topicHintText = FindDeep(transform, "TopicHint")?.GetComponent<TextMeshProUGUI>();
             if (_speakerRoleText == null)
@@ -259,6 +268,8 @@ namespace Sol.HUD
             {
                 _cancelButton.onClick.RemoveListener(Hide);
                 _cancelButton.onClick.AddListener(Hide);
+                _cancelButton.interactable = true;
+                MenuUiUtility.MakeButtonClickable(_cancelButton);
             }
 
             if (_optionTemplateButton != null && _optionTemplateButton.transform.parent == _optionsRoot)
@@ -294,8 +305,10 @@ namespace Sol.HUD
             if (_speakerAgent != null && _speakerAgent.isOnNavMesh)
             {
                 _speakerAgentWasStopped = _speakerAgent.isStopped;
+                _speakerAgentUpdateRotationWasEnabled = _speakerAgent.updateRotation;
                 _speakerAgent.ResetPath();
                 _speakerAgent.isStopped = true;
+                _speakerAgent.updateRotation = false;
                 _speakerAgentStopLockApplied = true;
             }
         }
@@ -310,6 +323,9 @@ namespace Sol.HUD
                 _speakerAgent.isStopped = true;
                 if (_speakerAgent.hasPath)
                     _speakerAgent.ResetPath();
+
+                _speakerAgent.velocity = Vector3.zero;
+                _speakerAgent.nextPosition = _speakerTransform.position;
             }
 
             if (_listenerTransform == null)
@@ -321,21 +337,25 @@ namespace Sol.HUD
                 return;
 
             Quaternion targetRotation = Quaternion.LookRotation(toListener.normalized, Vector3.up);
-            _speakerTransform.rotation = Quaternion.Slerp(
+            _speakerTransform.rotation = Quaternion.RotateTowards(
                 _speakerTransform.rotation,
                 targetRotation,
-                Time.unscaledDeltaTime * 14f);
+                Time.unscaledDeltaTime * 540f);
         }
 
         private void ReleaseConversationSpeakerLock()
         {
             if (_speakerAgentStopLockApplied && _speakerAgent != null && _speakerAgent.isOnNavMesh)
+            {
                 _speakerAgent.isStopped = _speakerAgentWasStopped;
+                _speakerAgent.updateRotation = _speakerAgentUpdateRotationWasEnabled;
+            }
 
             _speakerNpc = null;
             _speakerAgent = null;
             _speakerAgentStopLockApplied = false;
             _speakerAgentWasStopped = false;
+            _speakerAgentUpdateRotationWasEnabled = false;
         }
 
         private static Transform FindDeep(Transform parent, string name)
@@ -354,6 +374,105 @@ namespace Sol.HUD
             }
 
             return null;
+        }
+
+
+        private void SetupNavigation()
+        {
+            List<Button> buttons = new List<Button>(_spawnedOptionButtons.Count + 1);
+            for (int i = 0; i < _spawnedOptionButtons.Count; i++)
+            {
+                Button option = _spawnedOptionButtons[i];
+                if (IsNavigable(option))
+                    buttons.Add(option);
+            }
+
+            if (IsNavigable(_cancelButton))
+                buttons.Add(_cancelButton);
+
+            for (int i = 0; i < buttons.Count; i++)
+            {
+                Button button = buttons[i];
+                Navigation navigation = button.navigation;
+                navigation.mode = Navigation.Mode.Explicit;
+                navigation.selectOnUp = FindPrevious(buttons, i);
+                navigation.selectOnDown = FindNext(buttons, i);
+                button.navigation = navigation;
+            }
+        }
+
+        private static Selectable FindPrevious(List<Button> buttons, int current)
+        {
+            for (int i = current - 1; i >= 0; i--)
+            {
+                if (IsNavigable(buttons[i]))
+                    return buttons[i];
+            }
+
+            for (int i = buttons.Count - 1; i > current; i--)
+            {
+                if (IsNavigable(buttons[i]))
+                    return buttons[i];
+            }
+
+            return IsNavigable(buttons[current]) ? buttons[current] : null;
+        }
+
+        private static Selectable FindNext(List<Button> buttons, int current)
+        {
+            for (int i = current + 1; i < buttons.Count; i++)
+            {
+                if (IsNavigable(buttons[i]))
+                    return buttons[i];
+            }
+
+            for (int i = 0; i < current; i++)
+            {
+                if (IsNavigable(buttons[i]))
+                    return buttons[i];
+            }
+
+            return IsNavigable(buttons[current]) ? buttons[current] : null;
+        }
+
+        private static bool IsNavigable(Button button)
+        {
+            return button != null
+                && button.gameObject != null
+                && button.gameObject.activeInHierarchy
+                && button.interactable;
+        }
+
+        private static void EnsureUiEventSystem()
+        {
+            EventSystem eventSystem = EventSystem.current;
+            if (eventSystem == null)
+            {
+                GameObject eventSystemGO = new GameObject("EventSystem");
+                eventSystem = eventSystemGO.AddComponent<EventSystem>();
+            }
+            else if (!eventSystem.enabled)
+            {
+                eventSystem.enabled = true;
+            }
+
+            InputSystemUIInputModule inputModule = eventSystem.GetComponent<InputSystemUIInputModule>();
+            if (inputModule == null)
+            {
+                inputModule = eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
+            }
+            else if (!inputModule.enabled)
+            {
+                inputModule.enabled = true;
+            }
+
+            StandaloneInputModule legacyModule = eventSystem.GetComponent<StandaloneInputModule>();
+            if (legacyModule != null)
+                legacyModule.enabled = false;
+
+            UIInputModuleFix fix = eventSystem.GetComponent<UIInputModuleFix>();
+            if (fix == null)
+                fix = eventSystem.gameObject.AddComponent<UIInputModuleFix>();
         }
     }
 }

@@ -53,7 +53,6 @@ GameObject:
   - component: {fileID: 7264720973130725878}
   - component: {fileID: 6471809172768832244}
   - component: {fileID: 3943507199344602462}
-  - component: {fileID: 819384690609432624}
   - component: {fileID: 1206358725295440189}
   - component: {fileID: 1121901956873848968}
   m_Layer: 10
@@ -143,6 +142,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sol.NpcTradeInteractable
   _prompt: Trade
   _lootPrompt: Loot
+  _useConversationWindow: 1
+  _talkPrompt: Talk
+  _greetingLine: What can I do for you?
+  _tradeOptionLabel: Trade
+  _goodbyeOptionLabel: Goodbye
+  _speakerIcon: {fileID: 0}
   _goldLootItemTemplate: {fileID: 0}
   _maxGoldItemizeAttemptsPerOpen: 2000
 --- !u!114 &5059792995562570820
@@ -178,21 +183,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a853cd72f4831540a479ce74c027d67, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.NPCSoul
-  NPCName: Elsbeth
+  _soulType: 0
+  _characterName: Elsbeth
   _health: 100
   MaxHealth: 100
-  _hunger: 100
-  MaxHunger: 100
-  _thirst: 100
-  MaxThirst: 100
-  _stamina: 100
-  MaxStamina: 100
-  _mood: 100
-  MaxMood: 100
-  _hungerDecayRate: 0.5
-  _thirstDecayRate: 0.7
-  _staminaRegenRate: 5
-  _starvationDamage: 1
 --- !u!114 &5873582968478298247
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -283,10 +277,6 @@ MonoBehaviour:
   SpeedMultiplier: 1
   JumpMultiplier: 1
   SwimSpeedMultiplier: 1
-  sprintStaminaDrain: 10
-  runStaminaDrain: 3
-  swimStaminaDrain: 5
-  flyStaminaDrain: 8
   landingImpactThreshold: 3
   hardLandingDistance: 8
   hardLandingRecoveryTime: 0.4
@@ -387,6 +377,8 @@ MonoBehaviour:
   _gold: 46
   _containerType: 0
   _inspectorContents: []
+  _owner: {fileID: 0}
+  _ownerId: 
   _isLocked: 0
   _isLockpickable: 1
   _lockLevel: 0
@@ -404,29 +396,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed11ff3d19f6cb84593e4e1886fe3de3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Equipment
---- !u!114 &819384690609432624
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 325812429563024634}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bc7c6ad584eb42c418c652fcb84b846e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.DetectionSystem
-  _fovAngle: 60
-  _detectionRange: 15
-  _buildRate: 0.5
-  _decayRate: 0.3
-  _obstacleMask:
-    serializedVersion: 2
-    m_Bits: 1
-  _eyeHeight: 1.6
-  _targetMask:
-    serializedVersion: 2
-    m_Bits: 1032
 --- !u!82 &1206358725295440189
 AudioSource:
   m_ObjectHideFlags: 0
@@ -3968,11 +3937,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 702956918056017256, guid: 92cf163e81cf0964698f4b9b379e4d2d, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 2.126
+      value: 1.921
       objectReference: {fileID: 0}
     - target: {fileID: 702956918056017256, guid: 92cf163e81cf0964698f4b9b379e4d2d, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.706
+      value: 0.003
       objectReference: {fileID: 0}
     - target: {fileID: 702956918056017256, guid: 92cf163e81cf0964698f4b9b379e4d2d, type: 3}
       propertyPath: m_LocalRotation.w
@@ -4038,8 +4007,12 @@ PrefabInstance:
       propertyPath: m_Name
       value: NPCDebugUI
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedComponents:
+    - {fileID: 1131606470241319889, guid: 92cf163e81cf0964698f4b9b379e4d2d, type: 3}
+    m_RemovedGameObjects:
+    - {fileID: 2376919737785597066, guid: 92cf163e81cf0964698f4b9b379e4d2d, type: 3}
+    - {fileID: 924630283940757391, guid: 92cf163e81cf0964698f4b9b379e4d2d, type: 3}
+    - {fileID: 989072596504525714, guid: 92cf163e81cf0964698f4b9b379e4d2d, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 92cf163e81cf0964698f4b9b379e4d2d, type: 3}

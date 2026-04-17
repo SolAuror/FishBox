@@ -33,10 +33,12 @@ namespace Sol.HUD
             Action cancelAction = null,
             string confirmLabel = "Confirm",
             string cancelLabel = "Cancel",
-            Sprite icon = null)
+            Sprite icon = null,
+            bool closeConflictingUi = true)
         {
             AutoWire();
-            UIStateOwnership.CloseConflictingUi(nameof(DialoguePromptSystem));
+            if (closeConflictingUi)
+                UIStateOwnership.CloseConflictingUi(nameof(DialoguePromptSystem));
 
             _confirmAction = confirmAction;
             _cancelAction = cancelAction;
@@ -55,12 +57,26 @@ namespace Sol.HUD
 
             SetButtonLabel(_confirmButton, confirmLabel);
             SetButtonLabel(_cancelButton, cancelLabel);
+
+            bool canConfirm = confirmAction != null;
+            if (_confirmButton != null)
+            {
+                _confirmButton.interactable = canConfirm;
+                MenuUiUtility.MakeButtonClickable(_confirmButton);
+            }
+
+            if (_cancelButton != null)
+            {
+                _cancelButton.interactable = true;
+                MenuUiUtility.MakeButtonClickable(_cancelButton);
+            }
+
             SetOpen(true);
             MenuUiUtility.BringToFront(transform.parent);
             MenuUiUtility.BringToFront(transform);
             MenuUiUtility.SetBackgroundUiRaycasts(transform, false);
             UIStateOwnership.SetUiCapture(true);
-            MenuUiUtility.SelectButton(_confirmButton != null ? _confirmButton : _cancelButton);
+            MenuUiUtility.SelectButton(canConfirm && _confirmButton != null ? _confirmButton : _cancelButton);
         }
 
         public void Close()

@@ -106,7 +106,8 @@ namespace Sol.HUD
                     () => SaveToSlot(slot),
                     () => { },
                     confirmLabel: "Overwrite",
-                    cancelLabel: "Cancel");
+                    cancelLabel: "Cancel",
+                    closeConflictingUi: false);
                 return;
             }
 
@@ -124,7 +125,9 @@ namespace Sol.HUD
                 return;
 
             StopAllCoroutines();
-            StartCoroutine(RefreshAfterScreenshotCapture());
+
+            if (isActiveAndEnabled)
+                StartCoroutine(RefreshAfterScreenshotCapture());
         }
 
         private IEnumerator RefreshAfterScreenshotCapture()
@@ -188,16 +191,16 @@ namespace Sol.HUD
 
             if (dateTimeText != null)
                 dateTimeText.text = hasSave
-                    ? $"Real: {metadata.Timestamp}"
-                    : "Real: Empty";
+                    ? manager.GetSlotInGameDate(slotIndex)
+                    : "Empty";
 
             if (playtimeText != null)
             {
-                string inGameDate = hasSave ? manager.GetSlotInGameDate(slotIndex) : string.Empty;
+                string realDate = hasSave ? metadata.Timestamp : string.Empty;
                 string playtime = hasSave ? SaveManager.FormatPlaytime(metadata.PlaytimeSeconds) : "0m";
                 playtimeText.text = hasSave
-                    ? $"World: {inGameDate}\nPlaytime: {playtime}"
-                    : "World: --\nPlaytime: 0m";
+                    ? $"{realDate} | {playtime}"
+                    : "-- | 0m";
             }
 
             if (thumbnailImage != null)
@@ -250,7 +253,8 @@ namespace Sol.HUD
                     () => SaveToSlot(slotIndex),
                     () => { },
                     confirmLabel: "Overwrite",
-                    cancelLabel: "Cancel");
+                    cancelLabel: "Cancel",
+                    closeConflictingUi: false);
                 return;
             }
 
@@ -268,7 +272,8 @@ namespace Sol.HUD
                     () => DeleteSlot(slotIndex),
                     () => { },
                     confirmLabel: "Delete",
-                    cancelLabel: "Cancel");
+                    cancelLabel: "Cancel",
+                    closeConflictingUi: false);
                 return;
             }
 
