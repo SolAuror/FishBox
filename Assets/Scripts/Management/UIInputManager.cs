@@ -185,24 +185,21 @@ namespace Sol.HUD
             SettingsMenuSystem settingsMenu = UIStateOwnership.Resolve<SettingsMenuSystem>(activateIfInactive: false);
             if (settingsMenu != null && settingsMenu.IsOpen && settingsMenu.ReturnsToPause)
             {
-                settingsMenu.Close(reopenPause: false);
-                PauseMenuSystem.ResolveInstance(activateIfInactive: true)?.Show();
+                settingsMenu.Close(reopenPause: true);
                 return true;
             }
 
             SaveMenuSystem saveMenu = UIStateOwnership.Resolve<SaveMenuSystem>(activateIfInactive: false);
             if (saveMenu != null && saveMenu.IsOpen && saveMenu.ReturnsToPause)
             {
-                saveMenu.Close(reopenPause: false);
-                PauseMenuSystem.ResolveInstance(activateIfInactive: true)?.Show();
+                saveMenu.Close(reopenPause: true);
                 return true;
             }
 
             LoadMenuSystem loadMenu = UIStateOwnership.Resolve<LoadMenuSystem>(activateIfInactive: false);
             if (loadMenu != null && loadMenu.IsOpen && loadMenu.ReturnsToPause)
             {
-                loadMenu.Close(reopenPause: false);
-                PauseMenuSystem.ResolveInstance(activateIfInactive: true)?.Show();
+                loadMenu.Close(reopenPause: true);
                 return true;
             }
 

@@ -26,6 +26,9 @@ namespace Sol.HUD
         [SerializeField] private int _textureSize = 256;
         [SerializeField] private float _rotationSpeed = 20f;
         [SerializeField] private float _cameraDistance = 2f;
+        [SerializeField] private float _previewLightIntensity = 1.15f;
+
+        private static readonly Color ClearColor = new(0f, 0f, 0f, 0f);
 
         public RenderTexture RenderTexture { get; private set; }
         public static ItemPreviewRenderer Instance { get; private set; }
@@ -39,6 +42,12 @@ namespace Sol.HUD
             Instance = this;
             UIStateOwnership.Register<ItemPreviewRenderer>(this);
 
+            if (_anchor == null)
+                _anchor = transform;
+
+            if (_pivot == null)
+                _pivot = _anchor;
+
             RenderTexture = new RenderTexture(_textureSize, _textureSize, 16);
             RenderTexture.antiAliasing = 2;
 
@@ -46,8 +55,14 @@ namespace Sol.HUD
             {
                 _previewCamera.targetTexture = RenderTexture;
                 _previewCamera.cullingMask = 1 << _previewLayer;
+                _previewCamera.clearFlags = CameraClearFlags.SolidColor;
+                _previewCamera.backgroundColor = ClearColor;
                 _previewCamera.enabled = false;
             }
+
+            EnsurePreviewLight();
+
+            ClearRenderTarget();
         }
 
         private void OnDestroy()
@@ -78,16 +93,20 @@ namespace Sol.HUD
             _currentInstance.SetActive(true);   // Source may be inactive (in inventory).
             _currentInstance.transform.localPosition = Vector3.zero;
             _currentInstance.transform.localRotation = Quaternion.identity;
+            _currentInstance.transform.localScale = Vector3.one;
 
+            PrepareRenderers(_currentInstance);
             StripGameplayComponents(_currentInstance);
             SetLayerRecursive(_currentInstance, _previewLayer);
-            FrameObject(_currentInstance);
+            _isActive = FrameObject(_currentInstance);
 
-            _isActive = true;
+            ClearRenderTarget();
+
             if (_previewCamera != null)
             {
-                _previewCamera.enabled = true;
-                _previewCamera.Render();
+                _previewCamera.enabled = _isActive;
+                if (_isActive)
+                    _previewCamera.Render();
             }
         }
 
@@ -106,6 +125,26 @@ namespace Sol.HUD
 
             if (_previewCamera != null)
                 _previewCamera.enabled = false;
+
+            ClearRenderTarget();
+        }
+
+        private static void PrepareRenderers(GameObject go)
+        {
+            Renderer[] renderers = go.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null)
+                    continue;
+
+                renderer.gameObject.SetActive(true);
+                renderer.enabled = true;
+                renderer.forceRenderingOff = false;
+
+                if (renderer is SkinnedMeshRenderer skinned)
+                    skinned.updateWhenOffscreen = true;
+            }
         }
 
         private void StripGameplayComponents(GameObject go)
@@ -130,19 +169,41 @@ namespace Sol.HUD
             }
         }
 
-        private void FrameObject(GameObject go)
+        private bool FrameObject(GameObject go)
         {
+            if (go == null || _pivot == null || _anchor == null || _previewCamera == null)
+                return false;
+
             // Calculate combined bounds of all renderers.
             var renderers = go.GetComponentsInChildren<Renderer>(true);
-            if (renderers.Length == 0) return;
+            if (renderers.Length == 0)
+                return false;
 
-            var bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++)
-                bounds.Encapsulate(renderers[i].bounds);
+            bool hasBounds = false;
+            Bounds bounds = default;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Renderer renderer = renderers[i];
+                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+                    continue;
+
+                if (!hasBounds)
+                {
+                    bounds = renderer.bounds;
+                    hasBounds = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(renderer.bounds);
+                }
+            }
+
+            if (!hasBounds)
+                return false;
 
             // Center the object on the pivot.
-            var offset = _pivot.position - bounds.center;
-            go.transform.localPosition += go.transform.InverseTransformVector(offset);
+            Vector3 centerOffset = _pivot.position - bounds.center;
+            go.transform.position += centerOffset;
 
             // Normalize scale so the object fits in view.
             float maxExtent = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z);
@@ -153,12 +214,49 @@ namespace Sol.HUD
                 go.transform.localScale *= scaleFactor;
             }
 
-            // Position camera to frame the object.
-            if (_previewCamera != null && _anchor != null)
+            hasBounds = false;
+            for (int i = 0; i < renderers.Length; i++)
             {
-                _previewCamera.transform.position = _anchor.position + _anchor.forward * -_cameraDistance;
-                _previewCamera.transform.LookAt(_anchor.position);
+                Renderer renderer = renderers[i];
+                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
+                    continue;
+
+                if (!hasBounds)
+                {
+                    bounds = renderer.bounds;
+                    hasBounds = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(renderer.bounds);
+                }
             }
+
+            if (!hasBounds)
+                return false;
+
+            // Position camera to frame the object.
+            float radius = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z) * 1.25f;
+            float halfFov = Mathf.Max(1f, _previewCamera.fieldOfView * 0.5f) * Mathf.Deg2Rad;
+            float distance = Mathf.Max(_cameraDistance * 0.5f, radius / Mathf.Tan(halfFov));
+
+            _previewCamera.transform.position = _anchor.position + _anchor.forward * -distance;
+            _previewCamera.transform.LookAt(_anchor.position);
+            _previewCamera.nearClipPlane = 0.01f;
+            _previewCamera.farClipPlane = Mathf.Max(10f, distance + radius * 4f);
+
+            return true;
+        }
+
+        private void ClearRenderTarget()
+        {
+            if (RenderTexture == null)
+                return;
+
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = RenderTexture;
+            GL.Clear(true, true, ClearColor);
+            RenderTexture.active = previous;
         }
 
         private static void SetLayerRecursive(GameObject go, int layer)
@@ -166,6 +264,28 @@ namespace Sol.HUD
             go.layer = layer;
             for (int i = 0; i < go.transform.childCount; i++)
                 SetLayerRecursive(go.transform.GetChild(i).gameObject, layer);
+        }
+
+        private void EnsurePreviewLight()
+        {
+            Light light = GetComponentInChildren<Light>(true);
+            if (light == null)
+            {
+                GameObject lightGo = new("PreviewLight", typeof(Light));
+                lightGo.transform.SetParent(transform, false);
+                lightGo.transform.localPosition = Vector3.zero;
+                lightGo.transform.localRotation = Quaternion.Euler(50f, -30f, 0f);
+                light = lightGo.GetComponent<Light>();
+            }
+
+            if (light == null)
+                return;
+
+            light.type = LightType.Directional;
+            light.shadows = LightShadows.None;
+            light.intensity = Mathf.Max(0f, _previewLightIntensity);
+            light.cullingMask = 1 << _previewLayer;
+            light.enabled = true;
         }
     }
 }

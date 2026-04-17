@@ -26,6 +26,7 @@ namespace Sol.HUD
         public bool IsVisible => IsOpen;
 
         private float _previousTimeScale;
+        private bool _pauseSessionActive;
 
         protected override void Awake()
         {
@@ -68,10 +69,11 @@ namespace Sol.HUD
             PrepareForInteraction();
             UIStateOwnership.CloseConflictingUi(nameof(PauseMenuSystem));
 
-            if (_pauseTimeOnShow)
+            if (_pauseTimeOnShow && !_pauseSessionActive)
             {
                 _previousTimeScale = Time.timeScale;
                 Time.timeScale = 0f;
+                _pauseSessionActive = true;
             }
 
             SetOpen(true);
@@ -88,11 +90,24 @@ namespace Sol.HUD
                 return;
 
             SetOpen(false);
-
-            if (_pauseTimeOnShow)
-                Time.timeScale = _previousTimeScale;
-
             MenuUiUtility.SetBackgroundUiRaycasts(transform, true);
+            EndPauseSession();
+            UIStateOwnership.SetUiCapture(false);
+        }
+
+        public void HideForSubmenu()
+        {
+            if (!IsOpen)
+                return;
+
+            SetOpen(false);
+            MenuUiUtility.SetBackgroundUiRaycasts(transform, true);
+            UIStateOwnership.SetUiCapture(false);
+        }
+
+        public void EndPauseSessionFromSubmenu()
+        {
+            EndPauseSession();
             UIStateOwnership.SetUiCapture(false);
         }
 
@@ -134,9 +149,12 @@ namespace Sol.HUD
 
             if (SettingsMenuSystem.Instance == null || !SettingsMenuSystem.Instance.IsOpen)
             {
-                Hide();
+                HideForSubmenu();
                 SettingsMenuSystem settingsMenu = SettingsMenuSystem.ResolveInstance(activateIfInactive: true);
-                settingsMenu?.Open(returnToPause: true);
+                if (settingsMenu != null)
+                    settingsMenu.Open(returnToPause: true);
+                else
+                    Show();
             }
         }
 
@@ -146,9 +164,12 @@ namespace Sol.HUD
 
             if (SaveMenuSystem.Instance == null || !SaveMenuSystem.Instance.IsOpen)
             {
-                Hide();
+                HideForSubmenu();
                 SaveMenuSystem saveMenu = SaveMenuSystem.ResolveInstance(activateIfInactive: true);
-                saveMenu?.Open(returnToPause: true);
+                if (saveMenu != null)
+                    saveMenu.Open(returnToPause: true);
+                else
+                    Show();
             }
         }
 
@@ -158,18 +179,28 @@ namespace Sol.HUD
 
             if (LoadMenuSystem.Instance == null || !LoadMenuSystem.Instance.IsOpen)
             {
-                Hide();
+                HideForSubmenu();
                 LoadMenuSystem loadMenu = LoadMenuSystem.ResolveInstance(activateIfInactive: true);
-                loadMenu?.Open(returnToPause: true);
+                if (loadMenu != null)
+                    loadMenu.Open(returnToPause: true);
+                else
+                    Show();
             }
         }
 
         private void DoQuit()
         {
-            if (_pauseTimeOnShow)
-                Time.timeScale = _previousTimeScale;
-
+            EndPauseSession();
             OnQuit?.Invoke();
+        }
+
+        private void EndPauseSession()
+        {
+            if (!_pauseTimeOnShow || !_pauseSessionActive)
+                return;
+
+            Time.timeScale = _previousTimeScale;
+            _pauseSessionActive = false;
         }
 
         private void AutoWire()

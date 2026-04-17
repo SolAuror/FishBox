@@ -47,7 +47,7 @@ namespace Sol.HUD
 
         public void Close()
         {
-            Close(_returnToPause);
+            Close(false);
         }
 
         public void Close(bool reopenPause)
@@ -55,12 +55,29 @@ namespace Sol.HUD
             if (!IsOpen)
                 return;
 
+            bool wasPauseSubmenu = _returnToPause;
+            _returnToPause = false;
+
             SetOpen(false);
             MenuUiUtility.SetBackgroundUiRaycasts(transform, true);
-            UIStateOwnership.SetUiCapture(false);
 
             if (reopenPause)
+            {
                 PauseMenuSystem.ResolveInstance()?.Show();
+                return;
+            }
+
+            if (wasPauseSubmenu)
+            {
+                PauseMenuSystem pauseMenu = PauseMenuSystem.ResolveInstance(activateIfInactive: false);
+                if (pauseMenu != null)
+                {
+                    pauseMenu.EndPauseSessionFromSubmenu();
+                    return;
+                }
+            }
+
+            UIStateOwnership.SetUiCapture(false);
         }
 
         private void RebuildSlots()

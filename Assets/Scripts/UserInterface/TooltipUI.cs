@@ -112,9 +112,6 @@ namespace Sol.HUD
         {
             if (item == null) return;
 
-            // Skip redundant updates.
-            if (_currentItem == item && _panel != null && _panel.activeSelf) return;
-
             _currentItem = item;
 
             if (_nameText != null) _nameText.text = BuildDisplayName(item);
@@ -129,11 +126,19 @@ namespace Sol.HUD
             if (_statsText != null)
                 _statsText.text = BuildStatsText(item);
 
-            // Bind preview render texture if the preview renderer is active.
-            if (_previewImage != null && ItemPreviewRenderer.Instance != null)
+            ItemPreviewRenderer previewRenderer = ItemPreviewRenderer.Instance
+                ?? UIStateOwnership.Resolve<ItemPreviewRenderer>(activateIfInactive: true);
+
+            if (_previewImage != null && previewRenderer != null)
             {
-                _previewImage.texture = ItemPreviewRenderer.Instance.RenderTexture;
+                _previewImage.texture = previewRenderer.RenderTexture;
                 _previewImage.gameObject.SetActive(true);
+                previewRenderer.Show(item);
+            }
+            else if (_previewImage != null)
+            {
+                _previewImage.texture = null;
+                _previewImage.gameObject.SetActive(false);
             }
 
             if (_panel != null) _panel.SetActive(true);
@@ -145,6 +150,7 @@ namespace Sol.HUD
             _currentItem = null;
             UpdateStolenIndicator(null);
             if (_panel != null) _panel.SetActive(false);
+            ItemPreviewRenderer.Instance?.Clear();
         }
 
         private void LateUpdate()

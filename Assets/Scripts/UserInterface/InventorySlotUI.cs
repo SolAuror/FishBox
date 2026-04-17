@@ -151,7 +151,6 @@ namespace Sol.HUD
             {
                 TooltipUI tooltip = TooltipUI.Instance ?? TooltipUI.ResolveInstance();
                 if (tooltip != null) tooltip.Show(_slot.Item);
-                if (ItemPreviewRenderer.Instance != null) ItemPreviewRenderer.Instance.Show(_slot.Item);
             }
         }
 
@@ -166,7 +165,6 @@ namespace Sol.HUD
             {
                 TooltipUI tooltip = TooltipUI.Instance ?? TooltipUI.ResolveInstance();
                 if (tooltip != null) tooltip.Hide();
-                if (ItemPreviewRenderer.Instance != null) ItemPreviewRenderer.Instance.Clear();
             }
         }
 

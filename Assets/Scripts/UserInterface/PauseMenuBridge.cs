@@ -30,15 +30,6 @@ namespace Sol.HUD
             if (_pauseMenu == null)
                 return;
 
-            _pauseMenu.OnSettings -= HandleSettings;
-            _pauseMenu.OnSettings += HandleSettings;
-
-            _pauseMenu.OnSaveGame -= HandleSaveGame;
-            _pauseMenu.OnSaveGame += HandleSaveGame;
-
-            _pauseMenu.OnLoadGame -= HandleLoadGame;
-            _pauseMenu.OnLoadGame += HandleLoadGame;
-
             _pauseMenu.OnQuit -= HandleQuit;
             _pauseMenu.OnQuit += HandleQuit;
         }
@@ -47,35 +38,7 @@ namespace Sol.HUD
         {
             if (_pauseMenu == null)
                 return;
-
-            _pauseMenu.OnSettings -= HandleSettings;
-            _pauseMenu.OnSaveGame -= HandleSaveGame;
-            _pauseMenu.OnLoadGame -= HandleLoadGame;
             _pauseMenu.OnQuit -= HandleQuit;
-        }
-
-        private void HandleSettings()
-        {
-            PauseMenuSystem.Instance?.Hide();
-
-            SettingsMenuSystem settingsMenu = SettingsMenuSystem.ResolveInstance(activateIfInactive: true);
-            settingsMenu?.Open(returnToPause: true);
-        }
-
-        private void HandleSaveGame()
-        {
-            PauseMenuSystem.Instance?.Hide();
-
-            SaveMenuSystem saveMenu = SaveMenuSystem.ResolveInstance(activateIfInactive: true);
-            saveMenu?.Open(returnToPause: true);
-        }
-
-        private void HandleLoadGame()
-        {
-            PauseMenuSystem.Instance?.Hide();
-
-            LoadMenuSystem loadMenu = LoadMenuSystem.ResolveInstance(activateIfInactive: true);
-            loadMenu?.Open(returnToPause: true);
         }
 
         private void HandleQuit()

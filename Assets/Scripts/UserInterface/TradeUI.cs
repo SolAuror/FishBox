@@ -54,6 +54,7 @@ namespace Sol.HUD
             Instance = this;
             UIStateOwnership.Register<TradeUI>(this);
             TryResolveInventoryPanelReferences();
+            TryResolveFixedInfoReferences();
         }
 
         private void OnDestroy()
@@ -65,6 +66,7 @@ namespace Sol.HUD
         private void Start()
         {
             TryResolveInventoryPanelReferences();
+            TryResolveFixedInfoReferences();
             if (_tradePanel != null && !IsOpen) _tradePanel.SetActive(false);
             if (_confirmButton != null) _confirmButton.onClick.AddListener(ConfirmTrade);
             if (_cancelButton != null) _cancelButton.onClick.AddListener(CancelTrade);
@@ -104,6 +106,7 @@ namespace Sol.HUD
         {
             if (IsOpen || playerInventory == null || npcInventory == null) return;
             if (_playerInventoryUI == null || _npcInventoryUI == null) TryResolveInventoryPanelReferences();
+            TryResolveFixedInfoReferences();
             if (_playerInventoryUI == null || _npcInventoryUI == null)
             {
                 Debug.LogWarning("[TradeUI] Inventory panel references are not assigned.", this);
@@ -328,6 +331,7 @@ namespace Sol.HUD
         private void InspectSlot(InventorySlot slot)
         {
             if (slot?.Item == null) { ClearInspectedItem(); return; }
+            TryResolveFixedInfoReferences();
             Sol.Grab.ItemComponent item = slot.Item;
             if (_itemNameText != null) _itemNameText.text = BuildDisplayName(item);
             UpdateStolenIndicator(item);
@@ -413,6 +417,35 @@ namespace Sol.HUD
 
             if (_playerInventoryUI == null && foundPanels.Length > 0) _playerInventoryUI = foundPanels[0];
             if (_npcInventoryUI == null) for (int i = 0; i < foundPanels.Length; i++) if (foundPanels[i] != null && foundPanels[i] != _playerInventoryUI) { _npcInventoryUI = foundPanels[i]; break; }
+        }
+
+        private void TryResolveFixedInfoReferences()
+        {
+            Transform root = _tradePanel != null ? _tradePanel.transform : transform;
+            Transform fixedTooltipRoot = MenuUiUtility.FindDeep(root, "FixedTooltip") ?? root;
+
+            if (_itemNameText == null)
+                _itemNameText = MenuUiUtility.FindTextByNames(fixedTooltipRoot, "NameText", "ItemNameText", "ItemName") as TextMeshProUGUI;
+
+            if (_itemTypeText == null)
+                _itemTypeText = MenuUiUtility.FindTextByNames(fixedTooltipRoot, "TypeText", "ItemTypeText", "ItemType") as TextMeshProUGUI;
+
+            if (_itemFlavourText == null)
+                _itemFlavourText = MenuUiUtility.FindTextByNames(fixedTooltipRoot, "FlavourText", "FlavorText", "ItemFlavourText", "ItemFlavorText") as TextMeshProUGUI;
+
+            if (_itemStatsText == null)
+                _itemStatsText = MenuUiUtility.FindTextByNames(fixedTooltipRoot, "StatsText", "ItemStatsText", "Stats") as TextMeshProUGUI;
+
+            _previewImage ??= MenuUiUtility.FindDeepComponent<RawImage>(fixedTooltipRoot, "PreviewImage")
+                ?? MenuUiUtility.FindDeepComponent<RawImage>(fixedTooltipRoot, "ItemPreview");
+
+            if (_itemNameStolenIcon == null)
+            {
+                Transform stolenIcon = MenuUiUtility.FindDeep(fixedTooltipRoot, "ItemNameStolenIcon")
+                    ?? MenuUiUtility.FindDeep(fixedTooltipRoot, "StolenIcon");
+                if (stolenIcon != null)
+                    _itemNameStolenIcon = stolenIcon.GetComponent<Image>();
+            }
         }
 
         private void SetInventoryTitle(TextMeshProUGUI label, Inventory inventory, string fallback)

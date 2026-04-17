@@ -211,6 +211,10 @@ namespace Sol.HUD
 
         public static void CloseConflictingUi(string owner)
         {
+            bool openingPauseSubmenu = owner == nameof(SettingsMenuSystem)
+                || owner == nameof(SaveMenuSystem)
+                || owner == nameof(LoadMenuSystem);
+
             if (owner != nameof(InventoryToggle) && InventoryToggle.Instance != null && InventoryToggle.Instance.IsOpen)
                 InventoryToggle.Instance.Close();
 
@@ -234,7 +238,7 @@ namespace Sol.HUD
                 LoadMenuSystem.Instance.Close(false);
 
             if (owner != nameof(SettingsMenuSystem) && SettingsMenuSystem.Instance != null && SettingsMenuSystem.Instance.IsOpen)
-                SettingsMenuSystem.Instance.Close();
+                SettingsMenuSystem.Instance.Close(false);
 
             if (owner != nameof(CharacterMenuSystem) && CharacterMenuSystem.Instance != null && CharacterMenuSystem.Instance.IsOpen)
                 CharacterMenuSystem.Instance.Close();
@@ -246,7 +250,12 @@ namespace Sol.HUD
                 RadialMenuSystem.Instance.Close();
 
             if (owner != nameof(PauseMenuSystem) && PauseMenuSystem.Instance != null && PauseMenuSystem.Instance.IsOpen)
-                PauseMenuSystem.Instance.Close();
+            {
+                if (openingPauseSubmenu)
+                    PauseMenuSystem.Instance.HideForSubmenu();
+                else
+                    PauseMenuSystem.Instance.Close();
+            }
         }
 
         public static void SetUiCapture(bool enabled)

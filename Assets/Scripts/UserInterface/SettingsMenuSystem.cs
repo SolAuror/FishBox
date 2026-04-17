@@ -95,16 +95,36 @@ namespace Sol.HUD
             MenuUiUtility.SelectButton(_tabAudio != null ? _tabAudio : _backButton);
         }
 
-        public void Close() => Close(_returnToPause);
+        public void Close() => Close(false);
 
         public void Close(bool reopenPause)
         {
             if (!IsOpen) return;
+
+            bool wasPauseSubmenu = _returnToPause;
+            _returnToPause = false;
+
             _activeRebind?.Cancel();
             SetOpen(false);
             MenuUiUtility.SetBackgroundUiRaycasts(transform, true);
+
+            if (reopenPause)
+            {
+                PauseMenuSystem.ResolveInstance()?.Show();
+                return;
+            }
+
+            if (wasPauseSubmenu)
+            {
+                PauseMenuSystem pauseMenu = PauseMenuSystem.ResolveInstance(activateIfInactive: false);
+                if (pauseMenu != null)
+                {
+                    pauseMenu.EndPauseSessionFromSubmenu();
+                    return;
+                }
+            }
+
             UIStateOwnership.SetUiCapture(false);
-            if (reopenPause) PauseMenuSystem.ResolveInstance()?.Show();
         }
 
         public static void ApplyPersistedInputAndGameplaySettings()

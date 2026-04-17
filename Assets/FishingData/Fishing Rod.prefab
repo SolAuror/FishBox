@@ -24,13 +24,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 926808419658339244}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.4945999, y: -0.4945999, z: -0.5053424, w: -0.5053424}
+  m_LocalRotation: {x: 0.7071068, y: 0, z: 0, w: 0.7071068}
   m_LocalPosition: {x: 0.1846, y: -0.0109, z: 1.8508}
-  m_LocalScale: {x: 173.09999, y: 194.3, z: 99.99996}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7973778659843195836}
-  m_LocalEulerAnglesHint: {x: -180, y: -91.23102, z: -90}
+  m_LocalEulerAnglesHint: {x: 90, y: 0, z: 0}
 --- !u!1 &4391575420079079624
 GameObject:
   m_ObjectHideFlags: 0
@@ -256,6 +256,9 @@ MonoBehaviour:
   _itemName: Fishing Rod
   _itemType: 3
   _value: 100
+  _itemOwner: {fileID: 0}
+  _itemOwnerId: 
+  _isStolen: 0
   _flavourText: Teach a man to fish...
   _icon: {fileID: 21300000, guid: 69269e4f6a4855349b23f935a215d83d, type: 3}
   _isStackable: 0
@@ -287,7 +290,9 @@ MonoBehaviour:
   _lineMaterial: {fileID: 2100000, guid: d004b726d3c305543b36f19a9952b809, type: 2}
   _defaultBait: {fileID: 0}
   _loadedBaitItem: {fileID: 0}
-  _loadedTackleItem: {fileID: 0}
+  _loadedTackleItem: {fileID: 3572990517528342952, guid: 72ad4809316ce34419daca094798d08e, type: 3}
+  _caughtFishLocalEulerAngles: {x: -90, y: 0, z: 0}
+  _caughtFishHangPadding: 0.015
   _maxCastDistance: 25
   _castFlightDuration: 0.8
   _castArcHeight: 3
@@ -310,7 +315,7 @@ MonoBehaviour:
   _baitlessInterestMultiplier: 0.35
   _tackleInterestRadius: 6
   _lineSegments: 16
-  _lineWidth: 0.075
+  _lineWidth: 0.1
   _lineSlack: 0.2
 --- !u!1 &8672353962625471115
 GameObject:
@@ -428,7 +433,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0.1707, y: 0, z: 1.9136}
-  m_LocalScale: {x: 138.48, y: 155.44, z: 99.99996}
+  m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7973778659843195836}
