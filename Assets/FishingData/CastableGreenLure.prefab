@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7608562546381675470}
   - component: {fileID: 7174470525501270926}
   - component: {fileID: 935366597551721278}
+  - component: {fileID: 5387973624076977797}
   m_Layer: 10
   m_Name: CastableGreenLure
   m_TagString: Player
@@ -77,6 +78,27 @@ Rigidbody:
   m_Interpolate: 1
   m_Constraints: 0
   m_CollisionDetection: 1
+--- !u!65 &5387973624076977797
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9075445031357625527}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 0.08317069, y: 0.24877916, z: 0.08706974}
+  m_Center: {x: -0.00077650376, y: -0.025115352, z: -0.000079546655}
 --- !u!1001 &6994353900272767626
 PrefabInstance:
   m_ObjectHideFlags: 0

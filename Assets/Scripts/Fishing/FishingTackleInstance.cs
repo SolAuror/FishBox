@@ -23,7 +23,6 @@ namespace Sol.Fishing
 
         private TackleState _state;
         private WaterVolume _waterVolume;
-        private Transform _reelTarget;
         private Rigidbody _rigidbody;
         private Collider[] _colliders;
         private OutlineComponent[] _outlineComponents;
@@ -167,34 +166,6 @@ namespace Sol.Fishing
                 launchUpwardLift);
         }
 
-        public void ReelTo(Transform reelTarget, float reelDuration)
-        {
-            if (reelTarget == null)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            _state = TackleState.Reeling;
-            _reelTarget = reelTarget;
-            _reelStartPosition = transform.position;
-            _timer = 0f;
-            _duration = Mathf.Max(0.05f, reelDuration);
-            _manualReelControl = false;
-            SetKinematicState(true);
-            SetCollidersEnabled(false);
-        }
-
-        public void SetManualReelPosition(Vector3 worldPosition)
-        {
-            _state = TackleState.Reeling;
-            _manualReelControl = true;
-            _reelTarget = null;
-            SetKinematicState(true);
-            SetCollidersEnabled(false);
-            transform.position = worldPosition;
-        }
-
         public void SetManualReelTarget(
             Vector3 surfaceTarget,
             Vector3 tipTarget,
@@ -203,7 +174,6 @@ namespace Sol.Fishing
         {
             _state = TackleState.Reeling;
             _manualReelControl = true;
-            _reelTarget = null;
             _manualReelSurfaceTarget = surfaceTarget;
             _manualReelTipTarget = tipTarget;
             _manualReelLiftDistance = Mathf.Max(0.05f, liftDistance);
@@ -355,24 +325,7 @@ namespace Sol.Fishing
 
         private void UpdateReel()
         {
-            if (_manualReelControl)
-            {
-                UpdateManualReel();
-                return;
-            }
-
-            if (_reelTarget == null)
-            {
-                Destroy(gameObject);
-                return;
-            }
-
-            _timer += Time.deltaTime;
-            float t = Mathf.Clamp01(_timer / _duration);
-            transform.position = Vector3.Lerp(_reelStartPosition, _reelTarget.position, t);
-
-            if (t >= 1f)
-                Destroy(gameObject);
+            UpdateManualReel();
         }
 
         private void SnapToSurface()
@@ -479,7 +432,8 @@ namespace Sol.Fishing
             _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
             _rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-            _colliders = GetComponentsInChildren<Collider>(true);
+            if (_colliders == null || _colliders.Length == 0)
+                _colliders = GetComponentsInChildren<Collider>(true);
         }
 
         private void CacheOutlineComponents()
