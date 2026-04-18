@@ -59,7 +59,6 @@ namespace Sol.SaveLoad
                 GameSaveData data = CollectSaveData(slotIndex, saveName);
                 EnsureSaveDirectory();
                 File.WriteAllText(GetSlotPath(slotIndex), JsonUtility.ToJson(data, true));
-                TryCaptureScreenshot(slotIndex);
                 return true;
             }
             catch (Exception ex)
@@ -799,6 +798,12 @@ namespace Sol.SaveLoad
         private static string GetScreenshotPath(int slotIndex)
         {
             return Path.Combine(SaveDirectory, $"slot_{slotIndex}.png");
+        }
+
+        public void CaptureScreenshotForSlot(int slotIndex)
+        {
+            if (IsValidSlotIndex(slotIndex))
+                TryCaptureScreenshot(slotIndex);
         }
 
         private static void TryCaptureScreenshot(int slotIndex)

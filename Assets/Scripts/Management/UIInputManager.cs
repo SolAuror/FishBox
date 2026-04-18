@@ -189,17 +189,10 @@ namespace Sol.HUD
                 return true;
             }
 
-            SaveMenuSystem saveMenu = UIStateOwnership.Resolve<SaveMenuSystem>(activateIfInactive: false);
-            if (saveMenu != null && saveMenu.IsOpen && saveMenu.ReturnsToPause)
+            SaveLoadMenuSystem saveLoadMenu = UIStateOwnership.Resolve<SaveLoadMenuSystem>(activateIfInactive: false);
+            if (saveLoadMenu != null && saveLoadMenu.IsOpen && saveLoadMenu.ReturnsToPause)
             {
-                saveMenu.Close(reopenPause: true);
-                return true;
-            }
-
-            LoadMenuSystem loadMenu = UIStateOwnership.Resolve<LoadMenuSystem>(activateIfInactive: false);
-            if (loadMenu != null && loadMenu.IsOpen && loadMenu.ReturnsToPause)
-            {
-                loadMenu.Close(reopenPause: true);
+                saveLoadMenu.Close(reopenPause: true);
                 return true;
             }
 
@@ -229,17 +222,10 @@ namespace Sol.HUD
                 return true;
             }
 
-            LoadMenuSystem loadMenu = UIStateOwnership.Resolve<LoadMenuSystem>(activateIfInactive: false);
-            if (loadMenu != null && loadMenu.IsOpen)
+            SaveLoadMenuSystem saveLoadMenu = UIStateOwnership.Resolve<SaveLoadMenuSystem>(activateIfInactive: false);
+            if (saveLoadMenu != null && saveLoadMenu.IsOpen)
             {
-                loadMenu.Close(reopenPause: false);
-                return true;
-            }
-
-            SaveMenuSystem saveMenu = UIStateOwnership.Resolve<SaveMenuSystem>(activateIfInactive: false);
-            if (saveMenu != null && saveMenu.IsOpen)
-            {
-                saveMenu.Close(reopenPause: false);
+                saveLoadMenu.Close(reopenPause: false);
                 return true;
             }
 
@@ -294,12 +280,8 @@ namespace Sol.HUD
             if (pauseMenu != null && pauseMenu.IsOpen)
                 return true;
 
-            SaveMenuSystem saveMenu = UIStateOwnership.Resolve<SaveMenuSystem>(activateIfInactive: false);
-            if (saveMenu != null && saveMenu.IsOpen)
-                return true;
-
-            LoadMenuSystem loadMenu = UIStateOwnership.Resolve<LoadMenuSystem>(activateIfInactive: false);
-            if (loadMenu != null && loadMenu.IsOpen)
+            SaveLoadMenuSystem saveLoadMenu = UIStateOwnership.Resolve<SaveLoadMenuSystem>(activateIfInactive: false);
+            if (saveLoadMenu != null && saveLoadMenu.IsOpen)
                 return true;
 
             SettingsMenuSystem settingsMenu = UIStateOwnership.Resolve<SettingsMenuSystem>(activateIfInactive: false);

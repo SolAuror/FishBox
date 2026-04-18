@@ -496,7 +496,7 @@ namespace Sol.HUD
             MenuUiUtility.WireButton(_tabAccessibility, () => ActivateTab("accessibility"));
             MenuUiUtility.WireButton(_applyButton, ApplyCurrentSettings);
             MenuUiUtility.WireButton(_resetDefaultsButton, ResetDefaults);
-            MenuUiUtility.WireButton(_backButton, Close);
+            MenuUiUtility.WireButton(_backButton, () => Close(_returnToPause));
             WireSlider(SliderRef(ref _sliderMaster, "Slider_Master"), PreviewAudio);
             WireSlider(SliderRef(ref _sliderMusic, "Slider_Music"), PreviewAudio);
             WireSlider(SliderRef(ref _sliderSFX, "Slider_SFX"), PreviewAudio);
