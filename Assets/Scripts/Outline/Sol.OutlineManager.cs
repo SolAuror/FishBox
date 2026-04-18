@@ -55,6 +55,7 @@ namespace Sol.Outline
             {
                 if (player == null)
                 {
+                    // Try to find player by tag as fallback
                     var playerObj = GameObject.FindGameObjectWithTag("Player");
                     player = playerObj != null ? playerObj : activeCamera.gameObject;
                 }

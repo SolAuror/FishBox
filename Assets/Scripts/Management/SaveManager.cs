@@ -23,6 +23,9 @@ namespace Sol.SaveLoad
 
         private static string SaveDirectory => Path.Combine(Application.persistentDataPath, "saves");
 
+        [Header("Player Reference")]
+        [SerializeField] private GameObject _playerRoot;
+
         private float _sessionStartTime;
 
         private void Awake()
@@ -758,8 +761,13 @@ namespace Sol.SaveLoad
             return null;
         }
 
-        private static GameObject FindPlayerRoot()
+        private GameObject FindPlayerRoot()
         {
+            // First try the explicit reference
+            if (_playerRoot != null)
+                return _playerRoot;
+
+            // Fallback to tag-based lookup (for backward compatibility)
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player != null)
                 return player;
