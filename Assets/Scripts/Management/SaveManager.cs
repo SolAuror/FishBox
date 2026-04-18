@@ -33,6 +33,20 @@ namespace Sol.SaveLoad
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             _sessionStartTime = Time.realtimeSinceStartup;
+
+            // Resolve player reference at runtime
+            if (_playerRoot == null)
+            {
+                GameObject player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null)
+                    _playerRoot = player;
+                else
+                {
+                    PlayerSoul playerSoul = FindFirstObjectByType<PlayerSoul>();
+                    if (playerSoul != null)
+                        _playerRoot = playerSoul.gameObject;
+                }
+            }
         }
 
         private void OnDestroy()
@@ -763,11 +777,11 @@ namespace Sol.SaveLoad
 
         private GameObject FindPlayerRoot()
         {
-            // First try the explicit reference
+            // First try the cached reference
             if (_playerRoot != null)
                 return _playerRoot;
 
-            // Fallback to tag-based lookup (for backward compatibility)
+            // Fallback to tag-based lookup
             GameObject player = GameObject.FindGameObjectWithTag("Player");
             if (player != null)
                 return player;
