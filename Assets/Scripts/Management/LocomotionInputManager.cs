@@ -218,14 +218,7 @@ namespace Sol.Locomotion
             if (_controller != null && _controller.IsPlayerControlled())
                 return _controller;
 
-            GameObject taggedPlayer = GameObject.FindGameObjectWithTag("Player");
-            if (taggedPlayer != null)
-            {
-                LocomotionController taggedController = taggedPlayer.GetComponent<LocomotionController>();
-                if (taggedController != null && taggedController.IsPlayerControlled())
-                    return taggedController;
-            }
-
+            // Find any player-controlled controller in the scene
             LocomotionController[] controllers = FindObjectsByType<LocomotionController>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             for (int i = 0; i < controllers.Length; i++)
             {

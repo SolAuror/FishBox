@@ -1,6 +1,7 @@
 using UnityEngine;
 using Sol;
 using Sol.Locomotion;
+using Sol.Player;
 
 namespace Sol.Outline
 {
@@ -41,7 +42,7 @@ namespace Sol.Outline
             // Resolve player reference at runtime if not set
             if (player == null)
             {
-                var playerObj = GameObject.FindGameObjectWithTag("Player");
+                var playerObj = FindFirstObjectByType<PlayerSoul>()?.gameObject;
                 if (playerObj != null)
                     player = playerObj;
             }
@@ -63,9 +64,8 @@ namespace Sol.Outline
             {
                 if (player == null)
                 {
-                    // Try to find player by tag as final fallback
-                    var playerObj = GameObject.FindGameObjectWithTag("Player");
-                    player = playerObj != null ? playerObj : activeCamera.gameObject;
+                    // Use camera as fallback if no player found
+                    player = activeCamera.gameObject;
                 }
                 _playerInteractor = new Interactor(player, true);
             }
