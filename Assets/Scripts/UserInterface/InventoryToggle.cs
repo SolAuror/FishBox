@@ -212,8 +212,7 @@ namespace Sol.HUD
         public static void CloseConflictingUi(string owner)
         {
             bool openingPauseSubmenu = owner == nameof(SettingsMenuSystem)
-                || owner == nameof(SaveMenuSystem)
-                || owner == nameof(LoadMenuSystem);
+                || owner == nameof(SaveLoadMenuSystem);
 
             if (owner != nameof(InventoryToggle) && InventoryToggle.Instance != null && InventoryToggle.Instance.IsOpen)
                 InventoryToggle.Instance.Close();
@@ -231,11 +230,8 @@ namespace Sol.HUD
             if (owner != nameof(DialoguePromptSystem) && DialoguePromptSystem.Instance != null && DialoguePromptSystem.Instance.IsOpen)
                 DialoguePromptSystem.Instance.Close();
 
-            if (owner != nameof(SaveMenuSystem) && SaveMenuSystem.Instance != null && SaveMenuSystem.Instance.IsOpen)
-                SaveMenuSystem.Instance.Close(false);
-
-            if (owner != nameof(LoadMenuSystem) && LoadMenuSystem.Instance != null && LoadMenuSystem.Instance.IsOpen)
-                LoadMenuSystem.Instance.Close(false);
+            if (owner != nameof(SaveLoadMenuSystem) && SaveLoadMenuSystem.Instance != null && SaveLoadMenuSystem.Instance.IsOpen)
+                SaveLoadMenuSystem.Instance.Close(false);
 
             if (owner != nameof(SettingsMenuSystem) && SettingsMenuSystem.Instance != null && SettingsMenuSystem.Instance.IsOpen)
                 SettingsMenuSystem.Instance.Close(false);
@@ -286,8 +282,7 @@ namespace Sol.HUD
                 || (TradeUI.Instance != null && TradeUI.Instance.IsOpen)
                 || (ConversationWindowSystem.Instance != null && ConversationWindowSystem.Instance.IsVisible)
                 || (PauseMenuSystem.Instance != null && PauseMenuSystem.Instance.IsOpen)
-                || (SaveMenuSystem.Instance != null && SaveMenuSystem.Instance.IsOpen)
-                || (LoadMenuSystem.Instance != null && LoadMenuSystem.Instance.IsOpen)
+                || (SaveLoadMenuSystem.Instance != null && SaveLoadMenuSystem.Instance.IsOpen)
                 || (SettingsMenuSystem.Instance != null && SettingsMenuSystem.Instance.IsOpen)
                 || (CharacterMenuSystem.Instance != null && CharacterMenuSystem.Instance.IsOpen)
                 || (SkillMenuSystem.Instance != null && SkillMenuSystem.Instance.IsOpen)

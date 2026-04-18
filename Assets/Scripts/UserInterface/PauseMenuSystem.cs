@@ -102,7 +102,6 @@ namespace Sol.HUD
 
             SetOpen(false);
             MenuUiUtility.SetBackgroundUiRaycasts(transform, true);
-            UIStateOwnership.SetUiCapture(false);
         }
 
         public void EndPauseSessionFromSubmenu()
@@ -162,12 +161,12 @@ namespace Sol.HUD
         {
             OnSaveGame?.Invoke();
 
-            if (SaveMenuSystem.Instance == null || !SaveMenuSystem.Instance.IsOpen)
+            if (SaveLoadMenuSystem.Instance == null || !SaveLoadMenuSystem.Instance.IsOpen)
             {
                 HideForSubmenu();
-                SaveMenuSystem saveMenu = SaveMenuSystem.ResolveInstance(activateIfInactive: true);
-                if (saveMenu != null)
-                    saveMenu.Open(returnToPause: true);
+                SaveLoadMenuSystem saveLoadMenu = SaveLoadMenuSystem.ResolveInstance(activateIfInactive: true);
+                if (saveLoadMenu != null)
+                    saveLoadMenu.Open(SaveLoadMode.Save, returnToPause: true);
                 else
                     Show();
             }
@@ -177,12 +176,12 @@ namespace Sol.HUD
         {
             OnLoadGame?.Invoke();
 
-            if (LoadMenuSystem.Instance == null || !LoadMenuSystem.Instance.IsOpen)
+            if (SaveLoadMenuSystem.Instance == null || !SaveLoadMenuSystem.Instance.IsOpen)
             {
                 HideForSubmenu();
-                LoadMenuSystem loadMenu = LoadMenuSystem.ResolveInstance(activateIfInactive: true);
-                if (loadMenu != null)
-                    loadMenu.Open(returnToPause: true);
+                SaveLoadMenuSystem saveLoadMenu = SaveLoadMenuSystem.ResolveInstance(activateIfInactive: true);
+                if (saveLoadMenu != null)
+                    saveLoadMenu.Open(SaveLoadMode.Load, returnToPause: true);
                 else
                     Show();
             }
@@ -190,7 +189,6 @@ namespace Sol.HUD
 
         private void DoQuit()
         {
-            EndPauseSession();
             OnQuit?.Invoke();
         }
 
