@@ -533,13 +533,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1383137139826245363}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0.6981933, y: -0.2160062, z: 0.29620603, w: 0.6149223}
   m_LocalPosition: {x: -0.00003, y: 0.00065, z: -0.00021}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 5129490282568553540}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: -46.945, y: -95.739, z: 102.729}
 --- !u!1 &1819627897111127834
 GameObject:
   m_ObjectHideFlags: 0
@@ -1079,7 +1079,7 @@ Transform:
   m_GameObject: {fileID: 3206176472964152149}
   serializedVersion: 2
   m_LocalRotation: {x: -0.012555248, y: 0.98498905, z: -0.15160885, w: -0.08157032}
-  m_LocalPosition: {x: 0.0015887453, y: 1.570856, z: 0.08024525}
+  m_LocalPosition: {x: 0.0015888214, y: 1.5708551, z: 0.08024597}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2240,8 +2240,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5804521000615539937}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.012555248, y: 0.98498905, z: -0.15160885, w: -0.08157032}
-  m_LocalPosition: {x: 0.0015887453, y: 1.570856, z: 0.08024525}
+  m_LocalRotation: {x: -0.007399795, y: 0.9901779, z: -0.12717497, w: -0.05761443}
+  m_LocalPosition: {x: 0, y: 2.1698332, z: 1.8782749}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2278,7 +2278,7 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.01
+  near clip plane: 0.3
   far clip plane: 1000
   field of view: 90
   orthographic: 0
@@ -2362,7 +2362,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 72ece51f2901e7445ab60da3685d6b5f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ShowDebugText: 1
+  ShowDebugText: 0
   ShowCameraFrustum: 0
   IgnoreTimeScale: 1
   WorldUpOverride: {fileID: 0}
@@ -2591,8 +2591,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6761014782382325248}
   serializedVersion: 2
-  m_LocalRotation: {x: -0.014194901, y: 0.9856759, z: -0.12659675, w: -0.11052079}
-  m_LocalPosition: {x: 3.7399156e-10, y: 2.1698332, z: 1.8782735}
+  m_LocalRotation: {x: -0.007399797, y: 0.9901779, z: -0.12717497, w: -0.05761443}
+  m_LocalPosition: {x: 0, y: 2.1698332, z: 1.8782749}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3293,6 +3293,8 @@ GameObject:
   - component: {fileID: 6440267350863493876}
   - component: {fileID: 426593951205897718}
   - component: {fileID: 2886133926555059798}
+  - component: {fileID: 7977399770146636083}
+  - component: {fileID: 167603563581246085}
   m_Layer: 10
   m_Name: SolPlayer
   m_TagString: Player
@@ -3462,10 +3464,6 @@ MonoBehaviour:
   SpeedMultiplier: 1
   JumpMultiplier: 1
   SwimSpeedMultiplier: 1
-  sprintStaminaDrain: 10
-  runStaminaDrain: 3
-  swimStaminaDrain: 5
-  flyStaminaDrain: 8
   landingImpactThreshold: 3
   hardLandingDistance: 8
   hardLandingRecoveryTime: 0.4
@@ -3611,6 +3609,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Inventory
   _capacity: 30
   _gold: 10
+  _containerType: 0
+  _inspectorContents:
+  - Item: {fileID: 437761895070354558, guid: 4ebffe2a18b4c4b48a06144cd18adc57, type: 3}
+    Quantity: 10
+  - Item: {fileID: 1312666679401494266, guid: 2c88d2e6f4ef79641b9411c18f411d9b, type: 3}
+    Quantity: 5
+  _owner: {fileID: 0}
+  _ownerId: 
+  _isLocked: 0
+  _isLockpickable: 1
+  _lockLevel: 0
+  _requiredKeyItemName: 
+  _requiredKeyItemId: 
 --- !u!114 &6440267350863493876
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3737,6 +3748,72 @@ MonoBehaviour:
   _sprintVolumeScale: 1.5
   _landingVolumeScale: 2
   _minInterval: 0.15
+--- !u!114 &7977399770146636083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8052694070234560522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9e64280236933c4bba83790024f4a03, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Player.PlayerSoul
+  _soulType: 1
+  _characterName: Solr
+  _health: 100
+  MaxHealth: 100
+--- !u!114 &167603563581246085
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8052694070234560522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 551a7cff441a12d4185d674b07b72af2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingRodState
+  _animator: {fileID: 1903391472199003645}
+  _hasRodEquippedParameter: hasRodEquipped
+  _castRodTriggerParameter: CastRod
+  _isReelingParameter: isReeling
+  _reelProgressParameter: ReelProgress
+  _equipment: {fileID: 6440267350863493876}
+  _locomotionInput: {fileID: 5894706381801823478}
+  _locomotionController: {fileID: 1383637752041848490}
+  _fallbackRodItemName: Fishing Rod
+  _fallbackTackleVisualName: Tackle
+  _fallbackMaxCastDistance: 50
+  _fallbackCastFlightDuration: 0.45
+  _fallbackCastArcHeight: 1.15
+  _fallbackCastLaunchForwardDistance: 1.4
+  _fallbackCastLaunchUpwardLift: 0.45
+  _fallbackCastCollisionEnableDelay: 0.06
+  _fallbackCastWaterContactTimeout: 2.5
+  _fallbackReelDuration: 2
+  _fallbackReelLiftDistance: 1.6
+  _fallbackReelSurfacePullStrength: 8
+  _fallbackMovementLockDuration: 0.32
+  _fallbackSurfaceOffset: 0.04
+  _fallbackFloatBobAmplitude: 0.035
+  _fallbackFloatBobFrequency: 2.1
+  _fallbackFloatDriftDistance: 0.18
+  _fallbackFloatDriftFrequency: 0.75
+  _fallbackFloatLineSlackDistance: 1.1
+  _fallbackFloatSettleSpeed: 4.5
+  _fallbackFloatTensionStrength: 8
+  _fallbackBaitlessInterestMultiplier: 0.35
+  _fallbackTackleInterestRadius: 6
+  _fallbackLineSegments: 12
+  _fallbackLineWidth: 0.055
+  _fallbackLineSlack: 0.2
+  _fallbackLineMaterial: {fileID: 2100000, guid: d004b726d3c305543b36f19a9952b809, type: 2}
+  _castBlockingLayers:
+    serializedVersion: 2
+    m_Bits: 1391
 --- !u!1 &8075724443460540802
 GameObject:
   m_ObjectHideFlags: 0

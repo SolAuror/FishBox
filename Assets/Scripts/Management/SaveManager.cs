@@ -23,6 +23,9 @@ namespace Sol.SaveLoad
 
         private static string SaveDirectory => Path.Combine(Application.persistentDataPath, "saves");
 
+        [Header("Player Reference")]
+        [SerializeField] private GameObject _playerRoot;
+
         private float _sessionStartTime;
 
         private void Awake()
@@ -30,6 +33,14 @@ namespace Sol.SaveLoad
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
             _sessionStartTime = Time.realtimeSinceStartup;
+
+            // Resolve player reference at runtime
+            if (_playerRoot == null)
+            {
+                PlayerSoul playerSoul = FindFirstObjectByType<PlayerSoul>();
+                if (playerSoul != null)
+                    _playerRoot = playerSoul.gameObject;
+            }
         }
 
         private void OnDestroy()
@@ -758,12 +769,13 @@ namespace Sol.SaveLoad
             return null;
         }
 
-        private static GameObject FindPlayerRoot()
+        private GameObject FindPlayerRoot()
         {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-                return player;
+            // Use the cached reference
+            if (_playerRoot != null)
+                return _playerRoot;
 
+            // Fallback to component lookup
             PlayerSoul playerSoul = FindFirstObjectByType<PlayerSoul>();
             return playerSoul != null ? playerSoul.gameObject : null;
         }
