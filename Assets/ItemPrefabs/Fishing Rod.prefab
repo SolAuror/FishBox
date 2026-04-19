@@ -252,7 +252,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b29fa38d1cfd37e4880771356598f6ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.ItemComponent
-  _itemId: ITM00002
+  _itemId: ITM00018
   _itemName: Fishing Rod
   _itemType: 3
   _value: 100
@@ -260,7 +260,7 @@ MonoBehaviour:
   _itemOwnerId: 
   _isStolen: 0
   _flavourText: Teach a man to fish...
-  _icon: {fileID: 21300000, guid: 69269e4f6a4855349b23f935a215d83d, type: 3}
+  _icon: {fileID: 21300000, guid: b610b023f3eeff94c8ed36dfd9d1cf34, type: 3}
   _isStackable: 0
   _isConsumable: 0
   _isTradeable: 1

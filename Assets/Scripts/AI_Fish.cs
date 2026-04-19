@@ -4,6 +4,7 @@ using Sol.Outline;
 using Sol;
 using Sol.Grab;
 using Sol.Fishing;
+using Sol.AI;
 
 namespace Sol.AI
 {
@@ -239,6 +240,7 @@ namespace Sol.AI
             MoveTowardsTarget(shouldFlee ? _fleeSpeed : _swimSpeed);
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         private void OnGUI()
         {
             if (!_showDebugLabel || !Application.isPlaying)
@@ -273,6 +275,7 @@ namespace Sol.AI
 
             GUI.Label(labelRect, label);
         }
+#endif
 
         private void ResolveContext(bool force)
         {
@@ -301,8 +304,7 @@ namespace Sol.AI
                     }
                     catch (UnityException)
                     {
-                        // Scene has no Player tag configured yet; fall back to another
-                        // resolve attempt later instead of throwing every second.
+                        Debug.LogWarning("[AI_Fish] 'Player' tag is not registered in the Tag Manager.");
                     }
                 }
 
@@ -353,8 +355,9 @@ namespace Sol.AI
         {
             float roll = Random.value;
             float expectedSize = Mathf.Max(0.01f, (_minSize + _maxSize) * 0.5f);
-            float rawSize = Mathf.Lerp(_minSize, _maxSize, roll);
-            _size = Mathf.Clamp(rawSize, 0.5f, 1.5f);
+            float minS = Mathf.Min(_minSize, _maxSize);
+            float maxS = Mathf.Max(_minSize, _maxSize);
+            _size = Mathf.Lerp(minS, maxS, roll);
 
             float sizeMultiplier = Mathf.Clamp(_size / expectedSize, 0.5f, 1.5f);
             float expectedWeight = Mathf.Lerp(_minWeight, _maxWeight, roll);
@@ -975,14 +978,32 @@ namespace Sol.AI
 
             caughtFishItem.ConfigureFromFish(this);
 
-            if (inventory == null)
-                return itemComponent;
+            var fishData = new CaughtFishData(
+                null,
+                _definition,
+                _size,
+                _weight,
+                _rarity,
+                _rarityPercent,
+                _prefix,
+                IsPredator
+            );
+            fishData.speciesDisplayName = _fishName;
+            fishData.speciesAssetName = _definition != null ? _definition.name : string.Empty;
+            fishData.cachedValue = Value;
+            fishData.catchVisualScale = CatchVisualLocalScale;
+            fishData.modelPrefab = CatchVisualPrefab;
+            string fishCode = FishRegistry.Instance.RegisterFish(fishData);
+            caughtFishItem.FishCode = fishCode;
 
-            bool addedToInventory = inventory.Add(itemComponent);
-            if (addedToInventory)
+            if (inventory != null)
             {
-                itemInstance.SetActive(false);
-                return itemComponent;
+                bool addedToInventory = inventory.AddSlot(new InventorySlot(itemComponent, fishCode));
+                if (addedToInventory)
+                {
+                    itemInstance.SetActive(false);
+                    return itemComponent;
+                }
             }
 
             itemInstance.transform.SetParent(dropParent, true);

@@ -226,11 +226,8 @@ namespace Sol.Grab
 
             _itemId = Sol.EntityCodeUtility.NormalizeOrEmpty(_itemId, Sol.EntityCodeUtility.ItemPrefix);
 #if UNITY_EDITOR
-            _itemId = Sol.EntityCodeUtility.EnsureAssignedCode(
-                this,
-                _itemId,
-                Sol.EntityCodeUtility.ItemPrefix,
-                static item => item._itemId);
+            if (!Sol.ItemRegistry.IsEditorSyncInProgress)
+                Sol.ItemRegistry.ScheduleEditorSync();
 #endif
             _itemOwnerId = NormalizeOwnerId(_itemOwnerId);
             if (_itemOwner != null)

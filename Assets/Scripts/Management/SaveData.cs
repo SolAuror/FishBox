@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Sol.AI;
 
 namespace Sol.SaveLoad
 {
@@ -12,6 +13,8 @@ namespace Sol.SaveLoad
         public TimeSaveData Time = new();
         public List<ContainerSaveData> Containers = new();
         public List<NPCSaveData> NPCs = new();
+        public List<CaughtFishData> CaughtFish = new();
+        public List<WorldItemSaveData> WorldItems = new();
     }
 
     [Serializable]
@@ -65,6 +68,18 @@ namespace Sol.SaveLoad
         public string ItemId = string.Empty;
         public string OwnerId = string.Empty;
         public bool IsStolen;
+        public string FishCode = string.Empty;
+    }
+
+    [Serializable]
+    public class WorldItemSaveData
+    {
+        public string ItemId = string.Empty;
+        public string OwnerId = string.Empty;
+        public bool IsStolen;
+        public string FishCode = string.Empty;
+        public SerializableVector3 Position;
+        public SerializableQuaternion Rotation;
     }
 
     [Serializable]

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.AI;
 using Sol.AI;
@@ -212,7 +213,9 @@ namespace Sol.SaveLoad
                 Player = CollectPlayerData(),
                 Time = timeData,
                 Containers = CollectContainerData(),
-                NPCs = CollectNpcData()
+                NPCs = CollectNpcData(),
+                CaughtFish = new List<CaughtFishData>(FishRegistry.Instance.GetAllFishData()),
+                WorldItems = CollectWorldItemData()
             };
         }
 
@@ -374,6 +377,9 @@ namespace Sol.SaveLoad
             ApplyPlayerData(data.Player);
             ApplyContainerData(data.Containers);
             ApplyNpcData(data.NPCs);
+            // FishRegistry must be loaded before world/inventory items so fishCode lookups resolve
+            FishRegistry.Instance.LoadRegistry(data.CaughtFish);
+            ApplyWorldItemData(data.WorldItems);
         }
 
         private void ApplyTimeData(TimeSaveData data)
@@ -540,6 +546,93 @@ namespace Sol.SaveLoad
             }
         }
 
+        private List<WorldItemSaveData> CollectWorldItemData()
+        {
+            List<WorldItemSaveData> worldItems = new();
+            ItemComponent[] allItems = FindObjectsByType<ItemComponent>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+
+            for (int i = 0; i < allItems.Length; i++)
+            {
+                ItemComponent item = allItems[i];
+                if (item == null || !item.gameObject.activeInHierarchy)
+                    continue;
+
+                // Root-only: items parented to anything (inventory, NPC, rod) are handled elsewhere
+                if (item.transform.parent != null)
+                    continue;
+
+                if (string.IsNullOrWhiteSpace(item.ItemId))
+                {
+                    Debug.LogWarning($"[SaveManager] World item '{item.gameObject.name}' has no ItemId — skipped.");
+                    continue;
+                }
+
+                CaughtFishItem fishItem = item.GetComponent<CaughtFishItem>();
+                worldItems.Add(new WorldItemSaveData
+                {
+                    ItemId = item.ItemId,
+                    OwnerId = item.ItemOwnerId,
+                    IsStolen = item.IsStolen,
+                    FishCode = fishItem != null ? fishItem.FishCode : string.Empty,
+                    Position = item.transform.position,
+                    Rotation = item.transform.rotation
+                });
+            }
+
+            return worldItems;
+        }
+
+        private void ApplyWorldItemData(List<WorldItemSaveData> worldItems)
+        {
+            // Destroy all current loose world items before restoring saved state
+            ItemComponent[] existing = FindObjectsByType<ItemComponent>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            for (int i = 0; i < existing.Length; i++)
+            {
+                ItemComponent item = existing[i];
+                if (item != null && item.gameObject.activeInHierarchy && item.transform.parent == null)
+                    Destroy(item.gameObject);
+            }
+
+            if (worldItems == null || worldItems.Count == 0)
+                return;
+
+            for (int i = 0; i < worldItems.Count; i++)
+            {
+                WorldItemSaveData saved = worldItems[i];
+                if (saved == null || string.IsNullOrWhiteSpace(saved.ItemId))
+                    continue;
+
+                ItemInstanceSaveData instanceData = new()
+                {
+                    ItemId = saved.ItemId,
+                    OwnerId = saved.OwnerId,
+                    IsStolen = saved.IsStolen,
+                    FishCode = saved.FishCode
+                };
+
+                ItemComponent item = CreateItemInstance(instanceData, null);
+                if (item == null)
+                    continue;
+
+                item.transform.position = saved.Position;
+                item.transform.rotation = saved.Rotation;
+                item.gameObject.SetActive(true);
+
+                Rigidbody rb = item.GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.isKinematic = false;
+                    rb.detectCollisions = true;
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+
+                Collider col = item.GetComponent<Collider>();
+                if (col != null)
+                    col.enabled = true;
+            }
+        }
+
         private static string GetHierarchyPath(Transform transform)
         {
             if (transform == null)
@@ -637,6 +730,15 @@ namespace Sol.SaveLoad
             item.gameObject.SetActive(false);
             item.SetOwnerId(data.OwnerId);
             item.SetStolen(data.IsStolen);
+
+            if (!string.IsNullOrWhiteSpace(data.FishCode))
+            {
+                CaughtFishItem fishItem = item.GetComponent<CaughtFishItem>();
+                CaughtFishData fishData = FishRegistry.Instance.GetFish(data.FishCode);
+                if (fishItem != null && fishData != null)
+                    fishItem.ConfigureFromData(fishData);
+            }
+
             return item;
         }
 
@@ -657,12 +759,16 @@ namespace Sol.SaveLoad
                 if (prefabRoot == null)
                     continue;
 
-                ItemComponent candidate = prefabRoot.GetComponent<ItemComponent>();
-                if (candidate == null)
-                    continue;
+                ItemComponent[] candidates = prefabRoot.GetComponentsInChildren<ItemComponent>(true);
+                for (int j = 0; j < candidates.Length; j++)
+                {
+                    ItemComponent candidate = candidates[j];
+                    if (candidate == null)
+                        continue;
 
-                if (string.Equals(candidate.ItemId, normalizedId, StringComparison.OrdinalIgnoreCase))
-                    return candidate;
+                    if (string.Equals(candidate.ItemId, normalizedId, StringComparison.OrdinalIgnoreCase))
+                        return candidate;
+                }
             }
 #endif
 
@@ -711,12 +817,18 @@ namespace Sol.SaveLoad
 
         private static ItemInstanceSaveData CaptureItemState(ItemComponent item)
         {
-            return new ItemInstanceSaveData
+            var data = new ItemInstanceSaveData
             {
                 ItemId = item.ItemId,
                 OwnerId = item.ItemOwnerId,
                 IsStolen = item.IsStolen
             };
+
+            CaughtFishItem fishItem = item.GetComponent<CaughtFishItem>();
+            if (fishItem != null && !string.IsNullOrWhiteSpace(fishItem.FishCode))
+                data.FishCode = fishItem.FishCode;
+
+            return data;
         }
 
         private static HashSet<ItemComponent> BuildEquippedItemSet(Equipment equipment)

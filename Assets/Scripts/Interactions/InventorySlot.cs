@@ -12,6 +12,11 @@ namespace Sol
     {
         public Grab.ItemComponent Item;
         public int Count;
+        /// <summary>
+        /// Unique code if this slot is a caught fish (for example, FSH12345). Otherwise null.
+        /// This enables lookup in the runtime FishRegistry for instance-unique, non-stackable inventory.
+        /// </summary>
+        public string FishCode;
 
         // Extra item references added when stacking (first item stays in Item).
         private readonly List<Grab.ItemComponent> _extras = new();
@@ -20,6 +25,19 @@ namespace Sol
         {
             Item = item;
             Count = count;
+            FishCode = null;
+        }
+
+        /// <summary>
+        /// Create an inventory slot for a uniquely-caught fish.
+        /// </summary>
+        /// <param name="item">Root item template for caught fish (if any).</param>
+        /// <param name="fishCode">Unique registry code (FSH12345, etc)</param>
+        public InventorySlot(Grab.ItemComponent item, string fishCode)
+        {
+            Item = item;
+            Count = 1;
+            FishCode = fishCode;
         }
 
         /// <summary>Store an additional item reference when stacking.</summary>

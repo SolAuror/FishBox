@@ -8,6 +8,10 @@ namespace Sol.Grab
     [RequireComponent(typeof(ItemComponent))]
     public class CaughtFishItem : MonoBehaviour
     {
+        [Header("Species")]
+        [Tooltip("Set this on the catch item prefab to match its FishDefinition. Required for visual restore after save/load.")]
+        [SerializeField] private FishDefinition _fishDefinition;
+
         [Header("Caught Fish")]
         [SerializeField] private string _speciesName = "Fish";
         [SerializeField] private string _prefix = string.Empty;
@@ -17,7 +21,9 @@ namespace Sol.Grab
         [SerializeField] private float _weight;
         [SerializeField] private bool _isPredator;
         [SerializeField] private Transform _visualRoot;
+        [SerializeField] private string _fishCode;
 
+        public string FishCode { get => _fishCode; set => _fishCode = value; }
         public string SpeciesName => _speciesName;
         public string Prefix => _prefix;
         public FishRarity Rarity => _rarity;
@@ -30,6 +36,10 @@ namespace Sol.Grab
         {
             if (fish == null)
                 return;
+
+            // Capture definition so visual can be restored after save/load even if prefab field was not set
+            if (fish.Definition != null)
+                _fishDefinition = fish.Definition;
 
             transform.localScale = Vector3.one;
             _speciesName = fish.SpeciesName;
@@ -49,11 +59,11 @@ namespace Sol.Grab
                     BuildFlavourText(fish));
             }
 
-            RefreshVisual(fish);
+            RefreshVisual(fish.CatchVisualPrefab, fish.CatchVisualLocalScale);
             gameObject.name = fish.FishName;
         }
 
-        private void RefreshVisual(AI_Fish fish)
+        private void RefreshVisual(GameObject visualPrefab, Vector3 localScale)
         {
             Transform visualRoot = GetOrCreateVisualRoot();
             if (visualRoot == null)
@@ -62,7 +72,6 @@ namespace Sol.Grab
             for (int i = visualRoot.childCount - 1; i >= 0; i--)
                 Destroy(visualRoot.GetChild(i).gameObject);
 
-            GameObject visualPrefab = fish.CatchVisualPrefab;
             if (visualPrefab == null)
                 return;
 
@@ -70,7 +79,7 @@ namespace Sol.Grab
             visualInstance.name = visualPrefab.name;
             visualInstance.transform.localPosition = Vector3.zero;
             visualInstance.transform.localRotation = Quaternion.identity;
-            visualInstance.transform.localScale = fish.CatchVisualLocalScale;
+            visualInstance.transform.localScale = localScale;
 
             AI_Fish fishBehaviour = visualInstance.GetComponentInChildren<AI_Fish>(true);
             if (fishBehaviour != null)
@@ -117,6 +126,42 @@ namespace Sol.Grab
             _visualRoot.localRotation = Quaternion.identity;
             _visualRoot.localScale = Vector3.one;
             return _visualRoot;
+        }
+
+        public void ConfigureFromData(CaughtFishData data)
+        {
+            if (data == null)
+                return;
+
+            _speciesName = data.speciesDisplayName;
+            _prefix = data.prefix;
+            _rarity = data.rarity;
+            _rarityPercent = data.rarityPercent;
+            _size = data.size;
+            _weight = data.weight;
+            _isPredator = data.isPredator;
+            _fishCode = data.fishCode;
+
+            string fishName = string.IsNullOrWhiteSpace(_prefix) ? _speciesName : $"{_prefix} {_speciesName}";
+            ItemComponent item = GetComponent<ItemComponent>();
+            if (item != null && data.cachedValue > 0)
+            {
+                string flavour = $"{_rarity} catch ({_rarityPercent:0.##}%). {(_isPredator ? "Predator" : "Non-predator")}. Size {_size:0.##}, Weight {_weight:0.##}.";
+                item.ConfigureRuntimeItem(fishName, data.cachedValue, flavour);
+            }
+
+            gameObject.name = fishName;
+
+            // Rebuild the 3D visual using the prefab-baked definition reference and the saved scale
+            if (_fishDefinition != null && _fishDefinition.modelPrefab != null)
+            {
+                Vector3 scale = data.catchVisualScale != Vector3.zero ? data.catchVisualScale : Vector3.one;
+                RefreshVisual(_fishDefinition.modelPrefab, scale);
+            }
+            else
+            {
+                Debug.LogWarning($"[CaughtFishItem] '{gameObject.name}' has no FishDefinition assigned — visual will be missing after load. Assign the matching FishDefinition on the catch item prefab.");
+            }
         }
 
         private static string BuildFlavourText(AI_Fish fish)

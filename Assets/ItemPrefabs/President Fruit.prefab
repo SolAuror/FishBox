@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &361007299971984520
+--- !u!1 &6425090699038654580
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,51 +8,51 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 2788485625975231843}
-  - component: {fileID: 894944975548401119}
-  - component: {fileID: 149725527046263294}
-  - component: {fileID: 146356195058741261}
-  - component: {fileID: 314524947174515409}
-  - component: {fileID: -7450838434015377370}
-  - component: {fileID: -8302978960992775347}
-  - component: {fileID: 437761895070354558}
+  - component: {fileID: 8737640004302827600}
+  - component: {fileID: 4187857570503961426}
+  - component: {fileID: 4634858669520097229}
+  - component: {fileID: 911663906576617603}
+  - component: {fileID: 1312666679401494266}
+  - component: {fileID: 8687716146010162166}
+  - component: {fileID: 1426016632420302624}
+  - component: {fileID: 2081887949572225366}
   m_Layer: 3
-  m_Name: Misc.LockPick
+  m_Name: President Fruit
   m_TagString: Item
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &2788485625975231843
+--- !u!4 &8737640004302827600
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 361007299971984520}
+  m_GameObject: {fileID: 6425090699038654580}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 0.18392596, y: 0.026028125, z: 0.03159925}
+  m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &894944975548401119
+--- !u!33 &4187857570503961426
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 361007299971984520}
-  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
---- !u!23 &149725527046263294
+  m_GameObject: {fileID: 6425090699038654580}
+  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &4634858669520097229
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 361007299971984520}
+  m_GameObject: {fileID: 6425090699038654580}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -71,7 +71,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: adc21eb3764d76a439affa3db0e6df46, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -95,13 +95,13 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!65 &146356195058741261
-BoxCollider:
+--- !u!135 &911663906576617603
+SphereCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 361007299971984520}
+  m_GameObject: {fileID: 6425090699038654580}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -114,19 +114,80 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
+  m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
---- !u!54 &314524947174515409
+--- !u!114 &1312666679401494266
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6425090699038654580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b29fa38d1cfd37e4880771356598f6ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.ItemComponent
+  _itemId: ITM00002
+  _itemName: President Fruit
+  _itemType: 5
+  _value: 5
+  _itemOwner: {fileID: 0}
+  _itemOwnerId: 
+  _isStolen: 0
+  _flavourText: When oranges become president...
+  _icon: {fileID: 21300000, guid: d9dc8b8cead7fb942b90f62b0981e4f1, type: 3}
+  _isStackable: 1
+  _isConsumable: 1
+  _isTradeable: 1
+  _maxStackSize: 99
+  _damage: 0
+  _defense: 0
+  _equipBone: 
+  _equipOffset: {x: 0, y: 0, z: 0}
+  _equipRotation: {x: 0, y: 0, z: 0}
+  _pickupGrip: {fileID: 0}
+--- !u!114 &8687716146010162166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6425090699038654580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a41d7f57377cde64691b8cfc9499a302, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Outline.OutlineComponent
+  outlineColor: {r: 0.57580465, g: 1, b: 0.5707547, a: 0.6666667}
+  outlineWidth: 3
+  alwaysVisible: 0
+  priority: 0
+--- !u!114 &1426016632420302624
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6425090699038654580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73c908f06d520c34f8cdc18399587265, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.GrabbableComponent
+  holdDistance: 3
+  followSpeed: 15
+--- !u!54 &2081887949572225366
 Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 361007299971984520}
+  m_GameObject: {fileID: 6425090699038654580}
   serializedVersion: 5
-  m_Mass: 0.03
-  m_LinearDamping: 1.15
-  m_AngularDamping: 1.25
+  m_Mass: 0.2
+  m_LinearDamping: 0.9
+  m_AngularDamping: 0.9
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -143,61 +204,3 @@ Rigidbody:
   m_Interpolate: 1
   m_Constraints: 0
   m_CollisionDetection: 1
---- !u!114 &-7450838434015377370
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 361007299971984520}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a41d7f57377cde64691b8cfc9499a302, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.Outline.OutlineComponent
-  outlineColor: {r: 0.8490566, g: 0.8490566, b: 0.8490566, a: 1}
-  outlineWidth: 2
-  alwaysVisible: 0
-  priority: 0
---- !u!114 &-8302978960992775347
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 361007299971984520}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 73c908f06d520c34f8cdc18399587265, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.GrabbableComponent
-  holdDistance: 3
-  followSpeed: 15
---- !u!114 &437761895070354558
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 361007299971984520}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b29fa38d1cfd37e4880771356598f6ab, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.ItemComponent
-  _itemId: ITM00007
-  _itemName: Lockpick
-  _itemType: 10
-  _value: 1
-  _flavourText: What are YOU up to...
-  _icon: {fileID: 21300000, guid: 499d4becfbf090e49a22f65fcf87c948, type: 3}
-  _isStackable: 1
-  _isConsumable: 0
-  _isTradeable: 1
-  _maxStackSize: 99
-  _damage: 0
-  _defense: 0
-  _equipBone: 
-  _equipOffset: {x: 0, y: 0, z: 0}
-  _equipRotation: {x: 0, y: 0, z: 0}
-  _pickupGrip: {fileID: 0}

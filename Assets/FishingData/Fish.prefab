@@ -44,6 +44,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94dfd7f38a901134cbad850ee332c037, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.AI_Fish
+  _definition: {fileID: 0}
+  _fishName: Fish
+  _rarity: 0
+  _baseValue: 10
+  _catchItemPrefab: {fileID: 3835581444044970215, guid: 14599342bd47179479c8db4e19da5c73, type: 3}
+  _minSize: 0.8
+  _maxSize: 2
+  _minWeight: 0.2
+  _maxWeight: 5
+  _catchDifficulty: 1
   _modelRoot: {fileID: 2336889269507922447}
   _possibleModels:
   - {fileID: 919132149155446097, guid: a6c1ee282fb3b3c4a8b51646d4706a85, type: 3}
@@ -81,10 +91,32 @@ MonoBehaviour:
   - {fileID: 919132149155446097, guid: 4346200320b4ea641a85cd0bd3c4224d, type: 3}
   - {fileID: 919132149155446097, guid: ee7a851f765aad040914592ade8df161, type: 3}
   - {fileID: 919132149155446097, guid: 008c56f2b64aa194fa0b4a14e586c5d0, type: 3}
-  _swimSpeed: 1.5
-  _fleeSpeed: 3
-  _turnSpeed: 3
-  _wanderRadius: 5
+  _modelImportScaleCompensation: 1
+  _commonOutlineColor: {r: 0.7, g: 0.95, b: 0.95, a: 1}
+  _uncommonOutlineColor: {r: 0.45, g: 1, b: 0.45, a: 1}
+  _rareOutlineColor: {r: 0.35, g: 0.7, b: 1, a: 1}
+  _legendaryOutlineColor: {r: 1, g: 0.75, b: 0.2, a: 1}
+  _mythicalOutlineColor: {r: 1, g: 0.35, b: 0.95, a: 1}
+  _sizeOutlierThreshold: 0.115
+  _smallFishPrefix: Teeny
+  _largeFishPrefix: Lofty
+  _showDebugLabel: 0
+  _baseTackleInterestChance: 0.45
+  _interestDepthOffset: 0.35
+  _interestResolveInterval: 0.35
+  _interestLoseDistanceMultiplier: 1.5
+  _interestSwimSpeedMultiplier: 1.2
+  _interestRetargetMinTime: 0.25
+  _interestRetargetMaxTime: 0.65
+  _maxInterestDuration: 30
+  _interestRetryDelayRange: {x: 4, y: 7}
+  _maxCommitTravelDistance: 10
+  _baseBiteChance: 0.85
+  _biteRetryDelayRange: {x: 3, y: 5}
+  _swimSpeed: 2
+  _fleeSpeed: 5
+  _turnSpeed: 1.5
+  _wanderRadius: 15
   _wanderRetargetMinTime: 2
   _wanderRetargetMaxTime: 5
   _player: {fileID: 0}

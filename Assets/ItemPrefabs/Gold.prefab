@@ -185,23 +185,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b29fa38d1cfd37e4880771356598f6ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.ItemComponent
-  _itemId: ITM00004
+  _itemId: ITM00003
   _itemName: Gold Coin
   _itemType: 11
   _value: 1
   _itemOwner: {fileID: 0}
-  _itemOwnerNpc: {fileID: 0}
-  _itemOwnerId:
+  _itemOwnerId: 
   _isStolen: 0
   _flavourText: Minted by the preist from the church, so that the pious peasants
     could pay tihes...
-  _icon: {fileID: 21300000, guid: 69269e4f6a4855349b23f935a215d83d, type: 3}
+  _icon: {fileID: 21300000, guid: c0b3a380187887849ab610ea66d7ee8f, type: 3}
   _isStackable: 1
   _isConsumable: 0
   _isTradeable: 1
   _maxStackSize: 9999
-  _hungerSatiation: 0
-  _thirstSatiation: 0
   _damage: 0
   _defense: 0
   _equipBone: 

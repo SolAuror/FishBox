@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using Sol.Grab;
 
 namespace Sol.HUD
 {
@@ -30,6 +31,7 @@ namespace Sol.HUD
         [SerializeField] private TextMeshProUGUI _itemTypeText;
         [SerializeField] private TextMeshProUGUI _itemFlavourText;
         [SerializeField] private TextMeshProUGUI _itemStatsText;
+        [SerializeField] private TextMeshProUGUI _itemIdText;
         [Header("Reference Codes")]
         [SerializeField] private bool _showReferenceCodes = true;
         [SerializeField] private RawImage _previewImage;
@@ -338,6 +340,11 @@ namespace Sol.HUD
             if (_itemTypeText != null) _itemTypeText.text = BuildTypeDisplayText(item);
             if (_itemFlavourText != null) { _itemFlavourText.text = item.FlavourText; _itemFlavourText.gameObject.SetActive(!string.IsNullOrEmpty(item.FlavourText)); }
             SetInfoText(_itemStatsText, BuildInspectStatsText(item));
+            if (_itemIdText != null)
+            {
+                _itemIdText.text = GetItemIdCode(item);
+                _itemIdText.gameObject.SetActive(!string.IsNullOrEmpty(_itemIdText.text));
+            }
             if (_previewImage != null && ItemPreviewRenderer.Instance != null)
             {
                 _previewImage.texture = ItemPreviewRenderer.Instance.RenderTexture;
@@ -352,6 +359,7 @@ namespace Sol.HUD
             SetInfoText(_itemTypeText, string.Empty);
             SetInfoText(_itemFlavourText, string.Empty);
             SetInfoText(_itemStatsText, string.Empty);
+            if (_itemIdText != null) { _itemIdText.text = string.Empty; _itemIdText.gameObject.SetActive(false); }
             UpdateStolenIndicator(null);
             if (_previewImage != null) { _previewImage.texture = null; _previewImage.gameObject.SetActive(false); }
             ItemPreviewRenderer.Instance?.Clear();
@@ -379,6 +387,20 @@ namespace Sol.HUD
         private void SetInfoText(TextMeshProUGUI label, string value) { if (label == null) return; label.text = value; label.gameObject.SetActive(!string.IsNullOrEmpty(value)); }
         private string BuildDisplayName(Sol.Grab.ItemComponent item) => item == null ? string.Empty : _showReferenceCodes && !string.IsNullOrWhiteSpace(item.ItemId) ? $"{item.ItemName} [{item.ItemId}]" : item.ItemName;
         private string BuildTypeDisplayText(Sol.Grab.ItemComponent item) => item == null ? string.Empty : item.TypeDisplayName;
+        private string GetItemIdCode(Sol.Grab.ItemComponent item)
+        {
+            if (item == null)
+                return string.Empty;
+
+            CaughtFishItem caughtFish = item.GetComponent<CaughtFishItem>();
+            if (caughtFish != null && !string.IsNullOrWhiteSpace(caughtFish.FishCode))
+                return caughtFish.FishCode;
+
+            if (!string.IsNullOrWhiteSpace(item.ItemId))
+                return item.ItemId;
+
+            return string.Empty;
+        }
 
         private void UpdateStolenIndicator(Sol.Grab.ItemComponent item)
         {

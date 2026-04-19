@@ -22,43 +22,43 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -9.945
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 14.013
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 28.971
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.9161221
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalRotation.x
-      value: -0.012604726
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalRotation.y
-      value: -0.4006634
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0.005512672
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
-      value: -1.07
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalEulerAnglesHint.y
-      value: -47.255
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
-      value: 1.158
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_ConstrainProportionsScale
@@ -66,7 +66,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_Name
-      value: Bait.Worm
+      value: Worm
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 9fcb13bb1093f3d4f96eb3d93a707a15, type: 3}
       propertyPath: m_TagString
@@ -126,15 +126,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b29fa38d1cfd37e4880771356598f6ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.ItemComponent
-  _itemId: ITM00013
+  _itemId: ITM00021
   _itemName: Worm
-  _itemType: 5
+  _itemType: 4
   _value: 5
   _itemOwner: {fileID: 0}
   _itemOwnerId: 
   _isStolen: 0
   _flavourText: 
-  _icon: {fileID: 21300000, guid: f6f312c493231af4f809c540b3d6f2b5, type: 3}
+  _icon: {fileID: 21300000, guid: dab8eaf34f4bae247a848707a10cb27f, type: 3}
   _isStackable: 1
   _isConsumable: 0
   _isTradeable: 1

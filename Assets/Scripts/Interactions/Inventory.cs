@@ -442,7 +442,14 @@ namespace Sol
             if (slot == null || !_slots.Contains(slot)) return false;
             slot.Count -= amount;
             if (slot.Count <= 0)
+            {
                 _slots.Remove(slot);
+                // Deregister caught fish if this slot represents a unique fish instance
+                if (!string.IsNullOrEmpty(slot.FishCode))
+                {
+                    Sol.AI.FishRegistry.Instance.RemoveFish(slot.FishCode);
+                }
+            }
             NotifyChanged();
             return true;
         }
@@ -509,6 +516,12 @@ namespace Sol
                 // Pop the actual item reference so stacked objects don't leak.
                 var consumed = slot.PopItem();
                 Remove(slot, 1);
+
+                // Deregister caught fish instance if present (extra safety if Remove didn't do it)
+                if (!string.IsNullOrEmpty(slot.FishCode))
+                {
+                    Sol.AI.FishRegistry.Instance.RemoveFish(slot.FishCode);
+                }
 
                 // Destroy the consumed world object.
                 // For stacked items this is an extra copy; for the last item
@@ -804,6 +817,17 @@ namespace Sol
         }
 #endif
 
+        /// <summary>
+        /// Insert a pre-constructed slot, for special cases like uniquely caught fish with FishCode. Returns true if added.
+        /// </summary>
+        public bool AddSlot(InventorySlot slot)
+        {
+            if (slot == null) return false;
+            if (_slots.Count >= _capacity) return false;
+            _slots.Add(slot);
+            NotifyChanged();
+            return true;
+        }
     }
 }
 

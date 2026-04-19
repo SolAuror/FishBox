@@ -236,12 +236,6 @@ namespace Sol.HUD
             if (owner != nameof(SettingsMenuSystem) && SettingsMenuSystem.Instance != null && SettingsMenuSystem.Instance.IsOpen)
                 SettingsMenuSystem.Instance.Close(false);
 
-            if (owner != nameof(CharacterMenuSystem) && CharacterMenuSystem.Instance != null && CharacterMenuSystem.Instance.IsOpen)
-                CharacterMenuSystem.Instance.Close();
-
-            if (owner != nameof(SkillMenuSystem) && SkillMenuSystem.Instance != null && SkillMenuSystem.Instance.IsOpen)
-                SkillMenuSystem.Instance.Close();
-
             if (owner != nameof(RadialMenuSystem) && RadialMenuSystem.Instance != null && RadialMenuSystem.Instance.IsOpen)
                 RadialMenuSystem.Instance.Close();
 
@@ -284,8 +278,6 @@ namespace Sol.HUD
                 || (PauseMenuSystem.Instance != null && PauseMenuSystem.Instance.IsOpen)
                 || (SaveLoadMenuSystem.Instance != null && SaveLoadMenuSystem.Instance.IsOpen)
                 || (SettingsMenuSystem.Instance != null && SettingsMenuSystem.Instance.IsOpen)
-                || (CharacterMenuSystem.Instance != null && CharacterMenuSystem.Instance.IsOpen)
-                || (SkillMenuSystem.Instance != null && SkillMenuSystem.Instance.IsOpen)
                 || (DialoguePromptSystem.Instance != null && DialoguePromptSystem.Instance.IsOpen)
                 || (RadialMenuSystem.Instance != null && RadialMenuSystem.Instance.IsOpen);
         }

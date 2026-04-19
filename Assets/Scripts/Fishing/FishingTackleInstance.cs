@@ -61,8 +61,8 @@ namespace Sol.Fishing
         private float _duration;
         private bool _shouldCancelCast;
         private bool _shouldCompleteReel;
-        private bool _manualReelControl;
         private bool _reelInputActive;
+        private float _hookEscapeWindow = 2f;
         private bool _collidersEnabled;
         private bool _hasFloatAnchor;
         private float _driftPhaseX;
@@ -136,7 +136,6 @@ namespace Sol.Fishing
             _baitName = string.IsNullOrWhiteSpace(baitName) ? string.Empty : baitName.Trim();
             _shouldCancelCast = false;
             _shouldCompleteReel = false;
-            _manualReelControl = false;
             _reelInputActive = false;
             _hookEscapeDeadline = 0f;
             _biteFailFlashUntilTime = 0f;
@@ -146,6 +145,7 @@ namespace Sol.Fishing
             _lastPosition = transform.position;
             SetCollidersEnabled(false);
             _collisionEnableTime = Time.time + Mathf.Max(0f, collisionEnableDelay);
+            CacheOutlineComponents();
             ApplyOutlineState();
 
             if (_rigidbody == null)
@@ -173,19 +173,30 @@ namespace Sol.Fishing
             float surfacePullStrength)
         {
             _state = TackleState.Reeling;
-            _manualReelControl = true;
             _manualReelSurfaceTarget = surfaceTarget;
             _manualReelTipTarget = tipTarget;
             _manualReelLiftDistance = Mathf.Max(0.05f, liftDistance);
             _manualReelSurfacePullStrength = Mathf.Max(0.05f, surfacePullStrength);
-            _shouldCompleteReel = false;
+            // Do NOT reset _shouldCompleteReel here — UpdateManualReel sets it when the
+            // tackle physically arrives and it must survive until UpdateTackleState reads it.
+            // Launch() resets it correctly at cast start.
             SetKinematicState(true);
             SetCollidersEnabled(false);
+        }
+
+        public void SetHookEscapeWindow(float window)
+        {
+            _hookEscapeWindow = Mathf.Max(0.5f, window);
         }
 
         public void SetReelInputActive(bool isReeling)
         {
             _reelInputActive = isReeling;
+
+            // Deadline is refreshed each frame the player reels, so pausing gives a full
+            // window on re-engagement. Without a hooked fish the deadline stays at 0.
+            if (isReeling && _hookedFish != null)
+                _hookEscapeDeadline = Time.time + _hookEscapeWindow;
         }
 
         public void FlashBiteFail()
@@ -232,7 +243,6 @@ namespace Sol.Fishing
 
             _committedFish = fish;
             _hookedFish = fish;
-            _hookEscapeDeadline = Time.time + 2f;
             ApplyOutlineState();
             UpdateHookedFishPose();
             return true;

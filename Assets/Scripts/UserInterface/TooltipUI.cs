@@ -21,6 +21,7 @@ namespace Sol.HUD
         [SerializeField] private TextMeshProUGUI _typeText;
         [SerializeField] private TextMeshProUGUI _flavourText;
         [SerializeField] private TextMeshProUGUI _statsText;
+        [SerializeField] private TextMeshProUGUI _idText;
         [Header("Reference Codes")]
         [SerializeField] private bool _showReferenceCodes = true;
         [Header("Stolen Indicator")]
@@ -125,6 +126,13 @@ namespace Sol.HUD
 
             if (_statsText != null)
                 _statsText.text = BuildStatsText(item);
+
+            if (_idText != null)
+            {
+                string idCode = GetItemIdCode(item);
+                _idText.text = idCode;
+                _idText.gameObject.SetActive(!string.IsNullOrEmpty(idCode));
+            }
 
             ItemPreviewRenderer previewRenderer = ItemPreviewRenderer.Instance
                 ?? UIStateOwnership.Resolve<ItemPreviewRenderer>(activateIfInactive: true);
@@ -233,6 +241,21 @@ namespace Sol.HUD
                 return $"{item.ItemName} [{item.ItemId}]";
 
             return item.ItemName;
+        }
+
+        private string GetItemIdCode(ItemComponent item)
+        {
+            if (item == null)
+                return string.Empty;
+
+            CaughtFishItem caughtFish = item.GetComponent<CaughtFishItem>();
+            if (caughtFish != null && !string.IsNullOrWhiteSpace(caughtFish.FishCode))
+                return caughtFish.FishCode;
+
+            if (!string.IsNullOrWhiteSpace(item.ItemId))
+                return item.ItemId;
+
+            return string.Empty;
         }
 
         private void UpdateStolenIndicator(ItemComponent item)

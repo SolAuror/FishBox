@@ -1831,7 +1831,7 @@ GameObject:
   - component: {fileID: 7855581971209190631}
   - component: {fileID: 2112298312164266802}
   m_Layer: 5
-  m_Name: LoadMenuUI
+  m_Name: LEGACY_LoadMenuUI
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

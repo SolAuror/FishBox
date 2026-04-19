@@ -113,7 +113,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b29fa38d1cfd37e4880771356598f6ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.ItemComponent
-  _itemId: ITM00009
+  _itemId: ITM10000
   _itemName: Fish
   _itemType: 5
   _value: 0
@@ -121,11 +121,11 @@ MonoBehaviour:
   _itemOwnerId: 
   _isStolen: 0
   _flavourText: Fish
-  _icon: {fileID: 0}
+  _icon: {fileID: 21300000, guid: c0b3a380187887849ab610ea66d7ee8f, type: 3}
   _isStackable: 0
   _isConsumable: 0
   _isTradeable: 1
-  _maxStackSize: 1
+  _maxStackSize: 0
   _damage: 0
   _defense: 0
   _equipBone: 
@@ -152,6 +152,7 @@ MonoBehaviour:
   _weight: 0
   _isPredator: 0
   _visualRoot: {fileID: 0}
+  _fishCode: 
 --- !u!114 &-8195590648242200405
 MonoBehaviour:
   m_ObjectHideFlags: 0

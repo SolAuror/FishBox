@@ -100,6 +100,9 @@ namespace Sol
 
         private GameAction BuildConversationAction(Interactor interactor)
         {
+            // Set IsConversing true on the NPC for rotation suppression
+            var aiNpc = GetComponent<Sol.AI.AI_NPC>();
+            aiNpc?.BeginConversation();
             List<ConversationOptionId> optionIds = new List<ConversationOptionId>(2);
             List<string> optionLabels = new List<string>(2);
             AddConversationOption(ConversationOptionId.Trade, optionIds, optionLabels);
@@ -113,7 +116,13 @@ namespace Sol
                 speakerName,
                 _greetingLine,
                 optionLabels,
-                optionIndex => HandleConversationOptionSelected(optionIndex, optionIds, interactor),
+                optionIndex =>
+                {
+                    HandleConversationOptionSelected(optionIndex, optionIds, interactor);
+                    // End conversation state when an option is selected
+                    var aiNpc2 = GetComponent<Sol.AI.AI_NPC>();
+                    aiNpc2?.EndConversation();
+                },
                 speakerIcon: _speakerIcon);
         }
 

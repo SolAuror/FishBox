@@ -236,20 +236,6 @@ namespace Sol.HUD
                 return true;
             }
 
-            CharacterMenuSystem characterMenu = UIStateOwnership.Resolve<CharacterMenuSystem>(activateIfInactive: false);
-            if (characterMenu != null && characterMenu.IsOpen)
-            {
-                characterMenu.Close();
-                return true;
-            }
-
-            SkillMenuSystem skillMenu = UIStateOwnership.Resolve<SkillMenuSystem>(activateIfInactive: false);
-            if (skillMenu != null && skillMenu.IsOpen)
-            {
-                skillMenu.Close();
-                return true;
-            }
-
             PauseMenuSystem pauseMenu = UIStateOwnership.Resolve<PauseMenuSystem>(activateIfInactive: false);
             if (pauseMenu != null && pauseMenu.IsOpen)
             {
@@ -286,14 +272,6 @@ namespace Sol.HUD
 
             SettingsMenuSystem settingsMenu = UIStateOwnership.Resolve<SettingsMenuSystem>(activateIfInactive: false);
             if (settingsMenu != null && settingsMenu.IsOpen)
-                return true;
-
-            CharacterMenuSystem characterMenu = UIStateOwnership.Resolve<CharacterMenuSystem>(activateIfInactive: false);
-            if (characterMenu != null && characterMenu.IsOpen)
-                return true;
-
-            SkillMenuSystem skillMenu = UIStateOwnership.Resolve<SkillMenuSystem>(activateIfInactive: false);
-            if (skillMenu != null && skillMenu.IsOpen)
                 return true;
 
             DialoguePromptSystem promptUi = UIStateOwnership.Resolve<DialoguePromptSystem>(activateIfInactive: false);

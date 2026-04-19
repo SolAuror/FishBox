@@ -40,13 +40,12 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2839100287978316515}
+  - component: {fileID: 8373773231050715488}
+  - component: {fileID: 1626935943008335794}
   - component: {fileID: 5713446569433651340}
   - component: {fileID: 3289024338034452056}
   - component: {fileID: 42777404439744884}
-  - component: {fileID: 1626935943008335794}
-  - component: {fileID: 8373773231050715488}
   - component: {fileID: 296628763031310175}
-  - component: {fileID: 737277445357325624}
   m_Layer: 0
   m_Name: GreenLure
   m_TagString: Item
@@ -70,6 +69,51 @@ Transform:
   - {fileID: 7443040772038355065}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: -31.113, y: -3.931, z: -90}
+--- !u!114 &8373773231050715488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4985236410830664468}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 284c374d060ddd34aa2717663b4a3182, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingTackleItem
+  _lureRange: 10
+  _castPrefabOverride: {fileID: 9075445031357625527, guid: 6dd044c15e57fb24bba1d55112fc93f6, type: 3}
+--- !u!114 &1626935943008335794
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4985236410830664468}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b29fa38d1cfd37e4880771356598f6ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.ItemComponent
+  _itemId: ITM00020
+  _itemName: Green Lure
+  _itemType: 10
+  _value: 200
+  _itemOwner: {fileID: 0}
+  _itemOwnerId: 
+  _isStolen: 0
+  _flavourText: Fandangled green lure, they say fish like green...
+  _icon: {fileID: 21300000, guid: dab8eaf34f4bae247a848707a10cb27f, type: 3}
+  _isStackable: 0
+  _isConsumable: 0
+  _isTradeable: 1
+  _maxStackSize: 1
+  _damage: 0
+  _defense: 0
+  _equipBone: 
+  _equipOffset: {x: 0, y: 0, z: 0}
+  _equipRotation: {x: 0, y: 0, z: 0}
+  _pickupGrip: {fileID: 0}
 --- !u!54 &5713446569433651340
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -132,48 +176,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.GrabbableComponent
   holdDistance: 3
   followSpeed: 15
---- !u!114 &1626935943008335794
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4985236410830664468}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b29fa38d1cfd37e4880771356598f6ab, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.ItemComponent
-  _itemId: ITM00011
-  _itemName: Green Lure
-  _itemType: 10
-  _value: 200
-  _flavourText: A green lure
-  _icon: {fileID: 0}
-  _isStackable: 0
-  _isConsumable: 0
-  _isTradeable: 1
-  _maxStackSize: 1
-  _damage: 0
-  _defense: 0
-  _equipBone: 
-  _equipOffset: {x: 0, y: 0, z: 0}
-  _equipRotation: {x: 0, y: 0, z: 0}
-  _pickupGrip: {fileID: 0}
---- !u!114 &8373773231050715488
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4985236410830664468}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 284c374d060ddd34aa2717663b4a3182, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingTackleItem
-  _lureRange: 10
-  _castPrefabOverride: {fileID: 9075445031357625527, guid: 6dd044c15e57fb24bba1d55112fc93f6, type: 3}
 --- !u!114 &296628763031310175
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -190,20 +192,6 @@ MonoBehaviour:
   outlineWidth: 2
   alwaysVisible: 0
   priority: 0
---- !u!114 &737277445357325624
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4985236410830664468}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 73c908f06d520c34f8cdc18399587265, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.GrabbableComponent
-  holdDistance: 3
-  followSpeed: 15
 --- !u!1 &5596698915002800415
 GameObject:
   m_ObjectHideFlags: 0

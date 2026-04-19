@@ -55,6 +55,7 @@ namespace Sol.Fishing
         [Header("Safety")]
         [SerializeField, Min(0.5f)] private float _castAnimationTimeout = 2f;
         [SerializeField, Min(0f)] private float _reelProgressResetDelay = 1f;
+        [SerializeField, Min(0.5f)] private float _fallbackHookEscapeWindow = 2f;
 
         [Header("Fallback Line")]
         [SerializeField, Min(2)] private int _fallbackLineSegments = 12;
@@ -102,6 +103,15 @@ namespace Sol.Fishing
         public string DisplayedCatchPrompt => _displayedCatchItem == null
             ? string.Empty
             : $"E Take {_displayedCatchItem.ItemName}\nHold E Grab\nQ Drop";
+
+        public bool CanCast => _isRodEquipped
+            && _activeRodItem != null
+            && _activeLineOrigin != null
+            && !_isCastPending
+            && _activeTackle == null
+            && _displayedCatchItem == null;
+
+        public void ExecuteCast() => BeginCast();
 
         private void Awake()
         {
@@ -165,7 +175,9 @@ namespace Sol.Fishing
                 return;
 
             _locomotionInput.SetAttackPressedFalse();
-            if (!_isCastPending)
+            if (ActionSystem.Instance != null)
+                ActionSystem.Instance.Dispatch(new CastFishingRodAction(), gameObject, null);
+            else
                 BeginCast();
         }
 
@@ -280,9 +292,11 @@ namespace Sol.Fishing
                 previousTackle.gameObject.SetActive(false);
                 if (!inventory.Add(previousTackle))
                 {
+                    // Inventory full — abort swap. Restore the old tackle to the rod.
+                    previousTackle.transform.SetParent(_activeRod.transform, false);
                     _activeRod.SetLoadedTackleItem(previousTackle);
-                    slot.PushExtra(slotItem);
-                    slot.Count++;
+                    // The slot was already removed from inventory; return the new item safely.
+                    ReturnItemToInventoryOrDrop(slotItem, inventory);
                     return false;
                 }
             }
@@ -312,9 +326,10 @@ namespace Sol.Fishing
                 previousBait.gameObject.SetActive(false);
                 if (!inventory.Add(previousBait))
                 {
+                    // Inventory full — abort swap. Restore the old bait to the rod.
+                    previousBait.transform.SetParent(_activeRod.transform, false);
                     _activeRod.SetLoadedBaitItem(previousBait);
-                    slot.PushExtra(slotItem);
-                    slot.Count++;
+                    ReturnItemToInventoryOrDrop(slotItem, inventory);
                     return false;
                 }
             }
@@ -498,6 +513,7 @@ namespace Sol.Fishing
                 GetTackleInterestRadius(),
                 GetCurrentBaitItemId(),
                 GetCurrentBaitName());
+            _activeTackle.SetHookEscapeWindow(GetHookEscapeWindow());
 
             EnsureLineRenderer();
             UpdateRestingTackleVisual();
@@ -514,7 +530,8 @@ namespace Sol.Fishing
             if (!_isReeling)
             {
                 _reelStartPosition = _activeTackle.transform.position;
-                _reelTotalDistance = CalculateReelDistance(_reelStartPosition, _activeLineOrigin.position);
+                _reelTotalDistance = Vector3.Distance(_reelStartPosition, _activeLineOrigin.position);
+                ForceReelAnimationProgress();
             }
 
             _isReeling = true;
@@ -604,23 +621,29 @@ namespace Sol.Fishing
                 return;
             }
 
-            float reelSpeed = Mathf.Max(0.05f, GetReelSpeed());
-            float totalDistance = Mathf.Max(0.05f, _reelTotalDistance);
-            _reelProgress = Mathf.Clamp01(_reelProgress + ((reelSpeed * Time.deltaTime) / totalDistance));
             Vector3 rodTipPosition = _activeLineOrigin.position;
-            Vector3 surfaceTarget = Vector3.Lerp(
-                _reelStartPosition,
-                new Vector3(rodTipPosition.x, _reelStartPosition.y, rodTipPosition.z),
-                _reelProgress);
+
+            // Surface target is the rod tip's XZ position at start-height. This is independent
+            // of _reelProgress, which breaks the circular dependency that previously kept
+            // surfaceTarget == tackle position (progress=0 → lerp to start → tackle can't move).
+            Vector3 surfaceTarget = new Vector3(rodTipPosition.x, _reelStartPosition.y, rodTipPosition.z);
+
+            // Tell the tackle where to go first, then measure how far it has come.
             _activeTackle.SetManualReelTarget(
                 surfaceTarget,
                 rodTipPosition,
                 GetReelLiftDistance(),
                 GetReelSurfacePullStrength());
-            SetAnimatorReelState(true, _reelProgress);
-            ForceReelAnimationProgress();
 
-            if (_reelProgress >= 1f)
+            float remaining = Vector3.Distance(_activeTackle.transform.position, rodTipPosition);
+            float initial   = Mathf.Max(0.05f, _reelTotalDistance);
+            _reelProgress   = Mathf.Clamp01(1f - remaining / initial);
+
+            SetAnimatorReelState(true, _reelProgress);
+
+            // 0.99f threshold: Distance() returning exactly 0 requires a perfect float snap.
+            // ShouldCompleteReel is the physics signal (tackle within 0.1 units of rod tip).
+            if (_reelProgress >= 0.99f || _activeTackle.ShouldCompleteReel)
                 CompleteReel();
         }
 
@@ -930,6 +953,20 @@ namespace Sol.Fishing
             for (int i = 0; i < parameters.Length; i++)
                 _animatorParameters.Add(parameters[i].nameHash);
         }
+
+        private void ReturnItemToInventoryOrDrop(ItemComponent item, Inventory inventory)
+        {
+            if (item == null)
+                return;
+
+            if (!inventory.Add(item))
+            {
+                item.transform.SetParent(null, worldPositionStays: true);
+                item.gameObject.SetActive(true);
+            }
+        }
+
+        private float GetHookEscapeWindow() => _fallbackHookEscapeWindow;
 
         private Material GetLineMaterial()
         {

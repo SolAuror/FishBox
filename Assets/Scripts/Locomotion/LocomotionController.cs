@@ -13,6 +13,9 @@ namespace Sol.Locomotion
     public class LocomotionController : MonoBehaviour, Shared.Locomotion.ILocomotionController
     {
         private Shared.AI.ILocomotionIntentProvider _intentProvider;
+
+        /// <summary>True if this character is currently in a conversation (suppresses rotation).</summary>
+        public bool IsConversing { get; set; } = false;
         private IWaterSystem _waterSystem;
         // --- ILocomotionController Implementation ---
         public Shared.Locomotion.LocomotionState GetState()
@@ -546,7 +549,9 @@ namespace Sol.Locomotion
         }
         private void UpdateBodyRotation()
         {
+
             if (_camTransform == null) return;
+            if (IsConversing) return; // Suppress rotation during conversation
 
             // NPCs always rotate toward fakeCam.forward unconditionally.
             // The player-specific third-person idle-orbit / turn-in-place logic depends
@@ -904,14 +909,18 @@ namespace Sol.Locomotion
             }
 
             // Rotate to face camera forward - consistent with land movement so strafing doesn't pivot the body.
-            Vector3 lateralVel = new Vector3(_swimVelocity.x, 0f, _swimVelocity.z);
-            if (lateralVel.sqrMagnitude > movementThreshold * movementThreshold)
+            // Suppress rotation while conversing
+            if (!IsConversing)
             {
-                Vector3 camForwardXZ = new Vector3(_camTransform.forward.x, 0f, _camTransform.forward.z).normalized;
-                if (camForwardXZ.sqrMagnitude > 0.0001f)
+                Vector3 lateralVel = new Vector3(_swimVelocity.x, 0f, _swimVelocity.z);
+                if (lateralVel.sqrMagnitude > movementThreshold * movementThreshold)
                 {
-                    Quaternion toRot = Quaternion.LookRotation(camForwardXZ, Vector3.up);
-                    transform.rotation = Quaternion.Slerp(transform.rotation, toRot, playerModelRotationSpeed * Time.deltaTime);
+                    Vector3 camForwardXZ = new Vector3(_camTransform.forward.x, 0f, _camTransform.forward.z).normalized;
+                    if (camForwardXZ.sqrMagnitude > 0.0001f)
+                    {
+                        Quaternion toRot = Quaternion.LookRotation(camForwardXZ, Vector3.up);
+                        transform.rotation = Quaternion.Slerp(transform.rotation, toRot, playerModelRotationSpeed * Time.deltaTime);
+                    }
                 }
             }
 
