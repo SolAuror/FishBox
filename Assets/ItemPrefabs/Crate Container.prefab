@@ -199,7 +199,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 081dbe90d8384443aa3ce597ec06bdf7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.ContainerInteractable
-  _containerId: CNT00001
+  _containerId:
   _openPrompt: Open Crate
   _lockedPrompt: Locked
   _pickSnapSoundCue: {fileID: 0}

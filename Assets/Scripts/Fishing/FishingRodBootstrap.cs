@@ -31,8 +31,8 @@ namespace Sol.Fishing
                 if (controller == null || !controller.IsPlayerControlled())
                     continue;
 
-                if (controller.GetComponent<FishingRodState>() == null)
-                    controller.gameObject.AddComponent<FishingRodState>();
+                if (controller.GetComponent<FishingState>() == null)
+                    controller.gameObject.AddComponent<FishingState>();
             }
         }
     }

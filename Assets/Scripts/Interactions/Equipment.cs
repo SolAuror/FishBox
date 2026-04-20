@@ -44,11 +44,13 @@ namespace Sol
 
             // Attach to bone.
             var t = item.transform;
+            
             // Preserve the item's original world scale when reparenting to the bone.
             var worldScale = t.lossyScale;
             t.SetParent(bone);
             t.localPosition = item.EquipOffset;
             t.localRotation = Quaternion.Euler(item.EquipRotation);
+            
             // Convert the saved world scale back to local space under the new parent.
             var ps = bone.lossyScale;
             t.localScale = new Vector3(
@@ -59,11 +61,18 @@ namespace Sol
 
             // Disable physics while equipped.
             var rb = item.GetComponent<Rigidbody>();
-            if (rb != null) { rb.isKinematic = true; rb.detectCollisions = false; }
+            if (rb != null) 
+            { 
+                rb.isKinematic = true; 
+                rb.detectCollisions = false; 
+                rb.interpolation = RigidbodyInterpolation.None;   
+                rb.position = t.position;                         
+                rb.rotation = t.rotation;
+            }
             var col = item.GetComponent<Collider>();
             if (col != null) col.enabled = false;
 
-            // Disable any Light components — the item was SetActive(false) in inventory,
+            // Disable any Light components the item was SetActive(false) in inventory,
             // so its lights were off. Re-enabling them on equip would change scene lighting.
             foreach (var lt in item.GetComponentsInChildren<Light>(includeInactive: true))
                 lt.enabled = false;
@@ -79,7 +88,7 @@ namespace Sol
         }
 
         /// <summary>
-        /// Unequip and hide the item — it returns to the inventory slot.
+        /// Unequip and hide the item ï¿½ it returns to the inventory slot.
         /// Physics stays disabled and the GameObject is deactivated.
         /// </summary>
         public ItemComponent Unequip(EquipmentSlotType slot)
@@ -90,9 +99,14 @@ namespace Sol
             // Detach from bone.
             item.transform.SetParent(null);
 
-            // Keep physics disabled — item is back in inventory, not in the world.
+            // Keep physics disabled ï¿½ item is back in inventory, not in the world.
             var rb = item.GetComponent<Rigidbody>();
-            if (rb != null) { rb.isKinematic = true; rb.detectCollisions = false; }
+            if (rb != null) 
+            { 
+                rb.isKinematic = true; 
+                rb.detectCollisions = false; 
+                rb.interpolation = RigidbodyInterpolation.Interpolate;
+                }
             var col = item.GetComponent<Collider>();
             if (col != null) col.enabled = false;
 
@@ -129,7 +143,14 @@ namespace Sol
 
             // Re-enable physics so gravity takes over after the drop.
             var rb = item.GetComponent<Rigidbody>();
-            if (rb != null) { rb.isKinematic = false; rb.detectCollisions = true; }
+            if (rb != null) 
+            { 
+                rb.isKinematic = false; 
+                rb.detectCollisions = true; 
+                rb.interpolation = RigidbodyInterpolation.Interpolate;
+                rb.position = item.transform.position; 
+                rb.rotation = item.transform.rotation;
+            }
             var col = item.GetComponent<Collider>();
             if (col != null) col.enabled = true;
 

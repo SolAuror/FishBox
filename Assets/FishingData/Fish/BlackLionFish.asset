@@ -22,5 +22,10 @@ MonoBehaviour:
   minWeight: 0.5
   maxWeight: 1.6
   catchDifficulty: 1.1
+  baitInterestMultiplier: 1
+  favoriteBaitItemId: 
+  favoriteBaitName: 
+  favoriteBaitLureMultiplier: 1
+  favoriteBaitCatchMultiplier: 1
   modelPrefab: {fileID: 919132149155446097, guid: 335507b81137a1a4e841ed7b0d989f88, type: 3}
-  modelScaleMultiplier: 0.8
+  modelScaleMultiplier: 1.2

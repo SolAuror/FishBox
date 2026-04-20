@@ -1,4 +1,7 @@
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 using Sol.Actions;
 using Sol.HUD;
 
@@ -49,12 +52,31 @@ namespace Sol
         {
             _inventory = GetComponent<Inventory>();
             _inventory?.SetContainerType(InventoryContainerType.Container);
+
+            // Runtime-spawned crates (no editor OnValidate run) need a fallback ID so
+            // save/load can distinguish them when hierarchy path isn't unique.
+            if (Application.isPlaying && string.IsNullOrWhiteSpace(_containerId))
+                _containerId = $"{EntityCodeUtility.ContainerPrefix}-RT-{GetInstanceID():X}";
         }
 
         private void OnValidate()
         {
             _containerId = EntityCodeUtility.NormalizeOrEmpty(_containerId, EntityCodeUtility.ContainerPrefix);
 #if UNITY_EDITOR
+            // Prefab assets must not carry a ContainerId — otherwise every scene instance
+            // inherits the same code and collides on save/load. Instances get a unique
+            // code; a collision with another instance is treated as "unassigned" and
+            // reassigned to the next free code.
+            if (PrefabUtility.IsPartOfPrefabAsset(this))
+            {
+                if (!string.IsNullOrEmpty(_containerId))
+                    _containerId = string.Empty;
+                return;
+            }
+
+            if (HasContainerIdCollision())
+                _containerId = string.Empty;
+
             _containerId = EntityCodeUtility.EnsureAssignedCode(
                 this,
                 _containerId,
@@ -62,6 +84,27 @@ namespace Sol
                 static container => container._containerId);
 #endif
         }
+
+#if UNITY_EDITOR
+        private bool HasContainerIdCollision()
+        {
+            if (string.IsNullOrEmpty(_containerId))
+                return false;
+
+            ContainerInteractable[] all = Resources.FindObjectsOfTypeAll<ContainerInteractable>();
+            for (int i = 0; i < all.Length; i++)
+            {
+                ContainerInteractable other = all[i];
+                if (other == null || other == this)
+                    continue;
+                if (PrefabUtility.IsPartOfPrefabAsset(other))
+                    continue;
+                if (string.Equals(other._containerId, _containerId, System.StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
+#endif
 
         public bool CanInteract(Interactor interactor)
         {

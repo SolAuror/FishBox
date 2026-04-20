@@ -58,7 +58,7 @@ namespace Sol.HUD
         private bool _hasLoggedMissingPlayerWarning;
         private LocomotionIK _playerLocomotionIK;
         private LocomotionAnimation _playerLocomotionAnimation;
-        private FishingRodState _playerFishingRodState;
+        private FishingState _playerFishingState;
         private ItemComponent _pendingPickupItem;
         private Pose _pickupIKPose;
         private bool _pickupIKUsesGripRotation;
@@ -122,14 +122,14 @@ namespace Sol.HUD
                 _playerInteractor = null;
                 _playerLocomotionIK = null;
                 _playerLocomotionAnimation = null;
-                _playerFishingRodState = null;
+                _playerFishingState = null;
                 return;
             }
 
             _playerInteractor = new Interactor(owner, true);
             _playerLocomotionIK = owner.GetComponent<LocomotionIK>();
             _playerLocomotionAnimation = owner.GetComponent<LocomotionAnimation>();
-            _playerFishingRodState = owner.GetComponent<FishingRodState>();
+            _playerFishingState = owner.GetComponent<FishingState>();
         }
 
         private void TryRegisterActionTrace()
@@ -618,8 +618,8 @@ namespace Sol.HUD
 
         private string GetActivePromptText()
         {
-            if (_playerFishingRodState != null && _playerFishingRodState.HasDisplayedCatch)
-                return _playerFishingRodState.DisplayedCatchPrompt;
+            if (_playerFishingState != null && _playerFishingState.HasDisplayedCatch)
+                return _playerFishingState.DisplayedCatchPrompt;
 
             if (CurrentInteractable != null
                 && _playerInteractor != null
@@ -633,22 +633,22 @@ namespace Sol.HUD
 
         private bool TryTakeDisplayedCatch()
         {
-            return _playerFishingRodState != null
+            return _playerFishingState != null
                 && _playerInteractor != null
-                && _playerFishingRodState.TryTakeDisplayedCatch(_playerInteractor);
+                && _playerFishingState.TryTakeDisplayedCatch(_playerInteractor);
         }
 
         private bool TryDropDisplayedCatch()
         {
-            return _playerFishingRodState != null
-                && _playerFishingRodState.TryDropDisplayedCatch();
+            return _playerFishingState != null
+                && _playerFishingState.TryDropDisplayedCatch();
         }
 
         private bool TryGrabDisplayedCatch()
         {
-            return _playerFishingRodState != null
+            return _playerFishingState != null
                 && _playerInteractor?.Owner != null
-                && _playerFishingRodState.TryGrabDisplayedCatch(_playerInteractor.Owner);
+                && _playerFishingState.TryGrabDisplayedCatch(_playerInteractor.Owner);
         }
     }
 }

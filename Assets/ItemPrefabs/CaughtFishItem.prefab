@@ -10,11 +10,11 @@ GameObject:
   m_Component:
   - component: {fileID: 5777751864889697355}
   - component: {fileID: -7595881182165420534}
-  - component: {fileID: 8325956769247421799}
   - component: {fileID: 4278093092780332956}
   - component: {fileID: 5327769213971343067}
   - component: {fileID: 4782340975245593277}
   - component: {fileID: -8195590648242200405}
+  - component: {fileID: 1369051255074988016}
   m_Layer: 0
   m_Name: CaughtFishItem
   m_TagString: Item
@@ -61,32 +61,9 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 1
   m_IsKinematic: 0
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_Constraints: 0
-  m_CollisionDetection: 0
---- !u!136 &8325956769247421799
-CapsuleCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3835581444044970215}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 1
-  m_Direction: 1
-  m_Center: {x: 0, y: 0, z: 0}
+  m_CollisionDetection: 1
 --- !u!114 &4278093092780332956
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -144,6 +121,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 641800c1f12a643448bcb11525192101, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.CaughtFishItem
+  _fishDefinition: {fileID: 0}
   _speciesName: Fish
   _prefix: 
   _rarity: 0
@@ -169,3 +147,24 @@ MonoBehaviour:
   outlineWidth: 2
   alwaysVisible: 0
   priority: 0
+--- !u!65 &1369051255074988016
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3835581444044970215}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}

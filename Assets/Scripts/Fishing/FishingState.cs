@@ -9,7 +9,7 @@ using Sol.Outline;
 namespace Sol.Fishing
 {
     [DisallowMultipleComponent]
-    public class FishingRodState : MonoBehaviour
+    public class FishingState : MonoBehaviour
     {
         private const string DefaultRodName = "Fishing Rod";
         private const string DefaultTackleName = "Tackle";
@@ -495,6 +495,13 @@ namespace Sol.Fishing
                 return;
 
             _activeTackle = tackleInstance;
+
+            if (_activeRod != null)
+            {
+                Transform baitPoint = _activeRod.FindBaitPoint(_activeTackle.transform);
+                _activeRod.AttachLoadedBaitToExternalPoint(baitPoint);
+            }
+
             _activeTackle.Launch(
                 _activeLineOrigin.position,
                 _pendingCastTarget,
@@ -841,6 +848,9 @@ namespace Sol.Fishing
             _reelProgress = 0f;
             _reelTotalDistance = 0f;
             _reelReleaseTime = -1f;
+
+            if (_activeTackle != null && _activeRod != null)
+                _activeRod.ReattachLoadedBaitToRod();
 
             if (destroyTackle && _activeTackle != null)
                 Destroy(_activeTackle.gameObject);

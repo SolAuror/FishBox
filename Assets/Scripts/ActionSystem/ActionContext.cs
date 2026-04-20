@@ -14,7 +14,7 @@ namespace Sol.Actions
         public Transform Transform { get; }
         public Inventory Inventory { get; }
         public Equipment Equipment { get; }
-        public FishingRodState FishingRodState { get; }
+        public FishingState FishingState { get; }
         // GrabManager is scene-owned and may be recreated; always resolve live instance.
         public GrabManager GrabSystem => GrabManager.Instance;
 
@@ -27,7 +27,7 @@ namespace Sol.Actions
             Transform = actor.transform;
             Inventory = actor.GetComponent<Inventory>();
             Equipment = actor.GetComponent<Equipment>();
-            FishingRodState = actor.GetComponent<FishingRodState>();
+            FishingState = actor.GetComponent<FishingState>();
         }
     }
 }

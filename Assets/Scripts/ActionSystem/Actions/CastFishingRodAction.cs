@@ -7,11 +7,11 @@ namespace Sol.Actions
     public sealed class CastFishingRodAction : GameAction
     {
         public override bool CanExecute()
-            => Context?.FishingRodState != null && Context.FishingRodState.CanCast;
+            => Context?.FishingState != null && Context.FishingState.CanCast;
 
         public override void OnStart()
         {
-            Context.FishingRodState.ExecuteCast();
+            Context.FishingState.ExecuteCast();
             Complete();
         }
     }

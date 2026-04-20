@@ -10,22 +10,22 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 86a3dfc58b06fbd45b5e6d9c1f15df56, type: 3}
-  m_Name: BlueTang
+  m_Name: Cardinal Fish
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.FishDefinition
-  fishName: Blue Tang
+  fishName: Cardinal Fish
   rarity: 0
   isPredator: 0
-  baseValue: 14
+  baseValue: 10
   catchItemPrefab: {fileID: 3835581444044970215, guid: 14599342bd47179479c8db4e19da5c73, type: 3}
-  minSize: 0.55
-  maxSize: 0.75
-  minWeight: 0.25
-  maxWeight: 0.8
-  catchDifficulty: 0.9
+  minSize: 0.45
+  maxSize: 0.65
+  minWeight: 0.15
+  maxWeight: 0.5
+  catchDifficulty: 0.8
   baitInterestMultiplier: 1
   favoriteBaitItemId: 
   favoriteBaitName: 
   favoriteBaitLureMultiplier: 1
   favoriteBaitCatchMultiplier: 1
-  modelPrefab: {fileID: 919132149155446097, guid: cabcefadf3810934588305dd8d863001, type: 3}
-  modelScaleMultiplier: 0.8
+  modelPrefab: {fileID: 919132149155446097, guid: fdc882e4bbeb1cd4fab02dca0960d2b7, type: 3}
+  modelScaleMultiplier: 1.2

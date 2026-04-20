@@ -133,6 +133,11 @@ namespace Sol.Grab
             if (data == null)
                 return;
 
+            // Match ConfigureFromFish: the catch item prefab is authored at a non-unit root scale
+            // (e.g. 0.25) for editor convenience, but the runtime contract is that the item root is
+            // scale 1 and all visible sizing lives on the inner visualInstance via catchVisualScale.
+            transform.localScale = Vector3.one;
+
             _speciesName = data.speciesDisplayName;
             _prefix = data.prefix;
             _rarity = data.rarity;
@@ -152,15 +157,21 @@ namespace Sol.Grab
 
             gameObject.name = fishName;
 
-            // Rebuild the 3D visual using the prefab-baked definition reference and the saved scale
-            if (_fishDefinition != null && _fishDefinition.modelPrefab != null)
+            // Resolve the visual mesh by looking up the FishDefinition referenced in the save data
+            // (via speciesAssetName, re-linked by FishRegistry.RepopulateRuntimeRefs). Falls back to
+            // the prefab-assigned _fishDefinition if the registry lookup didn't resolve.
+            GameObject visualPrefab = data.modelPrefab;
+            if (visualPrefab == null && _fishDefinition != null)
+                visualPrefab = _fishDefinition.modelPrefab;
+
+            if (visualPrefab != null)
             {
                 Vector3 scale = data.catchVisualScale != Vector3.zero ? data.catchVisualScale : Vector3.one;
-                RefreshVisual(_fishDefinition.modelPrefab, scale);
+                RefreshVisual(visualPrefab, scale);
             }
             else
             {
-                Debug.LogWarning($"[CaughtFishItem] '{gameObject.name}' has no FishDefinition assigned — visual will be missing after load. Assign the matching FishDefinition on the catch item prefab.");
+                Debug.LogWarning($"[CaughtFishItem] '{gameObject.name}' could not resolve a FishDefinition for speciesAssetName '{data.speciesAssetName}' — visual will be missing after load.");
             }
         }
 

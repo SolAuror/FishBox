@@ -36,7 +36,7 @@ namespace Sol.Actions
                 && _inventory != null
                 && _interactor?.Owner != null
                 && Context?.Equipment != null
-                && Context.FishingRodState != null
+                && Context.FishingState != null
                 && CanHandle(_slot.Item);
         }
 
@@ -46,7 +46,7 @@ namespace Sol.Actions
                 _slot,
                 _inventory,
                 Context.Equipment,
-                Context.FishingRodState);
+                Context.FishingState);
             Complete();
         }
 
@@ -54,16 +54,16 @@ namespace Sol.Actions
             InventorySlot slot,
             Inventory inventory,
             Equipment equipment,
-            FishingRodState fishingRodState)
+            FishingState fishingState)
         {
-            if (slot?.Item == null || inventory == null || equipment == null || fishingRodState == null)
+            if (slot?.Item == null || inventory == null || equipment == null || fishingState == null)
                 return false;
 
             ItemComponent item = slot.Item;
             if (!CanHandle(item))
                 return false;
 
-            if (TryLoadOntoEquippedRod(slot, inventory, fishingRodState))
+            if (TryLoadOntoEquippedRod(slot, inventory, fishingState))
                 return true;
 
             ItemComponent rodToEquip = FindFirstCompatibleRod(item, inventory, equipment);
@@ -73,19 +73,19 @@ namespace Sol.Actions
             if (!EnsureRodEquipped(rodToEquip, equipment))
                 return false;
 
-            return TryLoadOntoEquippedRod(slot, inventory, fishingRodState);
+            return TryLoadOntoEquippedRod(slot, inventory, fishingState);
         }
 
-        private static bool TryLoadOntoEquippedRod(InventorySlot slot, Inventory inventory, FishingRodState fishingRodState)
+        private static bool TryLoadOntoEquippedRod(InventorySlot slot, Inventory inventory, FishingState fishingState)
         {
-            if (slot?.Item == null || inventory == null || fishingRodState == null || fishingRodState.HasLineOut)
+            if (slot?.Item == null || inventory == null || fishingState == null || fishingState.HasLineOut)
                 return false;
 
             if (slot.Item.GetComponent<FishingTackleItem>() != null)
-                return fishingRodState.TryLoadTackle(slot, inventory);
+                return fishingState.TryLoadTackle(slot, inventory);
 
             if (FishingBaitItem.IsSupportedBait(slot.Item))
-                return fishingRodState.TryLoadBait(slot, inventory);
+                return fishingState.TryLoadBait(slot, inventory);
 
             return false;
         }

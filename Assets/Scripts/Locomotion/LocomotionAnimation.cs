@@ -12,7 +12,7 @@ namespace Sol.Locomotion
         private LocomotionState _state;
         private LocomotionInput _locomotionInput;
         private LocomotionController _controller;
-        private FishingRodState _fishingRodState;
+        private FishingState _fishingState;
         private Sol.AI.AI_NPC _aiNpc;
 
         //Locomotion Hashes
@@ -68,7 +68,7 @@ namespace Sol.Locomotion
             _locomotionInput = GetComponent<LocomotionInput>();
             _state = GetComponent<LocomotionState>();
             _controller = GetComponent<LocomotionController>();
-            _fishingRodState = GetComponent<FishingRodState>();
+            _fishingState = GetComponent<FishingState>();
             _aiNpc = GetComponent<Sol.AI.AI_NPC>();
 
             // Cache which parameters actually exist in the Animator Controller
@@ -89,8 +89,8 @@ namespace Sol.Locomotion
 
         private void UpdateAnimationState()
         {
-            if (_fishingRodState == null)
-                _fishingRodState = GetComponent<FishingRodState>();
+            if (_fishingState == null)
+                _fishingState = GetComponent<FishingState>();
 
             bool isIdle = _state.CurrentMovementState == MovementState.Idle;
             bool isWalking = _state.CurrentMovementState == MovementState.Walking;
@@ -139,7 +139,7 @@ namespace Sol.Locomotion
             //actions
             _animator.SetBool(isAimingHash, _locomotionInput.AimPressed);
 
-            bool shouldBlockDefaultAttack = _fishingRodState != null && _fishingRodState.ShouldBlockDefaultAttack;
+            bool shouldBlockDefaultAttack = _fishingState != null && _fishingState.ShouldBlockDefaultAttack;
             if (!shouldBlockDefaultAttack && _locomotionInput.AttackPressed && _validParams.Contains(attackTriggerHash))
             {
                 _animator.SetTrigger(attackTriggerHash);

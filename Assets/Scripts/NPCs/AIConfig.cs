@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Splines;
 
 namespace Sol.AI
 {
@@ -15,8 +16,10 @@ namespace Sol.AI
         public float idleDuration = 3f;
 
         [Header("Waypoint Patrol")]
-        [Tooltip("Ordered waypoints. If assigned, patrol uses these instead of random wandering.")]
-        public Transform[] patrolPoints;
+        [Tooltip("Spline to patrol along. If assigned, patrol samples this spline instead of random wandering.")]
+        public SplineContainer patrolSpline;
+        [Tooltip("Number of evenly-spaced samples taken along the spline as waypoints. Must be >= 2.")]
+        [Min(2)] public int patrolSampleCount = 8;
         [Tooltip("If true, loops back to the first waypoint after the last. Otherwise ping-pongs.")]
         public bool loop = true;
 

@@ -42,11 +42,24 @@ namespace Sol.HUD
             Instance = this;
             UIStateOwnership.Register<ItemPreviewRenderer>(this);
 
+            // The MasterCanvas prefab has historically nested this renderer under the UI
+            // PreviewImage RawImage (a RectTransform in screen space, with non-unit scale).
+            // That breaks 3D previewing: the camera inherits UI-space transforms and items
+            // parented under the pivot get squashed or clipped. Detach to the scene root and
+            // normalize local scale so the renderer is robust to prefab misplacement.
+            if (transform.parent != null)
+                transform.SetParent(null, worldPositionStays: false);
+            transform.localScale = Vector3.one;
+
             if (_anchor == null)
                 _anchor = transform;
+            else
+                _anchor.localScale = Vector3.one;
 
             if (_pivot == null)
                 _pivot = _anchor;
+            else
+                _pivot.localScale = Vector3.one;
 
             RenderTexture = new RenderTexture(_textureSize, _textureSize, 16);
             RenderTexture.antiAliasing = 2;
@@ -201,49 +214,20 @@ namespace Sol.HUD
             if (!hasBounds)
                 return false;
 
-            // Center the object on the pivot.
+            // Center the object on the pivot. Do NOT rescale the clone — previews must
+            // preserve real-world item scale so that a small fish looks smaller than a large
+            // fish in the tooltip, matching how they appear in the world and inventory.
             Vector3 centerOffset = _pivot.position - bounds.center;
             go.transform.position += centerOffset;
 
-            // Normalize scale so the object fits in view.
-            float maxExtent = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z);
-            if (maxExtent > 0.001f)
-            {
-                float desiredSize = _cameraDistance * 0.35f;
-                float scaleFactor = desiredSize / maxExtent;
-                go.transform.localScale *= scaleFactor;
-            }
-
-            hasBounds = false;
-            for (int i = 0; i < renderers.Length; i++)
-            {
-                Renderer renderer = renderers[i];
-                if (renderer == null || !renderer.enabled || !renderer.gameObject.activeInHierarchy)
-                    continue;
-
-                if (!hasBounds)
-                {
-                    bounds = renderer.bounds;
-                    hasBounds = true;
-                }
-                else
-                {
-                    bounds.Encapsulate(renderer.bounds);
-                }
-            }
-
-            if (!hasBounds)
-                return false;
-
-            // Position camera to frame the object.
-            float radius = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z) * 1.25f;
-            float halfFov = Mathf.Max(1f, _previewCamera.fieldOfView * 0.5f) * Mathf.Deg2Rad;
-            float distance = Mathf.Max(_cameraDistance * 0.5f, radius / Mathf.Tan(halfFov));
-
+            // Position the camera at a fixed authoring distance. A large item will fill more
+            // of the preview frame, a small item will fill less — that's the consistency we
+            // want across every tooltip.
+            float distance = Mathf.Max(0.1f, _cameraDistance);
             _previewCamera.transform.position = _anchor.position + _anchor.forward * -distance;
             _previewCamera.transform.LookAt(_anchor.position);
             _previewCamera.nearClipPlane = 0.01f;
-            _previewCamera.farClipPlane = Mathf.Max(10f, distance + radius * 4f);
+            _previewCamera.farClipPlane = Mathf.Max(10f, distance + bounds.extents.magnitude * 4f);
 
             return true;
         }
@@ -268,23 +252,31 @@ namespace Sol.HUD
 
         private void EnsurePreviewLight()
         {
+            // Previous implementation used a Directional light filtered via Light.cullingMask.
+            // URP's forward renderer does not reliably honour cullingMask for dynamic lights,
+            // so a directional preview light spills into the main scene and washes out the
+            // environment lighting. Use a short-range Point light instead: its physical range
+            // is capped below _cameraDistance so it cannot reach any real scene geometry even
+            // if URP ignores the culling mask entirely.
             Light light = GetComponentInChildren<Light>(true);
             if (light == null)
             {
                 GameObject lightGo = new("PreviewLight", typeof(Light));
-                lightGo.transform.SetParent(transform, false);
+                lightGo.transform.SetParent(_pivot != null ? _pivot : transform, false);
                 lightGo.transform.localPosition = Vector3.zero;
-                lightGo.transform.localRotation = Quaternion.Euler(50f, -30f, 0f);
+                lightGo.transform.localRotation = Quaternion.identity;
                 light = lightGo.GetComponent<Light>();
             }
 
             if (light == null)
                 return;
 
-            light.type = LightType.Directional;
+            light.type = LightType.Point;
             light.shadows = LightShadows.None;
+            light.range = Mathf.Max(0.1f, _cameraDistance * 0.5f);
             light.intensity = Mathf.Max(0f, _previewLightIntensity);
             light.cullingMask = 1 << _previewLayer;
+            light.renderingLayerMask = 1 << _previewLayer;
             light.enabled = true;
         }
     }

@@ -24,9 +24,15 @@ namespace Sol.HUD
                 return;
             }
             _instance = (T)this;
-            if (_canvasGroup == null) _canvasGroup = MenuUiUtility.EnsureCanvasGroup(gameObject);
-            if (_canvasGroup == null)
-                Debug.LogWarning($"[{typeof(T).Name}] CanvasGroup is not assigned on '{name}'. Author it in the prefab instead of relying on runtime creation.", this);
+
+            // Each menu must own a CanvasGroup on its own GameObject. If the prefab
+            // wires _canvasGroup to a shared parent group (e.g. UI_System), closing
+            // one menu would hide its siblings by zeroing their shared alpha.
+            if (_canvasGroup == null || _canvasGroup.gameObject != gameObject)
+            {
+                _canvasGroup = GetComponent<CanvasGroup>();
+                if (_canvasGroup == null) _canvasGroup = gameObject.AddComponent<CanvasGroup>();
+            }
             if (_canvasGroup != null) _canvasGroup.ignoreParentGroups = true;
             UIStateOwnership.Register<T>(_instance);
         }

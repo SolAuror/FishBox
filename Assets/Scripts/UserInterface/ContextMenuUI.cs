@@ -314,10 +314,10 @@ namespace Sol.HUD
             bool canHookToRod = false;
             bool canUnhookBait = false;
             bool canDetachLure = false;
-            if (interactor?.Owner != null && interactor.Owner.TryGetComponent<FishingRodState>(out var fishingRodState))
+            if (interactor?.Owner != null && interactor.Owner.TryGetComponent<FishingState>(out var fishingState))
             {
-                canAddToRod = item.GetComponent<FishingTackleItem>() != null && fishingRodState.CanLoadTackle(item);
-                canHookToRod = fishingRodState.CanLoadBait(item);
+                canAddToRod = item.GetComponent<FishingTackleItem>() != null && fishingState.CanLoadTackle(item);
+                canHookToRod = fishingState.CanLoadBait(item);
 
                 bool isEquippedRod = item.GetComponent<FishingRodItem>() != null
                     && interactor.Owner.TryGetComponent<Equipment>(out var equipment)
@@ -325,8 +325,8 @@ namespace Sol.HUD
 
                 if (isEquippedRod)
                 {
-                    canUnhookBait = fishingRodState.CanDetachBait();
-                    canDetachLure = fishingRodState.CanDetachTackle();
+                    canUnhookBait = fishingState.CanDetachBait();
+                    canDetachLure = fishingState.CanDetachTackle();
                 }
             }
             bool isStack = slot.Count > 1;
@@ -382,26 +382,26 @@ namespace Sol.HUD
                 case ContextMenuAction.AddToRod:
                     if (_activeInteractor?.Owner == null || _activeSlot == null || _activeInventory == null)
                         return;
-                    if (_activeInteractor.Owner.TryGetComponent<FishingRodState>(out var fishingRodState))
-                        fishingRodState.TryLoadTackle(_activeSlot, _activeInventory);
+                    if (_activeInteractor.Owner.TryGetComponent<FishingState>(out var fishingState))
+                        fishingState.TryLoadTackle(_activeSlot, _activeInventory);
                     break;
                 case ContextMenuAction.HookToRod:
                     if (_activeInteractor?.Owner == null || _activeSlot == null || _activeInventory == null)
                         return;
-                    if (_activeInteractor.Owner.TryGetComponent<FishingRodState>(out fishingRodState))
-                        fishingRodState.TryLoadBait(_activeSlot, _activeInventory);
+                    if (_activeInteractor.Owner.TryGetComponent<FishingState>(out fishingState))
+                        fishingState.TryLoadBait(_activeSlot, _activeInventory);
                     break;
                 case ContextMenuAction.UnhookBait:
                     if (_activeInteractor?.Owner == null || _activeInventory == null)
                         return;
-                    if (_activeInteractor.Owner.TryGetComponent<FishingRodState>(out fishingRodState))
-                        fishingRodState.TryDetachBait(_activeInventory);
+                    if (_activeInteractor.Owner.TryGetComponent<FishingState>(out fishingState))
+                        fishingState.TryDetachBait(_activeInventory);
                     break;
                 case ContextMenuAction.DetachLure:
                     if (_activeInteractor?.Owner == null || _activeInventory == null)
                         return;
-                    if (_activeInteractor.Owner.TryGetComponent<FishingRodState>(out fishingRodState))
-                        fishingRodState.TryDetachTackle(_activeInventory);
+                    if (_activeInteractor.Owner.TryGetComponent<FishingState>(out fishingState))
+                        fishingState.TryDetachTackle(_activeInventory);
                     break;
                 case ContextMenuAction.Use:
                     if (_activeInteractor == null) return;

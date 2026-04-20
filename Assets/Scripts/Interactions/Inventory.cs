@@ -444,11 +444,12 @@ namespace Sol
             if (slot.Count <= 0)
             {
                 _slots.Remove(slot);
-                // Deregister caught fish if this slot represents a unique fish instance
-                if (!string.IsNullOrEmpty(slot.FishCode))
-                {
-                    Sol.AI.FishRegistry.Instance.RemoveFish(slot.FishCode);
-                }
+                // Note: do NOT deregister the fish here. Remove is used for relocation
+                // (drop to world, trade to another inventory) as well as destruction.
+                // Deregistration must be tied to the fish actually being destroyed/consumed
+                // (see Inventory.Use for the consumable path), otherwise the registry entry
+                // vanishes while the world object still carries its FishCode — after a
+                // save/load round-trip the fish's stats (size, weight, etc.) would be lost.
             }
             NotifyChanged();
             return true;

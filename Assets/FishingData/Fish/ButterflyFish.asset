@@ -28,4 +28,4 @@ MonoBehaviour:
   favoriteBaitLureMultiplier: 1
   favoriteBaitCatchMultiplier: 1
   modelPrefab: {fileID: 919132149155446097, guid: 644c4458c7b17544a981bd143136e51a, type: 3}
-  modelScaleMultiplier: 0.9
+  modelScaleMultiplier: 1.2

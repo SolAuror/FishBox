@@ -54,8 +54,10 @@ namespace Sol.SaveLoad
     public class ContainerSaveData
     {
         public string ContainerId = string.Empty;
+        public string HierarchyPath = string.Empty;
         public string GameObjectName = string.Empty;
         public SerializableVector3 Position;
+        public SerializableQuaternion Rotation;
         public bool IsLocked;
         public int LockLevel;
         public int Gold;

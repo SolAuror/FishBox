@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Splines;
 using Sol.Locomotion;
 using Sol.Grab;
 using Sol.Player;

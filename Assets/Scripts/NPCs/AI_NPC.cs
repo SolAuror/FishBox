@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Splines;
 using Sol.Locomotion;
 
 // AI_NPC partial class root. All implementation is in partials:

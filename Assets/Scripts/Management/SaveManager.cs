@@ -293,8 +293,10 @@ namespace Sol.SaveLoad
                 containers.Add(new ContainerSaveData
                 {
                     ContainerId = interactable.ContainerId,
+                    HierarchyPath = GetHierarchyPath(interactable.transform),
                     GameObjectName = interactable.gameObject.name,
                     Position = interactable.transform.position,
+                    Rotation = interactable.transform.rotation,
                     IsLocked = inventory.IsLocked,
                     LockLevel = inventory.LockLevel,
                     Gold = inventory.Gold + slottedGold,
@@ -374,11 +376,14 @@ namespace Sol.SaveLoad
                 return;
 
             ApplyTimeData(data.Time);
+            // FishRegistry must be loaded before any inventories/world items so fishCode lookups
+            // during item restoration resolve to the saved CaughtFishData.
+            FishRegistry.Instance.LoadRegistry(data.CaughtFish);
+            // Re-link each saved fish's modelPrefab via its FishDefinition (matched by speciesAssetName)
+            FishRegistry.Instance.RepopulateRuntimeRefs();
             ApplyPlayerData(data.Player);
             ApplyContainerData(data.Containers);
             ApplyNpcData(data.NPCs);
-            // FishRegistry must be loaded before world/inventory items so fishCode lookups resolve
-            FishRegistry.Instance.LoadRegistry(data.CaughtFish);
             ApplyWorldItemData(data.WorldItems);
         }
 
@@ -450,6 +455,17 @@ namespace Sol.SaveLoad
                 Inventory inventory = interactable.GetComponent<Inventory>();
                 if (inventory == null)
                     continue;
+
+                Rigidbody rb = interactable.GetComponent<Rigidbody>();
+                bool hadKinematic = rb != null && rb.isKinematic;
+                if (rb != null) rb.isKinematic = true;
+                interactable.transform.SetPositionAndRotation(saved.Position, saved.Rotation);
+                if (rb != null)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                    rb.isKinematic = hadKinematic;
+                }
 
                 if (saved.IsLocked)
                     inventory.Lock(saved.LockLevel);
@@ -557,8 +573,9 @@ namespace Sol.SaveLoad
                 if (item == null || !item.gameObject.activeInHierarchy)
                     continue;
 
-                // Root-only: items parented to anything (inventory, NPC, rod) are handled elsewhere
-                if (item.transform.parent != null)
+                // Anything with an Inventory ancestor (player, NPC, container, equipment bone
+                // on an inventoried actor) is captured by Collect*InventoryItems — skip here.
+                if (IsOwnedByInventory(item))
                     continue;
 
                 if (string.IsNullOrWhiteSpace(item.ItemId))
@@ -584,12 +601,14 @@ namespace Sol.SaveLoad
 
         private void ApplyWorldItemData(List<WorldItemSaveData> worldItems)
         {
-            // Destroy all current loose world items before restoring saved state
+            // Destroy all current loose world items before restoring saved state.
+            // Items owned by an Inventory were already reset by ApplyPlayerData /
+            // ApplyContainerData / ApplyNpcData, so we leave those alone.
             ItemComponent[] existing = FindObjectsByType<ItemComponent>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             for (int i = 0; i < existing.Length; i++)
             {
                 ItemComponent item = existing[i];
-                if (item != null && item.gameObject.activeInHierarchy && item.transform.parent == null)
+                if (item != null && item.gameObject.activeInHierarchy && !IsOwnedByInventory(item))
                     Destroy(item.gameObject);
             }
 
@@ -631,6 +650,11 @@ namespace Sol.SaveLoad
                 if (col != null)
                     col.enabled = true;
             }
+        }
+
+        private static bool IsOwnedByInventory(ItemComponent item)
+        {
+            return item != null && item.GetComponentInParent<Inventory>(true) != null;
         }
 
         private static string GetHierarchyPath(Transform transform)
@@ -851,20 +875,44 @@ namespace Sol.SaveLoad
             if (containers == null || interactable == null)
                 return null;
 
-            string containerId = interactable.ContainerId;
-            if (!string.IsNullOrWhiteSpace(containerId))
+            // Preferred: hierarchy path. Stable per scene-placed instance, survives the
+            // prefab-wide shared ContainerId problem where every crate authored from the
+            // same prefab gets CNT##### baked in.
+            string hierarchyPath = GetHierarchyPath(interactable.transform);
+            if (!string.IsNullOrWhiteSpace(hierarchyPath))
             {
                 for (int i = 0; i < containers.Count; i++)
                 {
                     ContainerSaveData candidate = containers[i];
                     if (candidate != null
-                        && string.Equals(candidate.ContainerId, containerId, StringComparison.OrdinalIgnoreCase))
+                        && string.Equals(candidate.HierarchyPath, hierarchyPath, StringComparison.Ordinal))
                     {
                         return candidate;
                     }
                 }
             }
 
+            // Fallback for legacy saves: ContainerId is unique only if authored that way.
+            string containerId = interactable.ContainerId;
+            if (!string.IsNullOrWhiteSpace(containerId))
+            {
+                int matchCount = 0;
+                ContainerSaveData firstIdMatch = null;
+                for (int i = 0; i < containers.Count; i++)
+                {
+                    ContainerSaveData candidate = containers[i];
+                    if (candidate != null
+                        && string.Equals(candidate.ContainerId, containerId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (firstIdMatch == null) firstIdMatch = candidate;
+                        matchCount++;
+                    }
+                }
+                if (matchCount == 1)
+                    return firstIdMatch;
+            }
+
+            // Final fallback: name + proximity (works when the crate hasn't been moved).
             for (int i = 0; i < containers.Count; i++)
             {
                 ContainerSaveData candidate = containers[i];

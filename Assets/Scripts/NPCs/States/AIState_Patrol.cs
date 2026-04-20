@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Splines;
 using Sol.Player;
 
 namespace Sol.AI
@@ -55,26 +56,26 @@ namespace Sol.AI
 
         private void SelectNewPatrolPoint()
         {
-            // Waypoint patrol if waypoints are assigned.
-            if (config != null && config.patrolPoints != null && config.patrolPoints.Length > 0)
+            // Spline patrol if a spline is assigned.
+            if (config != null && config.patrolSpline != null && config.patrolSpline.Spline != null && config.patrolSpline.Spline.Count > 0)
             {
-                Transform wp = config.patrolPoints[waypointIndex];
-                if (wp != null)
+                int sampleCount = Mathf.Max(2, config.patrolSampleCount);
+                float t = (sampleCount <= 1) ? 0f : (float)waypointIndex / (sampleCount - 1);
+                patrolTarget = config.patrolSpline.EvaluatePosition(Mathf.Clamp01(t));
+
+                if (agent != null && agent.isOnNavMesh)
                 {
-                    patrolTarget = wp.position;
-                    if (agent != null && agent.isOnNavMesh)
-                    {
-                        agent.SetDestination(patrolTarget);
-                        hasPatrolTarget = true;
-                    }
-                    else
-                    {
-                        hasPatrolTarget = false;
-                    }
+                    agent.SetDestination(patrolTarget);
+                    hasPatrolTarget = true;
                 }
+                else
+                {
+                    hasPatrolTarget = false;
+                }
+
                 waypointIndex++;
-                if (waypointIndex >= config.patrolPoints.Length)
-                    waypointIndex = config.loop ? 0 : config.patrolPoints.Length - 1;
+                if (waypointIndex >= sampleCount)
+                    waypointIndex = config.loop ? 0 : sampleCount - 1;
                 return;
             }
 

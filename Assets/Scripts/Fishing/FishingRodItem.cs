@@ -95,9 +95,40 @@ namespace Sol.Fishing
             if (_loadedBaitItem == null)
                 return;
 
-            AttachItemToPoint(_loadedBaitItem, GetBaitAttachmentPoint());
+            AttachItemToPointPreservingWorldScale(_loadedBaitItem, GetBaitAttachmentPoint(), Quaternion.identity);
             SetAttachedTackleState(_loadedBaitItem.transform, false);
             _loadedBaitItem.gameObject.SetActive(true);
+        }
+
+        public void AttachLoadedBaitToExternalPoint(Transform attachPoint)
+        {
+            if (_loadedBaitItem == null || attachPoint == null)
+                return;
+
+            AttachItemToPointPreservingWorldScale(_loadedBaitItem, attachPoint, Quaternion.identity);
+            SetAttachedTackleState(_loadedBaitItem.transform, false);
+            _loadedBaitItem.gameObject.SetActive(true);
+        }
+
+        public void ReattachLoadedBaitToRod()
+        {
+            if (_loadedBaitItem == null)
+                return;
+
+            Transform point = GetBaitAttachmentPoint();
+            if (point == null)
+                return;
+
+            AttachItemToPointPreservingWorldScale(_loadedBaitItem, point, Quaternion.identity);
+            SetAttachedTackleState(_loadedBaitItem.transform, false);
+        }
+
+        public Transform FindBaitPoint(Transform root)
+        {
+            if (root == null)
+                return null;
+            Transform point = FindChildByName(root, BaitPointName);
+            return point != null ? point : root;
         }
 
         public ItemComponent UnloadBaitItem()
@@ -219,7 +250,7 @@ namespace Sol.Fishing
             {
                 if (CanAttachRuntimeItem(_loadedBaitItem, GetBaitAttachmentPoint()))
                 {
-                    AttachItemToPoint(_loadedBaitItem, GetBaitAttachmentPoint());
+                    AttachItemToPointPreservingWorldScale(_loadedBaitItem, GetBaitAttachmentPoint(), Quaternion.identity);
                     SetAttachedTackleState(_loadedBaitItem.transform, false);
                 }
                 else
@@ -342,6 +373,10 @@ namespace Sol.Fishing
                 body.isKinematic = !enabled;
                 body.detectCollisions = enabled;
                 body.useGravity = enabled;
+                // Kinematic rigidbodies with Interpolate/Extrapolate lag behind a moving parent
+                // transform, causing attached bait/tackle to visibly drift while the rod moves.
+                // Disable interpolation while attached so the body follows its parent exactly.
+                body.interpolation = enabled ? RigidbodyInterpolation.Interpolate : RigidbodyInterpolation.None;
             }
 
             Collider[] colliders = root.GetComponentsInChildren<Collider>(true);
