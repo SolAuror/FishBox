@@ -6,30 +6,36 @@ using Sol.AI;
 namespace Sol.SaveLoad
 {
     [Serializable]
-    public class GameSaveData
+    public class GameSaveData                               // Root class for all save data. Contains metadata and all relevant game state data for saving and loading.
     {
-        public SaveMetadata Metadata = new();
-        public PlayerSaveData Player = new();
-        public TimeSaveData Time = new();
-        public List<ContainerSaveData> Containers = new();
-        public List<NPCSaveData> NPCs = new();
-        public List<CaughtFishData> CaughtFish = new();
-        public List<WorldItemSaveData> WorldItems = new();
+        public const int InitialVersion = 1;                // First version of the save data structure.
+        public const int CurrentVersion = 2;                // Increment when making changes to the save data structure.
+
+        public int SaveVersion = CurrentVersion;            // Used to handle loading old save versions and applying necessary conversions.
+
+        public SaveMetadata Metadata = new();               // Populated at time of saving, not used for loading.
+        public PlayerSaveData Player = new();               // Player data, including inventory and equipped items.
+        public TimeSaveData Time = new();                   // In-game time and date information.
+        public List<ContainerSaveData> Containers = new(); // Data for world containers (chests, barrels, etc.) that can hold items.
+        public List<NPCSaveData> NPCs = new();              // Data for NPCs, including position, health, inventory, etc.
+        public List<CaughtFishData> CaughtFish = new();     // Data for fish caught by the player, used to populate the fish encyclopedia.
+        public List<WorldItemSaveData> WorldItems = new(); // Data for items placed in the world (e.g. dropped items), including position and rotation.
     }
 
     [Serializable]
-    public class SaveMetadata
+    public class SaveMetadata                               // Metadata about the save, used for display in save/load menus. Not used for loading actual game state.
     {
         public int SlotIndex;
         public string SaveName = string.Empty;
         public string Timestamp = string.Empty;
+        public long TimestampTicks;                         //for more reliable sorting
         public string InGameDate = string.Empty;
         public float PlaytimeSeconds;
         public string ScreenshotFileName = string.Empty;
     }
 
     [Serializable]
-    public class PlayerSaveData
+    public class PlayerSaveData                             // Data for the player character, including position, health, inventory, etc.
     {
         public SerializableVector3 Position;
         public SerializableQuaternion Rotation;
@@ -41,7 +47,7 @@ namespace Sol.SaveLoad
     }
 
     [Serializable]
-    public class TimeSaveData
+    public class TimeSaveData                               // In-game time and date information.
     {
         public float CurrentTime;
         public int Day;
@@ -51,7 +57,7 @@ namespace Sol.SaveLoad
     }
 
     [Serializable]
-    public class ContainerSaveData
+    public class ContainerSaveData                          // Data for world containers (chests, barrels, etc.) that can hold items. Identified by their hierarchy path in the scene to match them on load.
     {
         public string ContainerId = string.Empty;
         public string HierarchyPath = string.Empty;
@@ -65,7 +71,7 @@ namespace Sol.SaveLoad
     }
 
     [Serializable]
-    public class ItemInstanceSaveData
+    public class ItemInstanceSaveData                      // Data for an instance of an item, including its ID, owner (for stolen items), and any relevant state (e.g. fish type for caught fish).
     {
         public string ItemId = string.Empty;
         public string OwnerId = string.Empty;
@@ -74,7 +80,7 @@ namespace Sol.SaveLoad
     }
 
     [Serializable]
-    public class WorldItemSaveData
+    public class WorldItemSaveData                      // Data for items placed in the world (e.g. dropped items), including position and rotation to restore them on load.
     {
         public string ItemId = string.Empty;
         public string OwnerId = string.Empty;
@@ -85,14 +91,14 @@ namespace Sol.SaveLoad
     }
 
     [Serializable]
-    public class EquippedItemSaveData
+    public class EquippedItemSaveData                   // Data for an equipped item, including the equipment slot and the item instance data.
     {
         public string SlotType = string.Empty;
         public ItemInstanceSaveData Item = new();
     }
 
     [Serializable]
-    public class NPCSaveData
+    public class NPCSaveData                            // Data for NPCs, including position, health, inventory, etc. Identified by their hierarchy path in the scene to match them on load.
     {
         /// <summary>Full hierarchy path used to match against the scene NPC.</summary>
         public string NpcId = string.Empty;
@@ -105,20 +111,20 @@ namespace Sol.SaveLoad
     }
 
     [Serializable]
-    public struct SerializableVector3
+    public struct SerializableVector3                   // Wrapper for Vector3 to make it serializable by Unity's JsonUtility.
     {
         public float x;
         public float y;
         public float z;
 
-        public SerializableVector3(Vector3 value)
+        public SerializableVector3(Vector3 value)       // Constructor to convert from Vector3 to SerializableVector3.
         {
             x = value.x;
             y = value.y;
             z = value.z;
         }
 
-        public Vector3 ToVector3()
+        public Vector3 ToVector3()                      // Method to convert back from SerializableVector3 to Vector3.
         {
             return new Vector3(x, y, z);
         }
@@ -128,14 +134,14 @@ namespace Sol.SaveLoad
     }
 
     [Serializable]
-    public struct SerializableQuaternion
+    public struct SerializableQuaternion                // Wrapper for Quaternion to make it serializable by Unity's JsonUtility.
     {
         public float x;
         public float y;
         public float z;
         public float w;
 
-        public SerializableQuaternion(Quaternion value)
+        public SerializableQuaternion(Quaternion value) // Constructor to convert from Quaternion to SerializableQuaternion.
         {
             x = value.x;
             y = value.y;
@@ -143,7 +149,7 @@ namespace Sol.SaveLoad
             w = value.w;
         }
 
-        public Quaternion ToQuaternion()
+        public Quaternion ToQuaternion()                // Method to convert back from SerializableQuaternion to Quaternion.
         {
             return new Quaternion(x, y, z, w);
         }

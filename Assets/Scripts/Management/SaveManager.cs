@@ -15,11 +15,11 @@ using UnityEditor;
 
 namespace Sol.SaveLoad
 {
-    public class SaveManager : MonoBehaviour
+    public class SaveManager : MonoBehaviour // Singleton responsible for saving and loading game state, including player data, NPC states, world containers, and more. Uses JSON serialization to write save files to disk, and captures screenshots for save previews.
     {
-        public static SaveManager Instance { get; private set; }
+        public static SaveManager Instance { get; private set; } // Singleton instance, accessible via SaveManager.Instance. Set in Awake().
 
-        public const int MaxSlots = 10;
+        public const int MaxSlots = 25;
         public const int AutoSaveSlot = 0;
 
         private static string SaveDirectory => Path.Combine(Application.persistentDataPath, "saves");
@@ -50,7 +50,7 @@ namespace Sol.SaveLoad
                 Instance = null;
         }
 
-        public bool SaveGame(int slotIndex, string saveName = null)
+        public bool SaveGame(int slotIndex, string saveName = null) // Returns true if save was successful, false if an error occurred.
         {
             if (!IsValidSlotIndex(slotIndex))
                 return false;
@@ -69,7 +69,7 @@ namespace Sol.SaveLoad
             }
         }
 
-        public bool LoadGame(int slotIndex)
+        public bool LoadGame(int slotIndex) // Returns true if load was successful, false if an error occurred or save file was invalid.
         {
             if (!IsValidSlotIndex(slotIndex))
                 return false;
@@ -90,7 +90,7 @@ namespace Sol.SaveLoad
             }
         }
 
-        public SaveMetadata GetSlotMetadata(int slotIndex)
+        public SaveMetadata GetSlotMetadata(int slotIndex) // Returns metadata for the specified slot, or null if the slot index is invalid or save file is missing/invalid. Metadata includes display information like save name, timestamp, in-game date, and playtime, but does not include actual game state data.
         {
             if (!IsValidSlotIndex(slotIndex))
                 return null;
@@ -98,7 +98,7 @@ namespace Sol.SaveLoad
             return TryReadSaveData(slotIndex, out GameSaveData data) ? data?.Metadata : null;
         }
 
-        public SaveMetadata[] GetAllSlotMetadata()
+        public SaveMetadata[] GetAllSlotMetadata() // Returns an array of metadata for all save slots, with null entries for invalid slots or missing/invalid save files. Used to populate save/load menus with display information about each slot.
         {
             SaveMetadata[] slots = new SaveMetadata[MaxSlots];
             for (int i = 0; i < MaxSlots; i++)
@@ -106,7 +106,7 @@ namespace Sol.SaveLoad
             return slots;
         }
 
-        public bool DeleteSave(int slotIndex)
+        public bool DeleteSave(int slotIndex) // Deletes the save file and associated screenshot for the specified slot. Returns true if deletion was successful, false if an error occurred or slot index is invalid.
         {
             if (!IsValidSlotIndex(slotIndex))
                 return false;
@@ -128,12 +128,12 @@ namespace Sol.SaveLoad
             }
         }
 
-        public bool SlotExists(int slotIndex)
+        public bool SlotExists(int slotIndex) // Returns true if a valid save file exists for the specified slot index, false otherwise.
         {
             return IsValidSlotIndex(slotIndex) && File.Exists(GetSlotPath(slotIndex));
         }
 
-        public Texture2D LoadScreenshot(int slotIndex)
+        public Texture2D LoadScreenshot(int slotIndex) // Loads and returns the screenshot associated with the specified slot index, or null if the slot index is invalid or screenshot file is missing/invalid. The returned Texture2D is a new instance that the caller is responsible for destroying when no longer needed.
         {
             if (!IsValidSlotIndex(slotIndex))
                 return null;
@@ -145,20 +145,22 @@ namespace Sol.SaveLoad
             try
             {
                 byte[] bytes = File.ReadAllBytes(path);
-                Texture2D texture = new Texture2D(2, 2);
-                if (texture.LoadImage(bytes))
-                    return texture;
 
-                Destroy(texture);
+                Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                texture.LoadImage(bytes);
+
+                texture.wrapMode = TextureWrapMode.Clamp;
+                texture.filterMode = FilterMode.Bilinear;
+
+                return texture; // ALWAYS a new instance → caller must destroy
             }
             catch
             {
+                return null;
             }
-
-            return null;
         }
 
-        public string GetSlotInGameDate(int slotIndex)
+        public string GetSlotInGameDate(int slotIndex) // Returns the in-game date string for the specified slot index, or an empty string if the slot index is invalid or save file is missing/invalid. Used to display in-game date information in save/load menus.
         {
             if (!TryReadSaveData(slotIndex, out GameSaveData data) || data == null)
                 return string.Empty;
@@ -169,7 +171,7 @@ namespace Sol.SaveLoad
             return FormatInGameDate(data.Time);
         }
 
-        public static string FormatPlaytime(float seconds)
+        public static string FormatPlaytime(float seconds) // Formats a playtime duration in seconds into a human-readable string like "2h 15m" or "45m". Used to display playtime information in save/load menus.
         {
             seconds = Mathf.Max(0f, seconds);
             int totalMinutes = Mathf.FloorToInt(seconds / 60f);
@@ -178,7 +180,7 @@ namespace Sol.SaveLoad
             return hours > 0 ? $"{hours}h {minutes}m" : $"{minutes}m";
         }
 
-        public static string FormatInGameDate(TimeSaveData data)
+        public static string FormatInGameDate(TimeSaveData data) // Formats in-game date information from TimeSaveData into a human-readable string like "Day 5, Harvestmonth, Year 2". Used to display in-game date information in save/load menus.
         {
             if (data == null)
                 return string.Empty;
@@ -195,17 +197,20 @@ namespace Sol.SaveLoad
             return $"Day {day}, {monthName}, Year {year}";
         }
 
-        private GameSaveData CollectSaveData(int slotIndex, string saveName)
+        private GameSaveData CollectSaveData(int slotIndex, string saveName) // Collects all relevant game state data into a GameSaveData object for saving. This includes player data, NPC states, world containers, in-game time, and more.
         {
             TimeSaveData timeData = CollectTimeData();
 
             return new GameSaveData
             {
+                SaveVersion = GameSaveData.CurrentVersion,
                 Metadata = new SaveMetadata
                 {
+
                     SlotIndex = slotIndex,
                     SaveName = string.IsNullOrWhiteSpace(saveName) ? GetDefaultSaveName(slotIndex) : saveName.Trim(),
-                    Timestamp = DateTime.Now.ToString("dd MMM yyyy, HH:mm"),
+                    Timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss"),
+                    TimestampTicks = DateTime.UtcNow.Ticks,
                     InGameDate = FormatInGameDate(timeData),
                     PlaytimeSeconds = Time.realtimeSinceStartup - _sessionStartTime,
                     ScreenshotFileName = $"slot_{slotIndex}.png"
@@ -219,7 +224,7 @@ namespace Sol.SaveLoad
             };
         }
 
-        private PlayerSaveData CollectPlayerData()
+        private PlayerSaveData CollectPlayerData() // Collects data about the player character, including position, rotation, health, inventory items, equipped items, and more, into a PlayerSaveData object for saving.
         {
             PlayerSaveData data = new();
             GameObject playerRoot = FindPlayerRoot();
@@ -251,7 +256,7 @@ namespace Sol.SaveLoad
             return data;
         }
 
-        private TimeSaveData CollectTimeData()
+        private TimeSaveData CollectTimeData() // Collects in-game time and date information from TimeOfDay and Calendar objects into a TimeSaveData object for saving.
         {
             TimeSaveData data = new();
             TimeOfDay timeOfDay = FindFirstObjectByType<TimeOfDay>();
@@ -270,7 +275,7 @@ namespace Sol.SaveLoad
             return data;
         }
 
-        private List<ContainerSaveData> CollectContainerData()
+        private List<ContainerSaveData> CollectContainerData() // Collects data for all world containers (chests, barrels, etc.) that can hold items, including their position, rotation, lock state, inventory contents, and more, into a list of ContainerSaveData objects for saving.
         {
             List<ContainerSaveData> containers = new();
             ContainerInteractable[] interactables = FindObjectsByType<ContainerInteractable>(
@@ -307,7 +312,7 @@ namespace Sol.SaveLoad
             return containers;
         }
 
-        private List<ItemInstanceSaveData> CollectInventoryItems(Inventory inventory, HashSet<ItemComponent> excludedItems, out int goldValue)
+        private List<ItemInstanceSaveData> CollectInventoryItems(Inventory inventory, HashSet<ItemComponent> excludedItems, out int goldValue) // Collects data for all items in the specified inventory into a list of ItemInstanceSaveData objects for saving. Also calculates the total gold value of any slotted gold items and returns it via the out parameter.
         {
             List<ItemInstanceSaveData> items = new();
             goldValue = 0;
@@ -349,7 +354,7 @@ namespace Sol.SaveLoad
             return items;
         }
 
-        private List<EquippedItemSaveData> CollectEquippedItems(Equipment equipment)
+        private List<EquippedItemSaveData> CollectEquippedItems(Equipment equipment) // Collects data for all equipped items on the player character, including their equipment slot and item instance data, into a list of EquippedItemSaveData objects for saving.
         {
             List<EquippedItemSaveData> items = new();
             if (equipment == null)
@@ -370,7 +375,7 @@ namespace Sol.SaveLoad
             return items;
         }
 
-        private void ApplySaveData(GameSaveData data)
+        private void ApplySaveData(GameSaveData data) // Applies the provided GameSaveData to restore game state, including player position, NPC states, world containers, in-game time, and more. This is called during loading to restore the saved game state.
         {
             if (data == null)
                 return;
@@ -387,7 +392,7 @@ namespace Sol.SaveLoad
             ApplyWorldItemData(data.WorldItems);
         }
 
-        private void ApplyTimeData(TimeSaveData data)
+        private void ApplyTimeData(TimeSaveData data) // Applies in-game time and date information from the provided TimeSaveData to the TimeOfDay and Calendar objects in the scene to restore the saved in-game time state during loading.
         {
             if (data == null)
                 return;
@@ -401,7 +406,7 @@ namespace Sol.SaveLoad
                 calendar.SetDate(data.Day, data.Month, data.Year, data.TotalDaysElapsed);
         }
 
-        private void ApplyPlayerData(PlayerSaveData data)
+        private void ApplyPlayerData(PlayerSaveData data) // Applies data about the player character from the provided PlayerSaveData, including position, rotation, health, inventory items, equipped items, and more, to restore the player's state during loading.
         {
             if (data == null)
                 return;
@@ -434,7 +439,7 @@ namespace Sol.SaveLoad
                 data.EquippedItems);
         }
 
-        private void ApplyContainerData(List<ContainerSaveData> containers)
+        private void ApplyContainerData(List<ContainerSaveData> containers) // Applies data for world containers from the provided list of ContainerSaveData, including their position, rotation, lock state, inventory contents, and more, to restore the state of world containers during loading.
         {
             if (containers == null || containers.Count == 0)
                 return;
@@ -476,7 +481,7 @@ namespace Sol.SaveLoad
             }
         }
 
-        private List<NPCSaveData> CollectNpcData()
+        private List<NPCSaveData> CollectNpcData() // Collects data for all AI NPCs in the scene, including their position, rotation, health, inventory items, and more, into a list of NPCSaveData objects for saving.
         {
             List<NPCSaveData> npcs = new();
             AI_NPC[] allNpcs = FindObjectsByType<AI_NPC>(FindObjectsInactive.Include, FindObjectsSortMode.None);
@@ -514,7 +519,7 @@ namespace Sol.SaveLoad
             return npcs;
         }
 
-        private void ApplyNpcData(List<NPCSaveData> npcs)
+        private void ApplyNpcData(List<NPCSaveData> npcs) // Applies data for AI NPCs from the provided list of NPCSaveData, including their position, rotation, health, inventory items, and more, to restore the state of NPCs during loading.
         {
             if (npcs == null || npcs.Count == 0)
                 return;
@@ -562,7 +567,7 @@ namespace Sol.SaveLoad
             }
         }
 
-        private List<WorldItemSaveData> CollectWorldItemData()
+        private List<WorldItemSaveData> CollectWorldItemData() // Collects data for items placed in the world (e.g. dropped items), including position and rotation to restore them on load, into a list of WorldItemSaveData objects for saving.
         {
             List<WorldItemSaveData> worldItems = new();
             ItemComponent[] allItems = FindObjectsByType<ItemComponent>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
@@ -599,7 +604,7 @@ namespace Sol.SaveLoad
             return worldItems;
         }
 
-        private void ApplyWorldItemData(List<WorldItemSaveData> worldItems)
+        private void ApplyWorldItemData(List<WorldItemSaveData> worldItems) // Applies data for items placed in the world (e.g. dropped items) from the provided list of WorldItemSaveData, including position and rotation to restore them on load.
         {
             // Destroy all current loose world items before restoring saved state.
             // Items owned by an Inventory were already reset by ApplyPlayerData /
@@ -652,12 +657,12 @@ namespace Sol.SaveLoad
             }
         }
 
-        private static bool IsOwnedByInventory(ItemComponent item)
+        private static bool IsOwnedByInventory(ItemComponent item) // Returns true if the specified item is parented under an Inventory (e.g. in a player/NPC inventory, container, or equipped on an actor), false otherwise. This is used to determine whether an item should be captured by Collect*InventoryItems or treated as a loose world item.
         {
             return item != null && item.GetComponentInParent<Inventory>(true) != null;
         }
 
-        private static string GetHierarchyPath(Transform transform)
+        private static string GetHierarchyPath(Transform transform) // Returns a string representing the hierarchy path of the specified transform (e.g. "Root/Child/Subchild"). Used to uniquely identify NPCs and containers in the scene for saving/loading purposes. If the transform is null, returns an empty string.
         {
             if (transform == null)
                 return string.Empty;
@@ -677,7 +682,7 @@ namespace Sol.SaveLoad
             GameObject owner,
             int gold,
             List<ItemInstanceSaveData> inventoryItems,
-            List<EquippedItemSaveData> equippedItems)
+            List<EquippedItemSaveData> equippedItems)  // Restores the player's inventory and equipped items from the provided save data. This first clears the player's current inventory and equipment, then restores inventory items (excluding equipped items), and finally restores equipped items to ensure they are properly equipped after being added to the inventory.
         {
             if (owner == null)
                 return;
@@ -713,7 +718,7 @@ namespace Sol.SaveLoad
             }
         }
 
-        private void RestoreInventory(Inventory inventory, int gold, List<ItemInstanceSaveData> items)
+        private void RestoreInventory(Inventory inventory, int gold, List<ItemInstanceSaveData> items) // Restores the contents of the specified inventory from the provided gold amount and list of item save data. This first clears the inventory, then adds the specified gold and items back into it. Used for restoring player, NPC, and container inventories during loading.
         {
             if (inventory == null)
                 return;
@@ -738,7 +743,7 @@ namespace Sol.SaveLoad
             inventory.EndBulkUpdate();
         }
 
-        private ItemComponent CreateItemInstance(ItemInstanceSaveData data, Transform parent)
+        private ItemComponent CreateItemInstance(ItemInstanceSaveData data, Transform parent) // Creates a new instance of an item based on the provided ItemInstanceSaveData, using the ItemId to find the corresponding prefab. The new item is parented under the specified transform (e.g. an inventory) if provided. Returns the created ItemComponent, or null if creation failed (e.g. due to missing prefab).
         {
             if (data == null || string.IsNullOrWhiteSpace(data.ItemId))
                 return null;
@@ -766,7 +771,7 @@ namespace Sol.SaveLoad
             return item;
         }
 
-        private ItemComponent ResolveItemPrefab(string itemId)
+        private ItemComponent ResolveItemPrefab(string itemId) // Resolves the item prefab corresponding to the specified ItemId. This first checks the ItemRegistry for a prefab match, then falls back to an editor-only search through all prefabs in the project for an ItemComponent with a matching ItemId. Returns the resolved ItemComponent prefab, or null if no matching prefab is found.
         {
             ItemRegistry registry = ItemRegistry.Get();
             ItemComponent prefab = registry != null ? registry.GetPrefab(itemId) : null;
@@ -799,7 +804,7 @@ namespace Sol.SaveLoad
             return null;
         }
 
-        private void ClearInventory(Inventory inventory)
+        private void ClearInventory(Inventory inventory) // Clears all items and gold from the specified inventory, destroying item GameObjects as needed. Used before restoring inventory contents during loading to ensure a clean slate.
         {
             if (inventory == null)
                 return;
@@ -823,7 +828,7 @@ namespace Sol.SaveLoad
             inventory.EndBulkUpdate();
         }
 
-        private static void UnequipAll(Equipment equipment)
+        private static void UnequipAll(Equipment equipment) // Unequips all currently equipped items from the specified Equipment component, if any. This is used before restoring equipped items during loading to ensure a clean slate.
         {
             if (equipment == null || equipment.Equipped.Count == 0)
                 return;
@@ -855,7 +860,7 @@ namespace Sol.SaveLoad
             return data;
         }
 
-        private static HashSet<ItemComponent> BuildEquippedItemSet(Equipment equipment)
+        private static HashSet<ItemComponent> BuildEquippedItemSet(Equipment equipment) // Builds a HashSet of currently equipped ItemComponents from the specified Equipment component for quick lookup. This is used to exclude equipped items when collecting inventory items during saving, since equipped items are captured separately. Returns the HashSet of equipped items, or null if the Equipment component is null or has no equipped items.
         {
             if (equipment == null || equipment.Equipped.Count == 0)
                 return null;
@@ -870,7 +875,7 @@ namespace Sol.SaveLoad
             return items;
         }
 
-        private static ContainerSaveData FindMatchingContainer(List<ContainerSaveData> containers, ContainerInteractable interactable)
+        private static ContainerSaveData FindMatchingContainer(List<ContainerSaveData> containers, ContainerInteractable interactable) // Finds the best matching ContainerSaveData from the provided list of containers for the specified ContainerInteractable. This first tries to match by hierarchy path, then falls back to matching by ContainerId (if unique), and finally falls back to matching by name and proximity. Returns the best matching ContainerSaveData, or null if no match is found.
         {
             if (containers == null || interactable == null)
                 return null;
@@ -894,7 +899,7 @@ namespace Sol.SaveLoad
 
             // Fallback for legacy saves: ContainerId is unique only if authored that way.
             string containerId = interactable.ContainerId;
-            if (!string.IsNullOrWhiteSpace(containerId))
+            if (!string.IsNullOrWhiteSpace(containerId)) // Only use ContainerId if it's non-empty, to avoid matching every crate with the default CNT##### ID.
             {
                 int matchCount = 0;
                 ContainerSaveData firstIdMatch = null;
@@ -913,7 +918,7 @@ namespace Sol.SaveLoad
             }
 
             // Final fallback: name + proximity (works when the crate hasn't been moved).
-            for (int i = 0; i < containers.Count; i++)
+            for (int i = 0; i < containers.Count; i++) // Iterate in order, so the first match wins if there are multiple with the same name.
             {
                 ContainerSaveData candidate = containers[i];
                 if (candidate == null)
@@ -928,7 +933,7 @@ namespace Sol.SaveLoad
             return null;
         }
 
-        private GameObject FindPlayerRoot()
+        private GameObject FindPlayerRoot() // Finds and returns the root GameObject of the player character. This first checks a cached reference for efficiency, then falls back to searching for a PlayerSoul component in the scene if the cached reference is not set. Returns the player root GameObject, or null if it cannot be found.
         {
             // Use the cached reference
             if (_playerRoot != null)
@@ -939,39 +944,46 @@ namespace Sol.SaveLoad
             return playerSoul != null ? playerSoul.gameObject : null;
         }
 
-        private static bool IsValidSlotIndex(int slotIndex)
+        private static bool IsValidSlotIndex(int slotIndex) // Returns true if the provided slot index is within the valid range of 0 to MaxSlots - 1, false otherwise. This is used to validate save slot indices for saving and loading operations.
         {
             return slotIndex >= 0 && slotIndex < MaxSlots;
         }
 
-        private static void EnsureSaveDirectory()
+        private static void EnsureSaveDirectory() //    Ensures that the save directory exists on disk, creating it if necessary. This is called before saving to ensure that the save file can be written successfully.
         {
             if (!Directory.Exists(SaveDirectory))
                 Directory.CreateDirectory(SaveDirectory);
         }
 
-        private static string GetSlotPath(int slotIndex)
+        private static string GetSlotPath(int slotIndex) // Returns the file path for the save file corresponding to the specified slot index. This is used to determine where to read/write save data for each slot. The path is typically something like "Saves/slot_0.json" for slot index 0.
         {
             return Path.Combine(SaveDirectory, $"slot_{slotIndex}.json");
         }
 
-        private static string GetScreenshotPath(int slotIndex)
+        private static string GetScreenshotPath(int slotIndex) // Returns the file path for the screenshot image corresponding to the specified slot index. This is used to determine where to save the screenshot image for each slot. The path is typically something like "Saves/slot_0.png" for slot index 0.
         {
             return Path.Combine(SaveDirectory, $"slot_{slotIndex}.png");
         }
 
-        public void CaptureScreenshotForSlot(int slotIndex)
+        public void CaptureScreenshotForSlot(int slotIndex) //  Captures a screenshot of the current game view and saves it to disk with a filename corresponding to the specified slot index. This is called after saving to capture a visual thumbnail for the save slot. The screenshot is captured at the end of the current frame to ensure that the UI has updated to reflect the saved state.
         {
             if (IsValidSlotIndex(slotIndex))
                 TryCaptureScreenshot(slotIndex);
         }
 
-        private static void TryCaptureScreenshot(int slotIndex)
+        private static void TryCaptureScreenshot(int slotIndex) // Attempts to capture a screenshot of the current game view and save it to disk with a filename corresponding to the specified slot index. This is called after saving to capture a visual thumbnail for the save slot. The screenshot is captured at the end of the current frame to ensure that the UI has updated to reflect the saved state.
         {
             try
             {
                 EnsureSaveDirectory();
-                ScreenCapture.CaptureScreenshot(GetScreenshotPath(slotIndex));
+
+                // Force end-of-frame capture
+                string path = GetScreenshotPath(slotIndex);
+                ScreenCapture.CaptureScreenshot(path);
+
+                // NOTE:
+                // This still happens end-of-frame,
+                // but UI now hides correctly thanks to Canvas.ForceUpdateCanvases()
             }
             catch (Exception ex)
             {
@@ -979,7 +991,40 @@ namespace Sol.SaveLoad
             }
         }
 
-        private static bool TryReadSaveData(int slotIndex, out GameSaveData data)
+        private static void UpgradeSaveDataIfNeeded(GameSaveData data) // Upgrades the provided GameSaveData to the current save version if it is from an older version. This checks the SaveVersion field in the data and applies any necessary transformations to bring it up to date with the current version. This is called after deserializing save data to ensure compatibility with older saves.
+        {
+            if (data == null)
+                return;
+
+            // Legacy saves from before SaveVersion existed may deserialize as 0.
+            if (data.SaveVersion <= 0)
+                data.SaveVersion = GameSaveData.InitialVersion;
+
+            if (data.Metadata == null)
+                data.Metadata = new SaveMetadata();
+
+            if (data.Player == null)
+                data.Player = new PlayerSaveData();
+
+            if (data.Time == null)
+                data.Time = new TimeSaveData();
+
+            data.Containers ??= new List<ContainerSaveData>();
+            data.NPCs ??= new List<NPCSaveData>();
+            data.CaughtFish ??= new List<CaughtFishData>();
+            data.WorldItems ??= new List<WorldItemSaveData>();
+
+            switch (data.SaveVersion)
+            {
+                case 1:
+                    // Current version. Nothing to migrate yet.
+                    break;
+            }
+
+            data.SaveVersion = GameSaveData.CurrentVersion;
+        }
+
+        private static bool TryReadSaveData(int slotIndex, out GameSaveData data) // Attempts to read and deserialize the save data for the specified slot index from disk. If successful, returns true and outputs the deserialized GameSaveData. If the slot index is invalid, the file does not exist, or deserialization fails, returns false and outputs null.
         {
             data = null;
 
@@ -993,15 +1038,29 @@ namespace Sol.SaveLoad
             try
             {
                 data = JsonUtility.FromJson<GameSaveData>(File.ReadAllText(path));
-                return data != null;
+                if (data == null)
+                    return false;
+
+                UpgradeSaveDataIfNeeded(data);
+
+                if (data.SaveVersion > GameSaveData.CurrentVersion)
+                {
+                    Debug.LogWarning(
+                        $"[SaveManager] Save slot {slotIndex} uses newer save version {data.SaveVersion} " +
+                        $"than this build supports ({GameSaveData.CurrentVersion}).");
+                    return false;
+                }
+
+                return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.LogWarning($"[SaveManager] Failed to read save slot {slotIndex}: {ex.Message}");
                 return false;
             }
         }
 
-        private static string GetDefaultSaveName(int slotIndex)
+        private static string GetDefaultSaveName(int slotIndex) // Returns a default display name for the specified save slot index. This is used in the UI when a save slot is empty or when displaying the name of the save slot. For the autosave slot, it returns "Autosave". For regular slots, it returns "Save X" where X is the slot index.
         {
             return slotIndex == AutoSaveSlot ? "Autosave" : $"Save {slotIndex}";
         }
