@@ -445,18 +445,32 @@ namespace Sol
                 return;
 
             ItemComponent ikItem = null;
-            if (_equipped.TryGetValue(EquipmentSlotType.RightHand, out ItemComponent right))
+            bool useLeftHand = false;
+
+            if (_equipped.TryGetValue(EquipmentSlotType.RightHand, out ItemComponent right) && right != null)
+            {
                 ikItem = right;
-            else if (_equipped.TryGetValue(EquipmentSlotType.LeftHand, out ItemComponent left))
+                useLeftHand = false;
+                if (TryGetPrimarySlot(right, out EquipmentSlotType rightPrimary))
+                    useLeftHand = rightPrimary == EquipmentSlotType.LeftHand;
+            }
+            else if (_equipped.TryGetValue(EquipmentSlotType.LeftHand, out ItemComponent left) && left != null)
+            {
                 ikItem = left;
+                useLeftHand = true;
+                if (TryGetPrimarySlot(left, out EquipmentSlotType leftPrimary))
+                    useLeftHand = leftPrimary == EquipmentSlotType.LeftHand;
+            }
 
             if (ikItem != null)
             {
-                _locoIK.SetHandIKTarget(false, ikItem.transform.position, ikItem.transform.rotation);
+                _locoIK.SetHandIKTarget(useLeftHand, ikItem.transform.position, ikItem.transform.rotation);
+                _locoIK.ClearHandIKTarget(!useLeftHand);
                 return;
             }
 
             _locoIK.ClearHandIKTarget(false);
+            _locoIK.ClearHandIKTarget(true);
         }
 
         private Transform FindBone(string boneName)

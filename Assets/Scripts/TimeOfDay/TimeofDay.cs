@@ -979,6 +979,42 @@ public class TimeOfDay : MonoBehaviour
     /// <summary>Returns the current time as a 0-24 hour float.</summary>
     public float Hour => timeOfDay * 24f;
 
+    /// <summary>
+    /// Returns a sky-aligned civil hour (0-24) for the current normalized time.
+    /// Day maps from 06:00 to 18:00, and night maps from 18:00 to 06:00.
+    /// </summary>
+    public float SkyAlignedHour => ToSkyAlignedHour(timeOfDay);
+
+    /// <summary>
+    /// Returns a sky-aligned civil hour (0-24) for the normalized time
+    /// projected after advancing by <paramref name="hours"/> game-hours.
+    /// This mirrors <see cref="AdvanceHours(float)"/> wrapping behavior.
+    /// </summary>
+    public float GetSkyAlignedHourAfterHours(float hours)
+    {
+        float projectedTime = Mathf.Repeat(timeOfDay + hours / 24f, 1f);
+        return ToSkyAlignedHour(projectedTime);
+    }
+
+    /// <summary>
+    /// Converts normalized cycle time (0 = sunrise, 1 = next sunrise) into a
+    /// sky-aligned civil hour (0-24) using the current effective day ratio.
+    /// </summary>
+    public float ToSkyAlignedHour(float normalizedTime)
+    {
+        float wrappedTime = Mathf.Repeat(normalizedTime, 1f);
+        float effectiveDayRatio = GetEffectiveDayRatio();
+
+        if (wrappedTime < effectiveDayRatio)
+        {
+            float dayT = wrappedTime / effectiveDayRatio;
+            return 6f + dayT * 12f;
+        }
+
+        float nightT = (wrappedTime - effectiveDayRatio) / (1f - effectiveDayRatio);
+        return Mathf.Repeat(18f + nightT * 12f, 24f);
+    }
+
     /// <summary>True when the sun is above the horizon.</summary>
     public bool IsDaytime => timeOfDay < GetEffectiveDayRatio();
 

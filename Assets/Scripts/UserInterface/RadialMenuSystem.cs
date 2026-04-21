@@ -42,6 +42,8 @@ namespace Sol.HUD
         private Func<int, string> _secondaryPreviewProvider;
         private int _selectedHours = 8;
         private bool _isDragging;
+        private TimeOfDay _timeOfDay;
+        private Calendar _calendar;
 
         protected override void Awake()
         {
@@ -70,6 +72,8 @@ namespace Sol.HUD
                 ApplySelection(_selectedHours + 1);
             else if (scrollY < 0f)
                 ApplySelection(_selectedHours - 1);
+
+            RefreshTimeReadouts();
         }
 
         public void Open(Action<int> onConfirm = null, Action onCancel = null, int initialHours = 8)
@@ -183,8 +187,6 @@ namespace Sol.HUD
         {
             _selectedHours = Mathf.Clamp(hours, Mathf.Max(1, _minHours), Mathf.Max(_minHours, _maxHours));
 
-            float currentHour = ResolveCurrentHour();
-            float resultHour = Mathf.Repeat(currentHour + _selectedHours, 24f);
             string previewText = BuildRecoveryPreview(_selectedHours);
 
             if (_hoursLabel != null)
@@ -193,9 +195,6 @@ namespace Sol.HUD
                     ? "Wait 1 hour"
                     : $"Wait {_selectedHours} hours";
             }
-
-            if (_timeDisplay != null)
-                _timeDisplay.text = FormatHour(resultHour);
 
             if (_staminaPreview != null)
                 _staminaPreview.text = previewText;
@@ -210,11 +209,7 @@ namespace Sol.HUD
             if (_clockHand != null)
                 _clockHand.localEulerAngles = new Vector3(0f, 0f, -_selectedHours * GetDegreesPerHour());
 
-            if (_currentTimeDisplay != null)
-                _currentTimeDisplay.text = $"Current time: {FormatHour(currentHour)}";
-
-            if (_currentDateDisplay != null)
-                _currentDateDisplay.text = $"Date: {ResolveCurrentDate()}";
+            RefreshTimeReadouts();
         }
 
         private bool TryGetCircleLocalPoint(out Vector2 localPoint)
@@ -252,16 +247,53 @@ namespace Sol.HUD
             return Mathf.Clamp(hours, _minHours, _maxHours);
         }
 
-        private float ResolveCurrentHour()
+        private float ResolveCurrentDisplayHour()
         {
-            TimeOfDay timeOfDay = UnityEngine.Object.FindFirstObjectByType<TimeOfDay>();
-            return timeOfDay != null ? Mathf.Repeat(timeOfDay.Hour, 24f) : Mathf.Clamp(_startHour, 0f, 23f);
+            return ResolveTimeOfDay() != null
+                ? Mathf.Repeat(_timeOfDay.SkyAlignedHour, 24f)
+                : Mathf.Clamp(_startHour, 0f, 23f);
+        }
+
+        private float ResolveResultDisplayHour(int selectedHours)
+        {
+            return ResolveTimeOfDay() != null
+                ? Mathf.Repeat(_timeOfDay.GetSkyAlignedHourAfterHours(selectedHours), 24f)
+                : Mathf.Repeat(ResolveCurrentDisplayHour() + selectedHours, 24f);
         }
 
         private string ResolveCurrentDate()
         {
-            Calendar calendar = UnityEngine.Object.FindFirstObjectByType<Calendar>();
+            Calendar calendar = ResolveCalendar();
             return calendar != null ? calendar.DateString : "Unknown date";
+        }
+
+        private void RefreshTimeReadouts()
+        {
+            float currentHour = ResolveCurrentDisplayHour();
+            float resultHour = ResolveResultDisplayHour(_selectedHours);
+
+            if (_timeDisplay != null)
+                _timeDisplay.text = FormatHour(resultHour);
+
+            if (_currentTimeDisplay != null)
+                _currentTimeDisplay.text = $"Current time: {FormatHour(currentHour)}";
+
+            if (_currentDateDisplay != null)
+                _currentDateDisplay.text = $"Date: {ResolveCurrentDate()}";
+        }
+
+        private TimeOfDay ResolveTimeOfDay()
+        {
+            if (_timeOfDay == null)
+                _timeOfDay = UnityEngine.Object.FindFirstObjectByType<TimeOfDay>();
+            return _timeOfDay;
+        }
+
+        private Calendar ResolveCalendar()
+        {
+            if (_calendar == null)
+                _calendar = UnityEngine.Object.FindFirstObjectByType<Calendar>();
+            return _calendar;
         }
 
         private string BuildRecoveryPreview(int hours)

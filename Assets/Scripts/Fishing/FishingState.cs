@@ -287,37 +287,45 @@ namespace Sol.Fishing
             if (slot?.Item == null || inventory == null || !CanLoadTackle(slot.Item))
                 return false;
 
-            ItemComponent slotItem = slot.PopItem();
-            if (slotItem == null)
-                return false;
-
-            FishingTackleItem incomingTackle = slotItem.GetComponent<FishingTackleItem>();
-            if (incomingTackle == null)
-                return false;
-
-            if (!inventory.Remove(slot, 1))
-                return false;
-
-            ItemComponent previousTackle = _activeRod.UnloadTackleItem();
-            if (previousTackle != null)
+            inventory.BeginBulkUpdate();
+            try
             {
-                previousTackle.transform.SetParent(inventory.transform, false);
-                previousTackle.gameObject.SetActive(false);
-                if (!inventory.Add(previousTackle))
-                {
- // Inventory full - abort swap. Restore the old tackle to the rod.
-                    previousTackle.transform.SetParent(_activeRod.transform, false);
-                    _activeRod.SetLoadedTackleItem(previousTackle);
-                    // The slot was already removed from inventory; return the new item safely.
-                    ReturnItemToInventoryOrDrop(slotItem, inventory);
+                ItemComponent slotItem = slot.PopItem();
+                if (slotItem == null)
                     return false;
-                }
-            }
 
-            slotItem.transform.SetParent(_activeRod.transform, false);
-            slotItem.gameObject.SetActive(false);
-            _activeRod.SetLoadedTackleItem(slotItem);
-            return true;
+                FishingTackleItem incomingTackle = slotItem.GetComponent<FishingTackleItem>();
+                if (incomingTackle == null)
+                    return false;
+
+                if (!inventory.Remove(slot, 1))
+                    return false;
+
+                ItemComponent previousTackle = _activeRod.UnloadTackleItem();
+                if (previousTackle != null)
+                {
+                    previousTackle.transform.SetParent(inventory.transform, false);
+                    previousTackle.gameObject.SetActive(false);
+                    if (!inventory.Add(previousTackle))
+                    {
+ // Inventory full - abort swap. Restore the old tackle to the rod.
+                        previousTackle.transform.SetParent(_activeRod.transform, false);
+                        _activeRod.SetLoadedTackleItem(previousTackle);
+                        // The slot was already removed from inventory; return the new item safely.
+                        ReturnItemToInventoryOrDrop(slotItem, inventory);
+                        return false;
+                    }
+                }
+
+                slotItem.transform.SetParent(_activeRod.transform, false);
+                slotItem.gameObject.SetActive(false);
+                _activeRod.SetLoadedTackleItem(slotItem);
+                return true;
+            }
+            finally
+            {
+                inventory.EndBulkUpdate();
+            }
         }
 
         public bool TryLoadBait(InventorySlot slot, Inventory inventory)
@@ -325,30 +333,38 @@ namespace Sol.Fishing
             if (slot?.Item == null || inventory == null || !CanLoadBait(slot.Item))
                 return false;
 
-            ItemComponent slotItem = slot.PopItem();
-            if (slotItem == null)
-                return false;
-
-            if (!inventory.Remove(slot, 1))
-                return false;
-
-            ItemComponent previousBait = _activeRod.UnloadBaitItem();
-            if (previousBait != null)
+            inventory.BeginBulkUpdate();
+            try
             {
-                previousBait.transform.SetParent(inventory.transform, false);
-                previousBait.gameObject.SetActive(false);
-                if (!inventory.Add(previousBait))
-                {
- // Inventory full - abort swap. Restore the old bait to the rod.
-                    previousBait.transform.SetParent(_activeRod.transform, false);
-                    _activeRod.SetLoadedBaitItem(previousBait);
-                    ReturnItemToInventoryOrDrop(slotItem, inventory);
+                ItemComponent slotItem = slot.PopItem();
+                if (slotItem == null)
                     return false;
-                }
-            }
 
-            _activeRod.SetLoadedBaitItem(slotItem);
-            return true;
+                if (!inventory.Remove(slot, 1))
+                    return false;
+
+                ItemComponent previousBait = _activeRod.UnloadBaitItem();
+                if (previousBait != null)
+                {
+                    previousBait.transform.SetParent(inventory.transform, false);
+                    previousBait.gameObject.SetActive(false);
+                    if (!inventory.Add(previousBait))
+                    {
+ // Inventory full - abort swap. Restore the old bait to the rod.
+                        previousBait.transform.SetParent(_activeRod.transform, false);
+                        _activeRod.SetLoadedBaitItem(previousBait);
+                        ReturnItemToInventoryOrDrop(slotItem, inventory);
+                        return false;
+                    }
+                }
+
+                _activeRod.SetLoadedBaitItem(slotItem);
+                return true;
+            }
+            finally
+            {
+                inventory.EndBulkUpdate();
+            }
         }
 
         public bool TryDetachTackle(Inventory inventory)

@@ -237,8 +237,46 @@ namespace Sol
                 return true;
             }
 
+            if (TryResolveHandSlotFromEquipBone(item, out EquipmentSlotType inferredHandSlot))
+            {
+                slotType = inferredHandSlot;
+                return true;
+            }
+
             slotType = EquipmentSlotType.RightHand;
             return true;
+        }
+
+        private static bool TryResolveHandSlotFromEquipBone(ItemComponent item, out EquipmentSlotType slotType)
+        {
+            slotType = default;
+            if (item == null)
+                return false;
+
+            string equipBone = item.EquipBone;
+            if (string.IsNullOrWhiteSpace(equipBone))
+                return false;
+
+            string normalized = equipBone.Trim().ToLowerInvariant();
+            if (normalized.Contains("left")
+                || normalized.StartsWith("l_")
+                || normalized.Contains("_l_")
+                || normalized.EndsWith("_l"))
+            {
+                slotType = EquipmentSlotType.LeftHand;
+                return true;
+            }
+
+            if (normalized.Contains("right")
+                || normalized.StartsWith("r_")
+                || normalized.Contains("_r_")
+                || normalized.EndsWith("_r"))
+            {
+                slotType = EquipmentSlotType.RightHand;
+                return true;
+            }
+
+            return false;
         }
 
         public static bool GetRequiredSlotsForEquip(ItemComponent item, EquipmentSlotType desiredSlot, List<EquipmentSlotType> outputSlots)
