@@ -17,7 +17,9 @@ namespace Sol.Actions
 
         public override bool CanExecute()
         {
-            return _item != null && Context.Equipment != null;
+            return _item != null
+                && Context.Equipment != null
+                && Sol.ItemTypeRules.IsEquipableType(_item.Type);
         }
 
         public override void OnStart()

@@ -126,9 +126,9 @@ namespace Sol.HUD
 
             _currentItem = item;
 
-            if (_nameText != null) _nameText.text = BuildDisplayName(item);
+            if (_nameText != null) _nameText.text = ItemPresentationUtility.BuildDisplayName(item, _showReferenceCodes);
             UpdateStolenIndicator(item);
-            if (_typeText != null) _typeText.text = item.TypeDisplayName;
+            if (_typeText != null) _typeText.text = ItemPresentationUtility.BuildTypeDisplayText(item);
             if (_flavourText != null)
             {
                 _flavourText.text = item.FlavourText;
@@ -136,7 +136,7 @@ namespace Sol.HUD
             }
 
             if (_statsText != null)
-                _statsText.text = BuildStatsText(item);
+                _statsText.text = ItemPresentationUtility.BuildDetailedStatsText(item, _showReferenceCodes, includeCurrencySuffix: false);
 
             if (_idText != null)
             {
@@ -227,46 +227,9 @@ namespace Sol.HUD
             rt.position = new Vector3(posX, posY, 0f);
         }
 
-        private string BuildStatsText(ItemComponent item)
-        {
-            var sb = new System.Text.StringBuilder(64);
-
-            if (item.Damage > 0f)
-                sb.AppendLine($"Damage: {item.Damage}");
-            if (item.Defense > 0f)
-                sb.AppendLine($"Defense: {item.Defense}");
-            if (item.Value > 0)
-                sb.AppendLine($"Value: {item.Value}");
-            if (_showReferenceCodes && !string.IsNullOrWhiteSpace(item.ItemOwnerId))
-                sb.AppendLine($"Owner ID: {item.ItemOwnerId}");
-
-            return sb.ToString().TrimEnd();
-        }
-
-        private string BuildDisplayName(ItemComponent item)
-        {
-            if (item == null)
-                return string.Empty;
-
-            if (_showReferenceCodes && !string.IsNullOrWhiteSpace(item.ItemId))
-                return $"{item.ItemName} [{item.ItemId}]";
-
-            return item.ItemName;
-        }
-
         private string GetItemIdCode(ItemComponent item)
         {
-            if (item == null)
-                return string.Empty;
-
-            CaughtFishItem caughtFish = item.GetComponent<CaughtFishItem>();
-            if (caughtFish != null && !string.IsNullOrWhiteSpace(caughtFish.FishCode))
-                return caughtFish.FishCode;
-
-            if (!string.IsNullOrWhiteSpace(item.ItemId))
-                return item.ItemId;
-
-            return string.Empty;
+            return ItemPresentationUtility.GetItemIdCode(item);
         }
 
         private void UpdateStolenIndicator(ItemComponent item)
@@ -277,7 +240,7 @@ namespace Sol.HUD
             if (_stolenIconSprite != null)
                 _nameStolenIcon.sprite = _stolenIconSprite;
 
-            bool show = item != null && item.IsStolen;
+            bool show = ItemPresentationUtility.ShouldShowStolenIndicator(item);
             _nameStolenIcon.gameObject.SetActive(show);
         }
     }

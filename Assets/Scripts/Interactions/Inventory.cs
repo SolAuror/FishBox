@@ -218,12 +218,7 @@ namespace Sol
 
         public bool IsOwnedBy(GameObject actor)
         {
-            if (!HasOwner)
-                return true;
-
-            string actorOwnerId = OwnerRegistry.ResolveOwnerId(actor);
-            return !string.IsNullOrWhiteSpace(actorOwnerId)
-                && string.Equals(OwnerId, actorOwnerId, StringComparison.OrdinalIgnoreCase);
+            return ItemOwnershipUtility.IsOwnedBy(OwnerId, actor);
         }
 
         public bool HasRequiredKey(Interactor interactor)
@@ -710,19 +705,12 @@ namespace Sol
                 return;
             }
 
-            _ownerId = NormalizeOwnerIdOrEmpty(_ownerId);
+            _ownerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_ownerId);
         }
 
         private static string NormalizeOwnerIdOrEmpty(string rawOwnerId)
         {
-            if (string.IsNullOrWhiteSpace(rawOwnerId))
-                return string.Empty;
-
-            string trimmed = rawOwnerId.Trim();
-            if (string.Equals(trimmed, EntityCodeUtility.DefaultPlayerOwnerId, StringComparison.OrdinalIgnoreCase))
-                return EntityCodeUtility.DefaultPlayerOwnerId;
-
-            return EntityCodeUtility.NormalizeOrEmpty(trimmed, EntityCodeUtility.OwnerPrefix);
+            return ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(rawOwnerId);
         }
 
 #if UNITY_EDITOR

@@ -32,7 +32,9 @@ namespace Sol
         {
             if (item == null) return false;
 
-            var slot = GetSlotForItem(item);
+            if (!ItemTypeRules.TryGetEquipmentSlot(item.Type, out EquipmentSlotType slot))
+                return false;
+
             if (_equipped.ContainsKey(slot)) return false;
 
             var bone = FindBone(item.EquipBone);
@@ -200,15 +202,5 @@ namespace Sol
             return _boneCache.TryGetValue(boneName, out var bone) ? bone : null;
         }
 
-        private static EquipmentSlotType GetSlotForItem(ItemComponent item)
-        {
-            return item.Type switch
-            {
-                ItemType.Weapon => EquipmentSlotType.MainHand,
-                ItemType.Armor => EquipmentSlotType.Chest,
-                ItemType.Equipable => EquipmentSlotType.Back,
-                _ => EquipmentSlotType.MainHand
-            };
-        }
     }
 }

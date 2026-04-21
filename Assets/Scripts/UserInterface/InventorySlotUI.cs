@@ -121,7 +121,7 @@ namespace Sol.HUD
                 _icon.enabled = true;
             }
 
-            if (_nameText != null) _nameText.text = BuildDisplayName(item);
+            if (_nameText != null) _nameText.text = ItemPresentationUtility.BuildDisplayName(item, showReferenceCodes: false);
             UpdateStolenIndicator(item);
             if (_countText != null) _countText.text = BuildCountText(slot);
 
@@ -257,14 +257,6 @@ namespace Sol.HUD
             SetStatText(_statText2, values[2]);
         }
 
-        private static string BuildDisplayName(ItemComponent item)
-        {
-            if (item == null)
-                return string.Empty;
-
-            return item.ItemName;
-        }
-
         private void UpdateStolenIndicator(ItemComponent item)
         {
             if (_stolenIconImage == null)
@@ -273,7 +265,7 @@ namespace Sol.HUD
             if (_stolenIconSprite != null)
                 _stolenIconImage.sprite = _stolenIconSprite;
 
-            bool show = item != null && item.IsStolen;
+            bool show = ItemPresentationUtility.ShouldShowStolenIndicator(item);
             _stolenIconImage.gameObject.SetActive(show);
         }
 
@@ -293,27 +285,12 @@ namespace Sol.HUD
 
         private string[] BuildInventoryStatTexts(ItemComponent item)
         {
-            var values = new List<string>(3);
-
-            if (item.Damage > 0f)
-                values.Add($"{item.Damage:0.#} dmg");
-            if (item.Defense > 0f)
-                values.Add($"{item.Defense:0.#} def");
-
-            while (values.Count < 3)
-                values.Add(string.Empty);
-
-            return values.ToArray();
+            return ItemPresentationUtility.BuildCompactInventoryStatTexts(item);
         }
 
         private string[] BuildTradeStatTexts(ItemComponent item)
         {
-            return new[]
-            {
-                string.Empty,
-                string.Empty,
-                item.Value > 0 ? $"{item.Value} g" : string.Empty
-            };
+            return ItemPresentationUtility.BuildCompactTradeStatTexts(item);
         }
 
         private void SetStatText(TextMeshProUGUI label, string value)

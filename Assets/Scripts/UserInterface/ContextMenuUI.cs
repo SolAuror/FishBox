@@ -312,9 +312,11 @@ namespace Sol.HUD
             var item = slot?.Item;
             if (item == null) return entries;
 
-            bool canUse = item.IsConsumable;
-            bool canEquip = item.Type == ItemType.Weapon || item.Type == ItemType.Armor || item.Type == ItemType.Equipable;
-            bool canDrop = interactor != null && interactor.IsPlayer;
+            bool canUse = ItemActionSystem.CanExecute(ItemActionType.Use, slot, _activeInventory, interactor);
+            bool canEquip = ItemActionSystem.CanExecute(ItemActionType.Equip, slot, _activeInventory, interactor);
+            bool canDrop = interactor != null
+                && interactor.IsPlayer
+                && ItemActionSystem.CanExecute(ItemActionType.Drop, slot, _activeInventory, interactor);
             bool canAddToRod = false;
             bool canHookToRod = false;
             bool canUnhookBait = false;

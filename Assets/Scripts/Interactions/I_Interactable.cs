@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEditor;
 #endif
 using Sol.Actions;
+using Sol.Grab;
 
 namespace Sol
 {
@@ -122,6 +123,90 @@ namespace Sol
                 used[numeric] = true;
         }
 #endif
+    }
+
+    /// <summary>
+    /// Central compatibility rules for item types.
+    /// Keep this as the single source of truth for action and field eligibility.
+    /// </summary>
+    public static class ItemTypeRules
+    {
+        public static bool IsConsumableType(ItemType itemType)
+        {
+            return itemType == ItemType.Consumable
+                || itemType == ItemType.Food
+                || itemType == ItemType.Drink
+                || itemType == ItemType.Potion;
+        }
+
+        public static bool IsEquipableType(ItemType itemType)
+        {
+            return itemType == ItemType.Weapon
+                || itemType == ItemType.Armor
+                || itemType == ItemType.Equipable;
+        }
+
+        public static bool UsesWeaponStats(ItemType itemType) => itemType == ItemType.Weapon;
+        public static bool UsesArmorStats(ItemType itemType) => itemType == ItemType.Armor;
+        public static bool UsesEquipmentSettings(ItemType itemType) => IsEquipableType(itemType);
+
+        public static bool SupportsAction(ItemType itemType, bool isConsumable, ItemActionType actionType)
+        {
+            return actionType switch
+            {
+                ItemActionType.Use => isConsumable || IsConsumableType(itemType),
+                ItemActionType.Equip => IsEquipableType(itemType),
+                ItemActionType.Drop => true,
+                _ => false
+            };
+        }
+
+        public static bool TryGetEquipmentSlot(ItemType itemType, out EquipmentSlotType slotType)
+        {
+            slotType = itemType switch
+            {
+                ItemType.Weapon => EquipmentSlotType.MainHand,
+                ItemType.Armor => EquipmentSlotType.Chest,
+                ItemType.Equipable => EquipmentSlotType.Back,
+                _ => default
+            };
+
+            return IsEquipableType(itemType);
+        }
+    }
+
+    /// <summary>
+    /// Shared ownership id normalization and ownership matching logic.
+    /// </summary>
+    public static class ItemOwnershipUtility
+    {
+        public static string NormalizeOwnerIdOrEmpty(string rawOwnerId)
+        {
+            if (string.IsNullOrWhiteSpace(rawOwnerId))
+                return string.Empty;
+
+            string trimmed = rawOwnerId.Trim();
+            if (string.Equals(trimmed, EntityCodeUtility.DefaultPlayerOwnerId, StringComparison.OrdinalIgnoreCase))
+                return EntityCodeUtility.DefaultPlayerOwnerId;
+
+            return EntityCodeUtility.NormalizeOrEmpty(trimmed, EntityCodeUtility.OwnerPrefix);
+        }
+
+        public static string ResolveActorOwnerIdOrEmpty(GameObject actor)
+        {
+            return NormalizeOwnerIdOrEmpty(OwnerRegistry.ResolveOwnerId(actor));
+        }
+
+        public static bool IsOwnedBy(string ownerId, GameObject actor)
+        {
+            string normalizedOwnerId = NormalizeOwnerIdOrEmpty(ownerId);
+            if (string.IsNullOrEmpty(normalizedOwnerId))
+                return true;
+
+            string actorOwnerId = ResolveActorOwnerIdOrEmpty(actor);
+            return !string.IsNullOrEmpty(actorOwnerId)
+                && string.Equals(normalizedOwnerId, actorOwnerId, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     /// <summary>

@@ -387,9 +387,9 @@ namespace Sol.HUD
             if (slot?.Item == null) { ClearInspectedItem(); return; }
             TryResolveFixedInfoReferences();
             Sol.Grab.ItemComponent item = slot.Item;
-            if (_itemNameText != null) _itemNameText.text = BuildDisplayName(item);
+            if (_itemNameText != null) _itemNameText.text = ItemPresentationUtility.BuildDisplayName(item, _showReferenceCodes);
             UpdateStolenIndicator(item);
-            if (_itemTypeText != null) _itemTypeText.text = BuildTypeDisplayText(item);
+            if (_itemTypeText != null) _itemTypeText.text = ItemPresentationUtility.BuildTypeDisplayText(item);
             if (_itemFlavourText != null) _itemFlavourText.text = item.FlavourText;
             if (_itemStatsText != null) _itemStatsText.text = BuildInspectStatsText(item);
             if (_itemIdText != null)
@@ -431,37 +431,22 @@ namespace Sol.HUD
         #region UI Wiring Helpers
         private string BuildInspectStatsText(Sol.Grab.ItemComponent item)
         {
-            List<string> stats = new(3);
-            if (item.Damage > 0f) stats.Add($"Damage: {item.Damage:0.#}");
-            if (item.Defense > 0f) stats.Add($"Defense: {item.Defense:0.#}");
-            if (item.Value > 0 && stats.Count < 3) stats.Add($"Value: {item.Value} g");
-            if (_showReferenceCodes && !string.IsNullOrWhiteSpace(item.ItemOwnerId)) stats.Add($"Owner ID: {item.ItemOwnerId}");
-            return string.Join("\n", stats);
+            return ItemPresentationUtility.BuildDetailedStatsText(item, _showReferenceCodes, includeCurrencySuffix: true);
         }
 
         private void SetInfoText(TextMeshProUGUI label, string value) { if (label == null) return; label.text = value; label.gameObject.SetActive(!string.IsNullOrEmpty(value)); }
-        private string BuildDisplayName(Sol.Grab.ItemComponent item) => item == null ? string.Empty : _showReferenceCodes && !string.IsNullOrWhiteSpace(item.ItemId) ? $"{item.ItemName} [{item.ItemId}]" : item.ItemName;
-        private string BuildTypeDisplayText(Sol.Grab.ItemComponent item) => item == null ? string.Empty : item.TypeDisplayName;
+        private string BuildDisplayName(Sol.Grab.ItemComponent item) => ItemPresentationUtility.BuildDisplayName(item, _showReferenceCodes);
+        private string BuildTypeDisplayText(Sol.Grab.ItemComponent item) => ItemPresentationUtility.BuildTypeDisplayText(item);
         private string GetItemIdCode(Sol.Grab.ItemComponent item)
         {
-            if (item == null)
-                return string.Empty;
-
-            CaughtFishItem caughtFish = item.GetComponent<CaughtFishItem>();
-            if (caughtFish != null && !string.IsNullOrWhiteSpace(caughtFish.FishCode))
-                return caughtFish.FishCode;
-
-            if (!string.IsNullOrWhiteSpace(item.ItemId))
-                return item.ItemId;
-
-            return string.Empty;
+            return ItemPresentationUtility.GetItemIdCode(item);
         }
 
         private void UpdateStolenIndicator(Sol.Grab.ItemComponent item)
         {
             if (_itemNameStolenIcon == null) return;
             if (_stolenIconSprite != null) _itemNameStolenIcon.sprite = _stolenIconSprite;
-            _itemNameStolenIcon.gameObject.SetActive(item != null && item.IsStolen);
+            _itemNameStolenIcon.gameObject.SetActive(ItemPresentationUtility.ShouldShowStolenIndicator(item));
         }
 
         private void RefreshTradePanels()

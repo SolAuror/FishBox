@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using TMPro;
+using Sol.Grab;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -207,6 +209,87 @@ namespace Sol.HUD
 
             group.blocksRaycasts = enabled;
             group.interactable = enabled;
+        }
+    }
+
+    public static class ItemPresentationUtility
+    {
+        public static string BuildDisplayName(ItemComponent item, bool showReferenceCodes)
+        {
+            if (item == null)
+                return string.Empty;
+
+            if (showReferenceCodes && !string.IsNullOrWhiteSpace(item.ItemId))
+                return $"{item.ItemName} [{item.ItemId}]";
+
+            return item.ItemName;
+        }
+
+        public static string BuildTypeDisplayText(ItemComponent item)
+        {
+            return item == null ? string.Empty : item.TypeDisplayName;
+        }
+
+        public static string GetItemIdCode(ItemComponent item)
+        {
+            if (item == null)
+                return string.Empty;
+
+            CaughtFishItem caughtFish = item.GetComponent<CaughtFishItem>();
+            if (caughtFish != null && !string.IsNullOrWhiteSpace(caughtFish.FishCode))
+                return caughtFish.FishCode;
+
+            if (!string.IsNullOrWhiteSpace(item.ItemId))
+                return item.ItemId;
+
+            return string.Empty;
+        }
+
+        public static bool ShouldShowStolenIndicator(ItemComponent item)
+        {
+            return item != null && item.IsStolen;
+        }
+
+        public static string BuildDetailedStatsText(ItemComponent item, bool showReferenceCodes, bool includeCurrencySuffix)
+        {
+            if (item == null)
+                return string.Empty;
+
+            List<string> stats = new(4);
+            if (item.Damage > 0f)
+                stats.Add($"Damage: {item.Damage:0.#}");
+            if (item.Defense > 0f)
+                stats.Add($"Defense: {item.Defense:0.#}");
+            if (item.Value > 0)
+                stats.Add(includeCurrencySuffix ? $"Value: {item.Value} g" : $"Value: {item.Value}");
+            if (showReferenceCodes && !string.IsNullOrWhiteSpace(item.ItemOwnerId))
+                stats.Add($"Owner ID: {item.ItemOwnerId}");
+
+            return string.Join("\n", stats);
+        }
+
+        public static string[] BuildCompactInventoryStatTexts(ItemComponent item)
+        {
+            List<string> values = new(3);
+            if (item != null && item.Damage > 0f)
+                values.Add($"{item.Damage:0.#} dmg");
+            if (item != null && item.Defense > 0f)
+                values.Add($"{item.Defense:0.#} def");
+
+            while (values.Count < 3)
+                values.Add(string.Empty);
+
+            return values.ToArray();
+        }
+
+        public static string[] BuildCompactTradeStatTexts(ItemComponent item)
+        {
+            return new[]
+            {
+                string.Empty,
+                string.Empty,
+                item != null && item.Value > 0 ? $"{item.Value} g" : string.Empty
+            };
         }
     }
 }

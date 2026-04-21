@@ -2099,7 +2099,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.NPCSoul
   _soulType: 0
-  _characterName: Garus
+  _characterName: Elvion
+  _ownerId: OWN00002
   _health: 100
   MaxHealth: 100
 --- !u!114 &5083089871566594419

@@ -132,7 +132,9 @@ namespace Sol.Actions
             if (rodItem == null || equipment == null)
                 return false;
 
-            EquipmentSlotType slot = ResolveEquipmentSlot(rodItem);
+            if (!TryResolveEquipmentSlot(rodItem, out EquipmentSlotType slot))
+                return false;
+
             if (!equipment.IsSlotOccupied(slot))
                 return true;
 
@@ -156,7 +158,9 @@ namespace Sol.Actions
             if (equipment.IsEquipped(rodItem))
                 return true;
 
-            EquipmentSlotType slot = ResolveEquipmentSlot(rodItem);
+            if (!TryResolveEquipmentSlot(rodItem, out EquipmentSlotType slot))
+                return false;
+
             if (equipment.IsSlotOccupied(slot))
             {
                 foreach (var kv in equipment.Equipped)
@@ -175,15 +179,15 @@ namespace Sol.Actions
             return equipment.Equip(rodItem);
         }
 
-        private static EquipmentSlotType ResolveEquipmentSlot(ItemComponent item)
+        private static bool TryResolveEquipmentSlot(ItemComponent item, out EquipmentSlotType slot)
         {
-            return item.Type switch
+            if (item == null)
             {
-                ItemType.Weapon => EquipmentSlotType.MainHand,
-                ItemType.Armor => EquipmentSlotType.Chest,
-                ItemType.Equipable => EquipmentSlotType.Back,
-                _ => EquipmentSlotType.MainHand
-            };
+                slot = default;
+                return false;
+            }
+
+            return ItemTypeRules.TryGetEquipmentSlot(item.Type, out slot);
         }
     }
 }

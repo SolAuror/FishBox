@@ -92,23 +92,23 @@ namespace Sol.Grab
         public string FlavourText => _flavourText;
         public Sprite Icon => _icon;
         public bool IsStackable => _isStackable;
-        public bool IsConsumable => _isConsumable || IsConsumableType(_itemType);
+        public bool IsConsumable => _isConsumable || ItemTypeRules.IsConsumableType(_itemType);
         public bool IsTradeable => _isTradeable;
         public int MaxStackSize => _maxStackSize;
-        public float Damage => _damage;
-        public float Defense => _defense;
-        public string EquipBone => _equipBone;
-        public Vector3 EquipOffset => _equipOffset;
-        public Vector3 EquipRotation => _equipRotation;
+        public float Damage => ItemTypeRules.UsesWeaponStats(_itemType) ? _damage : 0f;
+        public float Defense => ItemTypeRules.UsesArmorStats(_itemType) ? _defense : 0f;
+        public string EquipBone => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipBone : string.Empty;
+        public Vector3 EquipOffset => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipOffset : Vector3.zero;
+        public Vector3 EquipRotation => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipRotation : Vector3.zero;
         public Transform PickupGrip => _pickupGrip;
 
         public List<ItemActionType> GetAvailableActions()
         {
             List<ItemActionType> actions = new(3);
-            if (IsConsumable)
+            if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Use))
                 actions.Add(ItemActionType.Use);
 
-            if (_itemType == ItemType.Weapon || _itemType == ItemType.Armor || _itemType == ItemType.Equipable)
+            if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Equip))
                 actions.Add(ItemActionType.Equip);
 
             actions.Add(ItemActionType.Drop);
@@ -117,19 +117,11 @@ namespace Sol.Grab
 
         public ItemActionType GetPrimaryAction()
         {
-            if (IsConsumable)
+            if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Use))
                 return ItemActionType.Use;
-            if (_itemType == ItemType.Weapon || _itemType == ItemType.Armor || _itemType == ItemType.Equipable)
+            if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Equip))
                 return ItemActionType.Equip;
             return ItemActionType.Drop;
-        }
-
-        private static bool IsConsumableType(ItemType itemType)
-        {
-            return itemType == ItemType.Consumable
-                || itemType == ItemType.Food
-                || itemType == ItemType.Drink
-                || itemType == ItemType.Potion;
         }
 
         private static bool IsMiscellaneousType(ItemType itemType)
@@ -154,12 +146,7 @@ namespace Sol.Grab
 
         public bool IsOwnedBy(GameObject actor)
         {
-            if (!HasOwner)
-                return true;
-
-            string actorOwnerId = OwnerRegistry.ResolveOwnerId(actor);
-            return !string.IsNullOrWhiteSpace(actorOwnerId)
-                && string.Equals(ItemOwnerId, actorOwnerId, System.StringComparison.OrdinalIgnoreCase);
+            return ItemOwnershipUtility.IsOwnedBy(ItemOwnerId, actor);
         }
 
         public bool WouldBeStealing(GameObject actor)
@@ -181,12 +168,12 @@ namespace Sol.Grab
         public void SetOwner(GameObject owner)
         {
             _itemOwner = owner;
-            _itemOwnerId = OwnerRegistry.ResolveOwnerId(owner);
+            _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(OwnerRegistry.ResolveOwnerId(owner));
         }
 
         public void SetOwnerId(string ownerId)
         {
-            _itemOwnerId = NormalizeOwnerId(ownerId);
+            _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(ownerId);
             _itemOwner = null;
             ResolveOwnerReference();
         }
@@ -229,22 +216,18 @@ namespace Sol.Grab
 
         private void Awake()
         {
+            ApplyRuntimeValidation();
             ResolveOwnerReference();
         }
 
         private void OnValidate()
         {
-            if (_itemType == ItemType.Gold)
-                _value = 1;
+            ApplyRuntimeValidation();
 
-            _itemId = Sol.EntityCodeUtility.NormalizeOrEmpty(_itemId, Sol.EntityCodeUtility.ItemPrefix);
 #if UNITY_EDITOR
             if (!Sol.ItemRegistry.IsEditorSyncInProgress)
                 Sol.ItemRegistry.ScheduleEditorSync();
 #endif
-            _itemOwnerId = NormalizeOwnerId(_itemOwnerId);
-            if (_itemOwner != null)
-                _itemOwnerId = OwnerRegistry.ResolveOwnerId(_itemOwner);
         }
 
         private bool ShouldShowStealPrompt()
@@ -264,7 +247,7 @@ namespace Sol.Grab
             {
                 string resolvedOwnerId = OwnerRegistry.ResolveOwnerId(_itemOwner);
                 if (!string.IsNullOrWhiteSpace(resolvedOwnerId))
-                    _itemOwnerId = resolvedOwnerId;
+                    _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(resolvedOwnerId);
 
                 return _itemOwner;
             }
@@ -276,16 +259,15 @@ namespace Sol.Grab
             return _itemOwner;
         }
 
-        private static string NormalizeOwnerId(string rawOwnerId)
+        private void ApplyRuntimeValidation()
         {
-            if (string.IsNullOrWhiteSpace(rawOwnerId))
-                return string.Empty;
-
-            string trimmed = rawOwnerId.Trim();
-            if (string.Equals(trimmed, Sol.EntityCodeUtility.DefaultPlayerOwnerId, System.StringComparison.OrdinalIgnoreCase))
-                return Sol.EntityCodeUtility.DefaultPlayerOwnerId;
-
-            return Sol.EntityCodeUtility.NormalizeOrEmpty(trimmed, Sol.EntityCodeUtility.OwnerPrefix);
+            _itemName = string.IsNullOrWhiteSpace(_itemName) ? "Item" : _itemName.Trim();
+            _value = _itemType == ItemType.Gold ? 1 : Mathf.Max(0, _value);
+            _maxStackSize = Mathf.Max(1, _maxStackSize);
+            _itemId = Sol.EntityCodeUtility.NormalizeOrEmpty(_itemId, Sol.EntityCodeUtility.ItemPrefix);
+            _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_itemOwnerId);
+            if (_itemOwner != null)
+                _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(OwnerRegistry.ResolveOwnerId(_itemOwner));
         }
     }
 }

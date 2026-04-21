@@ -9,12 +9,38 @@ namespace Sol
     /// </summary>
     public static class ItemActionSystem
     {
+        public static bool CanExecute(ItemActionType action, InventorySlot slot, Inventory inventory, Interactor instigator)
+        {
+            if (slot == null || slot.Item == null || inventory == null || instigator == null)
+                return false;
+
+            ItemComponent item = slot.Item;
+            if (!ItemTypeRules.SupportsAction(item.Type, item.IsConsumable, action))
+                return false;
+
+            if (action == ItemActionType.Equip)
+            {
+                if (instigator.Owner == null || !instigator.Owner.TryGetComponent(out Equipment equipment))
+                    return false;
+
+                if (!ItemTypeRules.TryGetEquipmentSlot(item.Type, out _))
+                    return false;
+
+                if (equipment.IsEquipped(item))
+                    return true;
+
+                return !equipment.IsSlotOccupied(ResolveEquipmentSlot(item.Type));
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// Execute an action on an inventory slot. Returns true if the action succeeded.
         /// </summary>
         public static bool Execute(ItemActionType action, InventorySlot slot, Inventory inventory, Interactor instigator)
         {
-            if (slot == null || slot.Item == null || inventory == null || instigator == null)
+            if (!CanExecute(action, slot, inventory, instigator))
                 return false;
 
             return action switch
@@ -58,13 +84,22 @@ namespace Sol
             if (equipment != null && equipment.IsEquipped(slot.Item))
             {
  // Item is on a bone - detach and let it fall from its current world position.
-                equipment.DetachForDrop(slot.Item);
+                ItemComponent equippedItem = equipment.DetachForDrop(slot.Item);
+                if (equippedItem == null)
+                    return false;
+
+                if (!slot.TryRemoveItemReference(equippedItem))
+                    return false;
+
                 inventory.Remove(slot, 1);
                 return true;
             }
 
             // Pop the correct item reference (extras first, then primary).
             var item = slot.PopItem();
+            if (item == null)
+                return false;
+
             inventory.Remove(slot, 1);
 
             // Place in front of the instigator.
@@ -87,6 +122,12 @@ namespace Sol
             if (col != null) col.enabled = true;
 
             return true;
+        }
+
+        private static EquipmentSlotType ResolveEquipmentSlot(ItemType type)
+        {
+            ItemTypeRules.TryGetEquipmentSlot(type, out EquipmentSlotType slot);
+            return slot;
         }
     }
 }

@@ -61,6 +61,42 @@ namespace Sol
             return Item;
         }
 
+        /// <summary>
+        /// Remove a specific item reference from this slot without changing Count.
+        /// If the primary item is removed and extras exist, promotes the last extra to primary.
+        /// </summary>
+        public bool TryRemoveItemReference(Grab.ItemComponent item)
+        {
+            if (item == null)
+                return false;
+
+            if (ReferenceEquals(Item, item))
+            {
+                if (_extras.Count > 0)
+                {
+                    Item = _extras[_extras.Count - 1];
+                    _extras.RemoveAt(_extras.Count - 1);
+                }
+                else
+                {
+                    Item = null;
+                }
+
+                return true;
+            }
+
+            for (int i = _extras.Count - 1; i >= 0; i--)
+            {
+                if (!ReferenceEquals(_extras[i], item))
+                    continue;
+
+                _extras.RemoveAt(i);
+                return true;
+            }
+
+            return false;
+        }
+
         public IEnumerable<Grab.ItemComponent> EnumerateItems()
         {
             if (Item != null)
