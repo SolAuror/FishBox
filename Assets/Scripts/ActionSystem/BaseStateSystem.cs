@@ -6,7 +6,7 @@ namespace Sol
     /// <summary>
     /// Abstract base for continuous state systems (Grab, Rest, Combat, etc.).
     /// Manages the IsActive lifecycle; subclasses override OnEnter/OnExit for domain logic.
-    /// Ticks via Update/FixedUpdate on its own MonoBehaviour — never inside an action.
+ /// Ticks via Update/FixedUpdate on its own MonoBehaviour - never inside an action.
     /// </summary>
     public abstract class BaseStateSystem : MonoBehaviour, IStateSystem
     {
@@ -48,7 +48,7 @@ namespace Sol
         //  Debug API (read-only)
         // ----------------------------------------------------------------
 
-        /// <summary>Returns all active state systems on an actor. Debug only — allocates.</summary>
+ /// <summary>Returns all active state systems on an actor. Debug only - allocates.</summary>
         public static List<string> GetActiveStateNames(GameObject actor)
         {
             var result = new List<string>();

@@ -2,7 +2,7 @@ namespace Sol.Actions
 {
     /// <summary>
     /// Discrete action: player sells an item to an NPC via gold exchange.
-    /// Delegates to TradeController — no direct Inventory mutation here.
+ /// Delegates to TradeController - no direct Inventory mutation here.
     /// Completes immediately.
     /// </summary>
     public class SellItemAction : ItemAction

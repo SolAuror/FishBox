@@ -241,7 +241,7 @@ public class TimeOfDay : MonoBehaviour
     [SerializeField] float starHeight = 100f;
 
     [Header("    Clouds")]
-    [Tooltip("Cloud noise frequency ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â lower values = larger clouds.")]
+ [Tooltip("Cloud noise frequency - lower values = larger clouds.")]
     [Min(0.1f)]
     [SerializeField] float cloudScale = 5f;
 
@@ -249,7 +249,7 @@ public class TimeOfDay : MonoBehaviour
     [Min(0f)]
     [SerializeField] float cloudBaseSpeed = 0.05f;
 
-    [Tooltip("Virtual cloud plane height ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â affects horizon stretching.")]
+ [Tooltip("Virtual cloud plane height - affects horizon stretching.")]
     [Range(0.01f, 1f)]
     [SerializeField] float cloudHeight = 0.15f;
 
@@ -292,7 +292,7 @@ public class TimeOfDay : MonoBehaviour
     [Tooltip("HDR color multiplier for the sun disc. Driven automatically from sun light color.")]
     [SerializeField] float sunDiscIntensity = 10f;
 
-    [Tooltip("Atmospheric glow power falloff ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â higher = tighter halo around the sun.")]
+ [Tooltip("Atmospheric glow power falloff - higher = tighter halo around the sun.")]
     [Min(1f)]
     [SerializeField] float sunGlowFalloff = 8f;
 
@@ -496,7 +496,7 @@ public class TimeOfDay : MonoBehaviour
 
     void Update()
     {
-        // In edit mode, skip time advancement and celestial body spawning ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â
+ // In edit mode, skip time advancement and celestial body spawning -
         // just drive the skybox / environment so changes preview in real time.
         if (!Application.isPlaying)
         {
@@ -603,7 +603,7 @@ public class TimeOfDay : MonoBehaviour
         // The sun body (CelestialBody) is visible while Direction.y > -0.05,
         // which equals dot > -0.05. Map elevation onto that same range so that
         // intensity, color, and environment all reach zero at the exact moment
-        // the body disappears ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â keeping the light in lockstep with the sphere.
+ // the body disappears - keeping the light in lockstep with the sphere.
         const float horizonThreshold = -0.05f;
         float elevation = Mathf.InverseLerp(horizonThreshold, 1f, dot);
 
@@ -722,7 +722,7 @@ public class TimeOfDay : MonoBehaviour
             ? Mathf.Clamp01(1f - lunarDist / eclipseThresholdDegrees)
             : 0f;
 
-        // Bias eclipses toward the apex of the orbit ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â suppress near horizon
+ // Bias eclipses toward the apex of the orbit - suppress near horizon
         if (eclipseApexBias > 0f)
         {
             float sunElev  = Mathf.Clamp01(Vector3.Dot(toSun,  Vector3.up));
@@ -731,14 +731,14 @@ public class TimeOfDay : MonoBehaviour
             lunarEclipseFactor *= Mathf.Pow(moonElev, eclipseApexBias);
         }
 
-        // Apply solar eclipse ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â dim the sun and tint toward corona color
+ // Apply solar eclipse - dim the sun and tint toward corona color
         if (solarEclipseFactor > 0f && sunLight != null && sunLight.enabled)
         {
             sunLight.intensity *= 1f - solarEclipseFactor * 0.95f;
             sunLight.color = Color.Lerp(sunLight.color, solarEclipseLightColor, solarEclipseFactor);
         }
 
-        // Apply lunar eclipse ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â dim + tint the moon
+ // Apply lunar eclipse - dim + tint the moon
         if (lunarEclipseFactor > 0f && moonLight != null && moonLight.enabled)
         {
             moonLight.intensity *= 1f - lunarEclipseFactor * 0.7f;
@@ -769,7 +769,7 @@ public class TimeOfDay : MonoBehaviour
             Color baseSunColor = sunLight != null ? sunLight.color : noonColor;
             sunBody.ColorOverride = Color.Lerp(baseSunColor, solarEclipseLightColor, solarEclipseFactor);
             // Point SunDirection AWAY from the sun (toward camera) so the
-            // shader lights the camera-facing hemisphere ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â the sun is self-luminous.
+ // shader lights the camera-facing hemisphere - the sun is self-luminous.
             sunBody.SunDirection  = -cachedSunDirection;
             sunBody.Refresh();
         }
@@ -966,7 +966,7 @@ public class TimeOfDay : MonoBehaviour
     }
 
     // ------------------------------------------------
-    // Public API ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Time
+ // Public API - Time
     // ------------------------------------------------
 
     /// <summary>Current cycle progress (0 = sunrise, 1 = next sunrise).</summary>
@@ -1094,7 +1094,7 @@ public class TimeOfDay : MonoBehaviour
     public Calendar Calendar => calendar;
 
     // ------------------------------------------------
-    // Public API ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â Tertiary planets
+ // Public API - Tertiary planets
     // ------------------------------------------------
 
     /// <summary>Number of tertiary planets currently in the sky.</summary>

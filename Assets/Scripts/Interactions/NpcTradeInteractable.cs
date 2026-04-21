@@ -123,11 +123,10 @@ namespace Sol
                 ? _soul.CharacterName
                 : gameObject.name;
 
-            // Quest conversation options ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â order: turn-in, deliver, offer, then goodbye.
+ // Quest conversation options - order: turn-in, deliver, offer, then goodbye.
             QuestManager qm = QuestManager.Instance;
             if (qm != null)
             {
-                qm.NotifyTalkedToNpc(speakerName);
                 if (HasQuestReadyToTurnIn(qm, speakerName))
                     AddConversationOption(ConversationOptionId.QuestTurnIn, optionIds, optionLabels);
                 if (HasDeliverableForNpc(qm, speakerName, interactor))
@@ -321,7 +320,7 @@ namespace Sol
                 if (obj.Type != QuestObjectiveType.DeliverItem) continue;
                 if (!string.Equals(obj.NpcName, speakerName, System.StringComparison.OrdinalIgnoreCase)) continue;
 
-                // Transfer one matching item from player ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ this NPC.
+ // Transfer one matching item from player - this NPC.
                 var slots = interactor.Inventory.Slots;
                 for (int s = 0; s < slots.Count; s++)
                 {

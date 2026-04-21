@@ -5,7 +5,7 @@ namespace Sol
 {
     /// <summary>
     /// Centralized execution path for all item actions.
-    /// Called by UI, AI, or any system — never duplicated.
+ /// Called by UI, AI, or any system - never duplicated.
     /// </summary>
     public static class ItemActionSystem
     {
@@ -45,7 +45,7 @@ namespace Sol
                 return true;
             }
 
-            // Not yet equipped — equip but keep the inventory slot.
+ // Not yet equipped - equip but keep the inventory slot.
             return equipment.Equip(item);
         }
 
@@ -57,7 +57,7 @@ namespace Sol
 
             if (equipment != null && equipment.IsEquipped(slot.Item))
             {
-                // Item is on a bone — detach and let it fall from its current world position.
+ // Item is on a bone - detach and let it fall from its current world position.
                 equipment.DetachForDrop(slot.Item);
                 inventory.Remove(slot, 1);
                 return true;

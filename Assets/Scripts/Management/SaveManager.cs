@@ -155,7 +155,7 @@ namespace Sol.SaveLoad
                 texture.wrapMode = TextureWrapMode.Clamp;
                 texture.filterMode = FilterMode.Bilinear;
 
-                return texture; // ALWAYS a new instance Ã¢â€ â€™ caller must destroy
+                return texture; // ALWAYS a new instance -> caller must destroy
             }
             catch
             {
@@ -226,7 +226,7 @@ namespace Sol.SaveLoad
                 WorldItems = CollectWorldItemData(),
                 Quests = Sol.Quests.QuestManager.Instance != null
                     ? Sol.Quests.QuestManager.Instance.CollectSaveData()
-                    : new Sol.Quests.QuestManager.QuestPersistBlob()
+                    : new List<Sol.Quests.QuestSaveData>()
             };
         }
 
@@ -240,7 +240,7 @@ namespace Sol.SaveLoad
             data.Position = playerRoot.transform.position;
             data.Rotation = playerRoot.transform.rotation;
 
-            NPCSoul soul = playerRoot.GetComponent<NPCSoul>();
+            PlayerSoul soul = playerRoot.GetComponent<PlayerSoul>();
             if (soul != null)
             {
                 data.Health = soul.Health;
@@ -349,7 +349,7 @@ namespace Sol.SaveLoad
 
                     if (string.IsNullOrWhiteSpace(item.ItemId))
                     {
-                        Debug.LogWarning($"[SaveManager] Item '{item.ItemName}' in '{inventory.name}' has no ItemId Ã¢â‚¬â€ it will not be saved. Set an ItemId on the prefab.");
+ Debug.LogWarning($"[SaveManager] Item '{item.ItemName}' in '{inventory.name}' has no ItemId - it will not be saved. Set an ItemId on the prefab.");
                         continue;
                     }
 
@@ -432,7 +432,7 @@ namespace Sol.SaveLoad
             if (controller != null)
                 controller.enabled = true;
 
-            NPCSoul soul = playerRoot.GetComponent<NPCSoul>();
+            PlayerSoul soul = playerRoot.GetComponent<PlayerSoul>();
             if (soul != null)
             {
                 soul.MaxHealth = data.MaxHealth;
@@ -593,13 +593,13 @@ namespace Sol.SaveLoad
                     continue;
 
                 // Anything with an Inventory ancestor (player, NPC, container, equipment bone
-                // on an inventoried actor) is captured by Collect*InventoryItems Ã¢â‚¬â€ skip here.
+ // on an inventoried actor) is captured by Collect*InventoryItems - skip here.
                 if (IsOwnedByInventory(item))
                     continue;
 
                 if (string.IsNullOrWhiteSpace(item.ItemId))
                 {
-                    Debug.LogWarning($"[SaveManager] World item '{item.gameObject.name}' has no ItemId Ã¢â‚¬â€ skipped.");
+ Debug.LogWarning($"[SaveManager] World item '{item.gameObject.name}' has no ItemId - skipped.");
                     continue;
                 }
 
@@ -1027,12 +1027,13 @@ namespace Sol.SaveLoad
             data.NPCs ??= new List<NPCSaveData>();
             data.CaughtFish ??= new List<CaughtFishData>();
             data.WorldItems ??= new List<WorldItemSaveData>();
-            data.Quests ??= new Sol.Quests.QuestManager.QuestPersistBlob();
+            data.Quests ??= new List<Sol.Quests.QuestSaveData>();
 
             switch (data.SaveVersion)
             {
                 case 1:
                 case 2:
+                case 3:
                     // Pre-quest-system saves: quests already defaulted to empty above.
                     break;
             }

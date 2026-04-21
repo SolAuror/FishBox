@@ -1,7 +1,7 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /// <summary>
-/// Attach to any object (player, NPC, boat, barrel…) that should create
+/// Attach to any object (player, NPC, boat, barrel-) that should create
 /// ripples when it touches or moves through water.
 ///
 /// Periodically emits ripples via WaterRippleManager while the object is

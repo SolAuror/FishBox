@@ -124,6 +124,32 @@ namespace Sol
 #endif
     }
 
+    /// <summary>
+    /// Draws a string field as an ItemRegistry-backed ItemId dropdown in the Unity Inspector.
+    /// </summary>
+    public sealed class ItemIdDropdownAttribute : PropertyAttribute
+    {
+        public bool AllowEmpty { get; }
+
+        public ItemIdDropdownAttribute(bool allowEmpty = true)
+        {
+            AllowEmpty = allowEmpty;
+        }
+    }
+
+    /// <summary>
+    /// Draws a string field as an owner-id dropdown in the Unity Inspector.
+    /// </summary>
+    public sealed class OwnerIdDropdownAttribute : PropertyAttribute
+    {
+        public bool AllowEmpty { get; }
+
+        public OwnerIdDropdownAttribute(bool allowEmpty = true)
+        {
+            AllowEmpty = allowEmpty;
+        }
+    }
+
     public interface IInteractable
     {
         string InteractionPrompt { get; }

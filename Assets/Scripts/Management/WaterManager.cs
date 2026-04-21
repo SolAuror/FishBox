@@ -1,10 +1,10 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Rendering;
 using Sol.ToD;
 
 /// <summary>
 /// ---------------------------------------------------------------------------
-/// SOL WATER MANAGER — GLOBAL WATER MANAGER
+/// SOL WATER MANAGER - GLOBAL WATER MANAGER
 /// ---------------------------------------------------------------------------
 ///
 /// The runtime brain of the Sol.Water framework. Single singleton that

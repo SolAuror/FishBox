@@ -2,7 +2,7 @@ namespace Sol.Actions
 {
     /// <summary>
     /// Routes the player's intent to cast a fishing rod through the ActionSystem.
-    /// Execution delegates entirely to FishingRodState — this action owns no logic.
+ /// Execution delegates entirely to FishingRodState - this action owns no logic.
     /// </summary>
     public sealed class CastFishingRodAction : GameAction
     {

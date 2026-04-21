@@ -5,7 +5,7 @@ namespace Sol.Quests
 {
     /// <summary>
     /// Central registry of every <see cref="QuestDefinition"/> in the project.
-    /// Mirror of ItemRegistry Ã¢â‚¬â€ single asset at Resources/QuestRegistry.asset, lookup by questId.
+ /// Mirror of ItemRegistry - single asset at Resources/QuestRegistry.asset, lookup by questId.
     /// </summary>
     [CreateAssetMenu(fileName = "QuestRegistry", menuName = "Sol/Quests/Quest Registry")]
     public class QuestRegistry : ScriptableObject

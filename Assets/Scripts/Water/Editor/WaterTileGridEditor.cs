@@ -18,10 +18,10 @@ public class WaterTileGridEditor : Editor
         float totalSize = diameter * grid.tileSize;
 
         EditorGUILayout.HelpBox(
-            $"Grid: {diameter}×{diameter} = {totalTiles} tiles\n" +
-            $"World footprint: {totalSize:0}m × {totalSize:0}m\n" +
+ $"Grid: {diameter}-{diameter} = {totalTiles} tiles\n" +
+ $"World footprint: {totalSize:0}m - {totalSize:0}m\n" +
             $"Verts per tile (full LOD): {(grid.tileResolution + 1) * (grid.tileResolution + 1):N0}\n" +
-            $"Auto volume: {(grid.autoWaterVolume ? $"{totalSize + grid.volumeMargin * 2:0}m × {totalSize + grid.volumeMargin * 2:0}m × {grid.volumeDepth:0}m deep" : "disabled")}",
+ $"Auto volume: {(grid.autoWaterVolume ? $"{totalSize + grid.volumeMargin * 2:0}m - {totalSize + grid.volumeMargin * 2:0}m - {grid.volumeDepth:0}m deep" : "disabled")}",
             MessageType.None);
 
         EditorGUILayout.Space();

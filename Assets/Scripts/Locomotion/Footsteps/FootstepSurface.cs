@@ -13,7 +13,7 @@ namespace Sol.Locomotion
         [Tooltip("Clips played when walking or running on this surface.")]
         [SerializeField] private AudioClip[] _footsteps;
 
-        [Tooltip("Clips played on hard landing (optional Ã¢â‚¬â€ falls back to footsteps).")]
+ [Tooltip("Clips played on hard landing (optional - falls back to footsteps).")]
         [SerializeField] private AudioClip[] _landings;
 
         [Tooltip("Volume range for footsteps.")]

@@ -88,7 +88,7 @@ namespace Sol
         }
 
         /// <summary>
-        /// Unequip and hide the item � it returns to the inventory slot.
+ /// Unequip and hide the item - it returns to the inventory slot.
         /// Physics stays disabled and the GameObject is deactivated.
         /// </summary>
         public ItemComponent Unequip(EquipmentSlotType slot)
@@ -99,7 +99,7 @@ namespace Sol
             // Detach from bone.
             item.transform.SetParent(null);
 
-            // Keep physics disabled � item is back in inventory, not in the world.
+ // Keep physics disabled - item is back in inventory, not in the world.
             var rb = item.GetComponent<Rigidbody>();
             if (rb != null) 
             { 

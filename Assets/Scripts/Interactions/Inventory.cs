@@ -63,6 +63,7 @@ namespace Sol
         [Tooltip("Optional key item name in the interactor inventory that can open this while locked.")]
         [SerializeField] private string _requiredKeyItemName = string.Empty;
         [Tooltip("Optional key item id in the interactor inventory that can open this while locked.")]
+        [ItemIdDropdown]
         [SerializeField] private string _requiredKeyItemId = string.Empty;
 #endregion
 
@@ -100,7 +101,7 @@ namespace Sol
                 ResolveOwnerIdentity();
                 return IsWorldContainer
                     ? _ownerId
-                    : OwnerIdentity.ResolveOwnerId(gameObject);
+                    : OwnerRegistry.ResolveOwnerId(gameObject);
             }
         }
         public bool HasOwner => !string.IsNullOrWhiteSpace(OwnerId);
@@ -220,7 +221,7 @@ namespace Sol
             if (!HasOwner)
                 return true;
 
-            string actorOwnerId = OwnerIdentity.ResolveOwnerId(actor);
+            string actorOwnerId = OwnerRegistry.ResolveOwnerId(actor);
             return !string.IsNullOrWhiteSpace(actorOwnerId)
                 && string.Equals(OwnerId, actorOwnerId, StringComparison.OrdinalIgnoreCase);
         }
@@ -455,7 +456,7 @@ namespace Sol
                 // (drop to world, trade to another inventory) as well as destruction.
                 // Deregistration must be tied to the fish actually being destroyed/consumed
                 // (see Inventory.Use for the consumable path), otherwise the registry entry
-                // vanishes while the world object still carries its FishCode Ã¢â‚¬â€ after a
+ // vanishes while the world object still carries its FishCode - after a
                 // save/load round-trip the fish's stats (size, weight, etc.) would be lost.
             }
             NotifyChanged();
@@ -705,7 +706,7 @@ namespace Sol
 
             if (_owner != null)
             {
-                _ownerId = OwnerIdentity.ResolveOwnerId(_owner);
+                _ownerId = OwnerRegistry.ResolveOwnerId(_owner);
                 return;
             }
 

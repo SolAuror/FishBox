@@ -35,6 +35,7 @@ namespace Sol.Grab
         [SerializeField] private int _value;
         [Tooltip("Inspector: tunes item owner.")]
         [SerializeField] [HideInInspector] private GameObject _itemOwner;
+        [OwnerIdDropdown]
         [SerializeField] private string _itemOwnerId = string.Empty;
         [Tooltip("Inspector: tunes is stolen.")]
         [SerializeField] private bool _isStolen;
@@ -156,7 +157,7 @@ namespace Sol.Grab
             if (!HasOwner)
                 return true;
 
-            string actorOwnerId = OwnerIdentity.ResolveOwnerId(actor);
+            string actorOwnerId = OwnerRegistry.ResolveOwnerId(actor);
             return !string.IsNullOrWhiteSpace(actorOwnerId)
                 && string.Equals(ItemOwnerId, actorOwnerId, System.StringComparison.OrdinalIgnoreCase);
         }
@@ -180,7 +181,7 @@ namespace Sol.Grab
         public void SetOwner(GameObject owner)
         {
             _itemOwner = owner;
-            _itemOwnerId = OwnerIdentity.ResolveOwnerId(owner);
+            _itemOwnerId = OwnerRegistry.ResolveOwnerId(owner);
         }
 
         public void SetOwnerId(string ownerId)
@@ -243,7 +244,7 @@ namespace Sol.Grab
 #endif
             _itemOwnerId = NormalizeOwnerId(_itemOwnerId);
             if (_itemOwner != null)
-                _itemOwnerId = OwnerIdentity.ResolveOwnerId(_itemOwner);
+                _itemOwnerId = OwnerRegistry.ResolveOwnerId(_itemOwner);
         }
 
         private bool ShouldShowStealPrompt()
@@ -261,7 +262,7 @@ namespace Sol.Grab
         {
             if (_itemOwner != null)
             {
-                string resolvedOwnerId = OwnerIdentity.ResolveOwnerId(_itemOwner);
+                string resolvedOwnerId = OwnerRegistry.ResolveOwnerId(_itemOwner);
                 if (!string.IsNullOrWhiteSpace(resolvedOwnerId))
                     _itemOwnerId = resolvedOwnerId;
 

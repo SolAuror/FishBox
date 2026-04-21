@@ -12,9 +12,9 @@ using UnityEngine;
 /// Batcher draws them all in a single instanced batch.
 ///
 /// MODES
-///   Static     — fixed NxN grid centred on this GameObject's position.
+/// Static - fixed NxN grid centred on this GameObject's position.
 ///                Use for bounded lakes, bays, or pre-placed ocean sections.
-///   Follow Camera — grid re-centres on the tracked camera every frame,
+/// Follow Camera - grid re-centres on the tracked camera every frame,
 ///                   snapping to tileSize increments to avoid popping.
 ///                   Creates the appearance of an infinite ocean at zero
 ///                   extra art cost.
@@ -29,16 +29,16 @@ using UnityEngine;
 ///   1. Create an empty GameObject, add WaterTileGrid.
 ///   2. Assign a Sol/Water material (Ocean type recommended).
 ///   3. Set Tile Size, Grid Radius, and Mode.
-///   4. Press Play — tiles generate automatically.
+/// 4. Press Play - tiles generate automatically.
 ///   5. In the Inspector click "Rebuild Tiles" to refresh without Play.
 ///
 /// TIPS
-///   • Set gridRadius = 1 for a simple 3×3 grid (e.g. a lake).
-///   • Set gridRadius = 8 + followCamera = true for an open ocean.
-///   • Tile Size should match the wave frequency scale in your profile
+/// - Set gridRadius = 1 for a simple 3-3 grid (e.g. a lake).
+/// - Set gridRadius = 8 + followCamera = true for an open ocean.
+/// - Tile Size should match the wave frequency scale in your profile
 ///     (larger tiles ? reduce Normal Tiling to keep texel density).
-///   • One shared WaterVolume covering the whole grid is enough for
-///     gameplay / buoyancy — no need for per-tile volumes.
+/// - One shared WaterVolume covering the whole grid is enough for
+/// gameplay / buoyancy - no need for per-tile volumes.
 /// ---------------------------------------------------------------------------
 /// </summary>
 [ExecuteAlways]
@@ -111,7 +111,7 @@ public class WaterTileGrid : MonoBehaviour
     public float volumeDepth = 30f;
 
     [Tooltip("Extra margin added around the grid footprint on all sides (metres). " +
-             "Useful when followCamera is on — keeps the volume larger than the visible tiles.")]
+             "Useful when followCamera is on - keeps the volume larger than the visible tiles.")]
     [Range(0f, 500f)]
     public float volumeMargin = 50f;
 
@@ -129,10 +129,10 @@ public class WaterTileGrid : MonoBehaviour
     // Cached meshes per resolution to avoid re-generating each frame.
     readonly Dictionary<int, Mesh> _meshCache = new();
 
-    // Last snapped centre position — used to detect when the grid needs to shift.
+ // Last snapped centre position - used to detect when the grid needs to shift.
     Vector2Int _lastCentre = new Vector2Int(int.MaxValue, int.MaxValue);
 
-    // Managed WaterVolume — created/destroyed by this component.
+ // Managed WaterVolume - created/destroyed by this component.
     WaterVolume _managedVolume;
 
     // --- Unity Messages ---------------------------------------------------
@@ -156,7 +156,7 @@ public class WaterTileGrid : MonoBehaviour
         minTileResolution = Mathf.Min(minTileResolution, tileResolution);
         fullDetailRings    = Mathf.Clamp(fullDetailRings, 1, gridRadius + 1);
 
-        // AddComponent is forbidden during OnValidate — defer to next editor tick.
+ // AddComponent is forbidden during OnValidate - defer to next editor tick.
         _rebuildPending = true;
     }
 
@@ -426,7 +426,7 @@ public class WaterTileGrid : MonoBehaviour
             int idx = z * vertsPerSide + x;
             float u = (float)x / resolution;
             float v = (float)z / resolution;
-            // Centred on origin, scaled to 1×1 — WaterTileGrid positions it via transform.
+ // Centred on origin, scaled to 1-1 - WaterTileGrid positions it via transform.
             vertices[idx] = new Vector3(u - 0.5f, 0f, v - 0.5f);
             uvs[idx]      = new Vector2(u, v);
         }

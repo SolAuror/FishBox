@@ -227,7 +227,7 @@ namespace Sol.HUD
             }
 
             // Deferred rebuild lets TMP auto-size settle before measuring layout.
-            // The immediate call is intentionally omitted ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â one rebuild per frame is enough.
+ // The immediate call is intentionally omitted - one rebuild per frame is enough.
             CancelPendingRebuild();
             _rebuildScheduled = true;
             _pendingRebuild = PersistentCoroutineRunner.Run(DeferredRebuildRoutine());

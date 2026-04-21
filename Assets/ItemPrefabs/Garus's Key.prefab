@@ -21,6 +21,10 @@ PrefabInstance:
       value: ITM00004
       objectReference: {fileID: 0}
     - target: {fileID: 437761895070354558, guid: 3df4c3c8e075ec54787b341d1046224c, type: 3}
+      propertyPath: _isStolen
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 437761895070354558, guid: 3df4c3c8e075ec54787b341d1046224c, type: 3}
       propertyPath: _itemName
       value: Garus's Key
       objectReference: {fileID: 0}
@@ -30,7 +34,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 437761895070354558, guid: 3df4c3c8e075ec54787b341d1046224c, type: 3}
       propertyPath: _itemOwnerId
-      value: 
+      value: OWN00004
       objectReference: {fileID: 0}
     - target: {fileID: 2788485625975231843, guid: 3df4c3c8e075ec54787b341d1046224c, type: 3}
       propertyPath: m_LocalPosition.x

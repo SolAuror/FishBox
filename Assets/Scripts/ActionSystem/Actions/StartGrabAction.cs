@@ -4,7 +4,7 @@ namespace Sol.Actions
 {
     /// <summary>
     /// Discrete action: enter the grab state for a target GrabbableComponent.
-    /// Delegates entirely to GrabManager — contains zero physics logic.
+ /// Delegates entirely to GrabManager - contains zero physics logic.
     /// Target must be passed as the dispatch target GameObject.
     /// </summary>
     public class StartGrabAction : StateAction

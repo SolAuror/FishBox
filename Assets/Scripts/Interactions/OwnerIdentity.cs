@@ -17,15 +17,7 @@ namespace Sol
 
         public static string ResolveOwnerId(GameObject owner)
         {
-            if (owner == null)
-                return string.Empty;
-
-            if (owner.TryGetComponent(out OwnerIdentity identity))
-                return identity.OwnerId;
-
-            return owner.CompareTag("Player")
-                ? EntityCodeUtility.DefaultPlayerOwnerId
-                : string.Empty;
+            return OwnerRegistry.ResolveOwnerId(owner);
         }
 
         private void Reset()

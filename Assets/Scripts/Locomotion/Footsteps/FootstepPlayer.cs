@@ -69,7 +69,7 @@ namespace Sol.Locomotion
             if (_library == null) return;
             if (Time.time - _lastStepTime < _minInterval) return;
 
-            // Only play when grounded (skipped if no CharacterController â€” e.g. NPC).
+ // Only play when grounded (skipped if no CharacterController - e.g. NPC).
             if (_cc != null && !_cc.isGrounded) return;
 
             PhysicsMaterial groundMat = _controller != null ? _controller.CurrentGroundMaterial : null;

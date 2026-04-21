@@ -1,7 +1,7 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /// <summary>
-/// Manages interactive water ripples — ring waves that expand outward from
+/// Manages interactive water ripples - ring waves that expand outward from
 /// objects moving through the water surface.
 ///
 /// Singleton. Maintains a fixed-size ring buffer of ripple events and uploads
@@ -20,7 +20,7 @@ public class WaterRippleManager : MonoBehaviour
     [Range(0.5f, 20f)]
     public float rippleSpeed = 5f;
 
-    [Tooltip("Ring density — higher values produce tighter concentric rings.")]
+ [Tooltip("Ring density - higher values produce tighter concentric rings.")]
     [Range(1f, 60f)]
     public float rippleFrequency = 20f;
 
@@ -86,7 +86,7 @@ public class WaterRippleManager : MonoBehaviour
     /// Call from WaterRippleSource or any gameplay code.
     /// </summary>
     /// <param name="worldPos">World-space position (only XZ is used).</param>
-    /// <param name="strength">Normal perturbation strength (0.01–1 typical).</param>
+ /// <param name="strength">Normal perturbation strength (0.01-1 typical).</param>
     public void Emit(Vector3 worldPos, float strength = 0.15f)
     {
         _ripples[_writeIndex] = new Vector4(worldPos.x, worldPos.z, Time.time, strength);

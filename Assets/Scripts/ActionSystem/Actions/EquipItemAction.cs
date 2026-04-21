@@ -5,7 +5,7 @@ namespace Sol.Actions
     /// <summary>
     /// Discrete action: equip an item via the Equipment state system.
     /// If the item is already equipped, it is unequipped instead (toggle).
-    /// Completes immediately — no transform, physics, or animation logic here.
+ /// Completes immediately - no transform, physics, or animation logic here.
     /// </summary>
     public class EquipItemAction : ItemAction
     {

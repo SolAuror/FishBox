@@ -175,7 +175,7 @@ namespace Sol.Grab
             }
             else
             {
-                Debug.LogWarning($"[CaughtFishItem] '{gameObject.name}' could not resolve a FishDefinition for speciesAssetName '{data.speciesAssetName}' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â visual will be missing after load.");
+ Debug.LogWarning($"[CaughtFishItem] '{gameObject.name}' could not resolve a FishDefinition for speciesAssetName '{data.speciesAssetName}' - visual will be missing after load.");
             }
         }
 

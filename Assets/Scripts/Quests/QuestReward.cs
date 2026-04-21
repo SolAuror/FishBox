@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Sol;
 
 namespace Sol.Quests
 {
@@ -8,6 +9,7 @@ namespace Sol.Quests
     public class ItemReward
     {
         [Tooltip("ItemId from ItemRegistry (e.g. 'ITM00042').")]
+        [ItemIdDropdown]
         public string ItemId = string.Empty;
         [Min(1)] public int Count = 1;
     }

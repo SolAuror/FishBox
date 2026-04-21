@@ -304,7 +304,7 @@ namespace Sol.Fishing
                 previousTackle.gameObject.SetActive(false);
                 if (!inventory.Add(previousTackle))
                 {
-                    // Inventory full ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â abort swap. Restore the old tackle to the rod.
+ // Inventory full - abort swap. Restore the old tackle to the rod.
                     previousTackle.transform.SetParent(_activeRod.transform, false);
                     _activeRod.SetLoadedTackleItem(previousTackle);
                     // The slot was already removed from inventory; return the new item safely.
@@ -338,7 +338,7 @@ namespace Sol.Fishing
                 previousBait.gameObject.SetActive(false);
                 if (!inventory.Add(previousBait))
                 {
-                    // Inventory full ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â abort swap. Restore the old bait to the rod.
+ // Inventory full - abort swap. Restore the old bait to the rod.
                     previousBait.transform.SetParent(_activeRod.transform, false);
                     _activeRod.SetLoadedBaitItem(previousBait);
                     ReturnItemToInventoryOrDrop(slotItem, inventory);
@@ -644,7 +644,7 @@ namespace Sol.Fishing
 
             // Surface target is the rod tip's XZ position at start-height. This is independent
             // of _reelProgress, which breaks the circular dependency that previously kept
-            // surfaceTarget == tackle position (progress=0 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ lerp to start ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ tackle can't move).
+ // surfaceTarget == tackle position (progress=0 - lerp to start - tackle can't move).
             Vector3 surfaceTarget = new Vector3(rodTipPosition.x, _reelStartPosition.y, rodTipPosition.z);
 
             // Tell the tackle where to go first, then measure how far it has come.

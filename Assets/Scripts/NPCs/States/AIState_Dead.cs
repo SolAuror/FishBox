@@ -1,6 +1,6 @@
 namespace Sol.AI
 {
-    /// <summary>Terminal state — NPC is dead. No transitions out.</summary>
+ /// <summary>Terminal state - NPC is dead. No transitions out.</summary>
     public class AIState_Dead : AIStateBase
     {
         public AIState_Dead(AI_NPC npc) : base(npc) { }
@@ -16,7 +16,7 @@ namespace Sol.AI
 
         public override AI_NPC.State Tick()
         {
-            return AI_NPC.State.Dead; // Terminal — stays here forever.
+            return AI_NPC.State.Dead; // Terminal - stays here forever.
         }
 
         public override void Exit()

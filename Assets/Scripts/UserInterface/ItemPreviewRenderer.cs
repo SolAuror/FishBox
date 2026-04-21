@@ -222,14 +222,14 @@ namespace Sol.HUD
             if (!hasBounds)
                 return false;
 
-            // Center the object on the pivot. Do NOT rescale the clone ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â previews must
+ // Center the object on the pivot. Do NOT rescale the clone - previews must
             // preserve real-world item scale so that a small fish looks smaller than a large
             // fish in the tooltip, matching how they appear in the world and inventory.
             Vector3 centerOffset = _pivot.position - bounds.center;
             go.transform.position += centerOffset;
 
             // Position the camera at a fixed authoring distance. A large item will fill more
-            // of the preview frame, a small item will fill less ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â that's the consistency we
+ // of the preview frame, a small item will fill less - that's the consistency we
             // want across every tooltip.
             float distance = Mathf.Max(0.1f, _cameraDistance);
             _previewCamera.transform.position = _anchor.position + _anchor.forward * -distance;

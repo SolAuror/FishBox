@@ -5,7 +5,7 @@ namespace Sol.Actions
 {
     /// <summary>
     /// Priority tiers for action preemption. Higher value interrupts lower.
-    /// Actions at the same tier queue normally — no preemption.
+ /// Actions at the same tier queue normally - no preemption.
     /// </summary>
     public enum ActionPriority
     {

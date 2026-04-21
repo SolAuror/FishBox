@@ -2,7 +2,7 @@ namespace Sol.Actions
 {
     /// <summary>
     /// Discrete action: exit the grab state by releasing whatever the actor is holding.
-    /// Delegates entirely to GrabManager.ForceRelease — contains zero physics logic.
+ /// Delegates entirely to GrabManager.ForceRelease - contains zero physics logic.
     /// </summary>
     public class StopGrabAction : StateAction
     {

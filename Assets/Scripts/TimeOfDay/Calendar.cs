@@ -22,7 +22,7 @@ public class Calendar : MonoBehaviour
     [Tooltip("Display name for each month. Must match the length of daysPerMonth.")]
     [SerializeField] string[] monthNames = {
         "Aurion", "Solven", "Thalmer", "Verdane",
-        "CÃƒÂ¦lith", "Embera", "Lithane", "Duskara",
+        "Caelith", "Embera", "Lithane", "Duskara",
         "Falmere", "Nocturn", "Wrethis", "Glacium"
     };
 

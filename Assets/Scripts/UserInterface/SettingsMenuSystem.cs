@@ -333,7 +333,7 @@ namespace Sol.HUD
             }
             if (LocomotionInputManager.Instance?.Controls == null)
             {
-                Debug.LogWarning("[SettingsMenuSystem] PopulateControls skipped: LocomotionInputManager.Instance or Controls is null ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â is the player scene loaded?", this);
+ Debug.LogWarning("[SettingsMenuSystem] PopulateControls skipped: LocomotionInputManager.Instance or Controls is null - is the player scene loaded?", this);
                 return;
             }
             // Re-apply in-memory overrides first so the binding list mirrors the current working copy.

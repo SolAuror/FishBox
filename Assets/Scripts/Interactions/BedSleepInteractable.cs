@@ -153,11 +153,19 @@ namespace Sol
             else
                 Debug.LogWarning("[BedSleepInteractable] TimeOfDay not found; sleep could not advance time.", this);
 
-            NPCSoul soul = _activeInteractor?.Soul;
-            if (soul != null && _healthRecoveryPercentPerHour > 0f)
+            float healthDelta = 0f;
+            if (_healthRecoveryPercentPerHour > 0f)
             {
-                float healthDelta = soul.MaxHealth * (_healthRecoveryPercentPerHour * 0.01f) * hours;
-                soul.Heal(healthDelta);
+                if (_activeInteractor?.PlayerSoul != null)
+                {
+                    healthDelta = _activeInteractor.PlayerSoul.MaxHealth * (_healthRecoveryPercentPerHour * 0.01f) * hours;
+                    _activeInteractor.PlayerSoul.Heal(healthDelta);
+                }
+                else if (_activeInteractor?.NpcSoul != null)
+                {
+                    healthDelta = _activeInteractor.NpcSoul.MaxHealth * (_healthRecoveryPercentPerHour * 0.01f) * hours;
+                    _activeInteractor.NpcSoul.Heal(healthDelta);
+                }
             }
         }
 

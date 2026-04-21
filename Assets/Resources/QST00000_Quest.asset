@@ -12,26 +12,94 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a367c0916aab854abc505c86c35732f, type: 3}
   m_Name: QST00000_Quest
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Quests.QuestDefinition
-  _questId: 
-  _title: 
-  _summary: 
-  _giverNpcName: 
+  _questId: QST00000
+  _title: Welcome to the island...
+  _summary: Teach a man to fish...
+  _giverNpcName: Elsbeth
   _objectives:
-  - Type: 3
-    DisplayText: 
-    Count: 0
+  - Type: 6
+    DisplayText: Talk to Elsbeth..
+    Count: 1
     ItemId: 
     ItemTag: 
+    MatchSlot: 0
+    Slot: 4
     GoldAmount: 0
     Rarity: 0
-    PrefixRequirements:
-    - Prefix: Tiny
-      Count: 1
-    NpcName: 
+    PrefixRequirements: []
+    NpcName: Elsbeth
+  - Type: 4
+    DisplayText: Find a Rod...
+    Count: 1
+    ItemId: IT00018
+    ItemTag: 
+    MatchSlot: 0
+    Slot: 4
+    GoldAmount: 0
+    Rarity: 0
+    PrefixRequirements: []
+    NpcName: Elsbeth
+  - Type: 4
+    DisplayText: Find a Lure...
+    Count: 1
+    ItemId: ITM00019, ITM00020
+    ItemTag: 
+    MatchSlot: 0
+    Slot: 4
+    GoldAmount: 0
+    Rarity: 0
+    PrefixRequirements: []
+    NpcName: Elsbeth
+  - Type: 7
+    DisplayText: Find a Lure...
+    Count: 1
+    ItemId: ITM00018
+    ItemTag: 
+    MatchSlot: 1
+    Slot: 4
+    GoldAmount: 0
+    Rarity: 0
+    PrefixRequirements: []
+    NpcName: Elsbeth
+  - Type: 7
+    DisplayText: Equip a Lure...
+    Count: 1
+    ItemId: ITM00019
+    ItemTag: 
+    MatchSlot: 1
+    Slot: 4
+    GoldAmount: 0
+    Rarity: 0
+    PrefixRequirements: []
+    NpcName: Elsbeth
+  - Type: 0
+    DisplayText: Catch a Fish!!
+    Count: 1
+    ItemId: ITM10000
+    ItemTag: 
+    MatchSlot: 0
+    Slot: 4
+    GoldAmount: 0
+    Rarity: 0
+    PrefixRequirements: []
+    NpcName: Elsbeth
+  - Type: 5
+    DisplayText: Bring the fish back to Elsbeth...
+    Count: 1
+    ItemId: ITM10000
+    ItemTag: 
+    MatchSlot: 0
+    Slot: 4
+    GoldAmount: 0
+    Rarity: 0
+    PrefixRequirements: []
+    NpcName: Elsbeth
   _reward:
-    Gold: 0
-    Items: []
+    Gold: 100
+    Items:
+    - ItemId: ITM00021
+      Count: 10
   _prerequisiteQuestIds: []
   _timeLimitSeconds: 0
   _retryAfterSeconds: 0
-  _autoOffer: 0
+  _autoOffer: 1

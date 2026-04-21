@@ -29,7 +29,7 @@ namespace Sol.ToD
         [Range(-90f, 90f)]
         public float orbitalTiltDegrees = 0f;
 
-        [Tooltip("Starting orbital phase (0–1). Controls where in its orbit the body begins.")]
+ [Tooltip("Starting orbital phase (0-1). Controls where in its orbit the body begins.")]
         [Range(0f, 1f)]
         public float initialPhase = 0f;
 

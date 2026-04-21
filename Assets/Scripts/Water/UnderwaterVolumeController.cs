@@ -16,14 +16,14 @@ using UnityEngine;
 ///
 /// For third-person cameras that orbit above the water while the player is
 /// submerged, an optional playerTransform reference is provided. When assigned,
-/// the controller checks BOTH the camera position AND the player position —
+/// the controller checks BOTH the camera position AND the player position -
 /// whichever is deeper underwater drives the effect. This prevents the
 /// underwater overlay from disappearing just because the orbit camera is
 /// above the surface.
 ///
 /// SETUP:
 ///   1. Add to any GameObject that persists while playing.
-///   2. Optionally assign trackedCamera — if left null, Camera.main is used
+/// 2. Optionally assign trackedCamera - if left null, Camera.main is used
 ///      each frame (which is the Cinemachine Brain output camera).
 ///   3. Optionally assign playerTransform for third-person support.
 ///   4. Add UnderwaterRendererFeature to your URP Renderer Asset.

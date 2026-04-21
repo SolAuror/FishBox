@@ -1,5 +1,6 @@
 using UnityEngine;
 using Sol.AI;
+using Sol.Player;
 
 namespace Sol
 {
@@ -11,7 +12,8 @@ namespace Sol
         public GameObject Owner { get; }
         public Transform Transform { get; }
         public Inventory Inventory { get; }
-        public NPCSoul Soul { get; }
+        public NPCSoul NpcSoul { get; }
+        public PlayerSoul PlayerSoul { get; }
         public bool IsPlayer { get; }
 
         public Interactor(GameObject owner, bool isPlayer)
@@ -19,7 +21,8 @@ namespace Sol
             Owner = owner;
             Transform = owner.transform;
             Inventory = owner.GetComponent<Inventory>();
-            Soul = owner.GetComponent<NPCSoul>();
+            NpcSoul = owner.GetComponent<NPCSoul>();
+            PlayerSoul = owner.GetComponent<PlayerSoul>();
             IsPlayer = isPlayer;
         }
     }

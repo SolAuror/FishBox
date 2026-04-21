@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Serialization;
+using Sol;
 
 namespace Sol.AI
 {
@@ -24,6 +25,8 @@ namespace Sol.AI
         [FormerlySerializedAs("NPCName")]
         [Tooltip("Inspector: tunes character name.")]
         [SerializeField] private string _characterName = string.Empty;
+        [Tooltip("Stable owner id used by theft/trade/ownership systems (OWN#####).")]
+        [SerializeField] private string _ownerId = string.Empty;
 
         public SoulType SoulKind
         {
@@ -36,6 +39,8 @@ namespace Sol.AI
             get => _characterName;
             set => _characterName = value?.Trim() ?? string.Empty;
         }
+
+        public string OwnerId => NormalizeOwnerId(_ownerId);
 
         /// <summary>Legacy compatibility alias. Prefer CharacterName in new code.</summary>
         public string NPCName
@@ -73,7 +78,25 @@ namespace Sol.AI
 
         private void Awake()
         {
+            EnsureOwnerId();
+            OwnerRegistry.Register(OwnerId, gameObject);
             ClampVitals();
+        }
+
+        private void OnEnable()
+        {
+            EnsureOwnerId();
+            OwnerRegistry.Register(OwnerId, gameObject);
+        }
+
+        private void OnDisable()
+        {
+            OwnerRegistry.Unregister(OwnerId, gameObject);
+        }
+
+        private void OnDestroy()
+        {
+            OwnerRegistry.Unregister(OwnerId, gameObject);
         }
 
         public void TakeDamage(float amount) => Health -= Mathf.Abs(amount);
@@ -82,6 +105,7 @@ namespace Sol.AI
         private void OnValidate()
         {
             _characterName = _characterName?.Trim() ?? string.Empty;
+            EnsureOwnerId();
             ClampVitals();
         }
 
@@ -93,6 +117,36 @@ namespace Sol.AI
         private void NotifyVitalsChanged()
         {
             OnVitalsChanged?.Invoke(this);
+        }
+
+        private void EnsureOwnerId()
+        {
+            if (_soulType == SoulType.Player || gameObject.CompareTag("Player"))
+            {
+                _ownerId = EntityCodeUtility.DefaultPlayerOwnerId;
+                return;
+            }
+
+            _ownerId = EntityCodeUtility.NormalizeOrEmpty(_ownerId, EntityCodeUtility.OwnerPrefix);
+#if UNITY_EDITOR
+            _ownerId = EntityCodeUtility.EnsureAssignedCode(
+                this,
+                _ownerId,
+                EntityCodeUtility.OwnerPrefix,
+                static soul => soul._ownerId);
+#endif
+        }
+
+        private static string NormalizeOwnerId(string rawOwnerId)
+        {
+            if (string.IsNullOrWhiteSpace(rawOwnerId))
+                return string.Empty;
+
+            string trimmed = rawOwnerId.Trim();
+            if (string.Equals(trimmed, EntityCodeUtility.DefaultPlayerOwnerId, StringComparison.OrdinalIgnoreCase))
+                return EntityCodeUtility.DefaultPlayerOwnerId;
+
+            return EntityCodeUtility.NormalizeOrEmpty(trimmed, EntityCodeUtility.OwnerPrefix);
         }
     }
 }

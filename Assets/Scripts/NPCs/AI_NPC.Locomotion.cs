@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.AI;
 using Sol.Locomotion;
 
@@ -23,7 +23,7 @@ namespace Sol.AI
             if (locoInput != null)
                 locoInput.IsControlledByPlayer = false;
 
-            // Auto-create fakeCam if not assigned — guarantees _camTransform is never null
+ // Auto-create fakeCam if not assigned - guarantees _camTransform is never null
             // so UpdateBodyRotation() and the intent projection always run.
             if (fakeCam == null)
             {
@@ -105,12 +105,12 @@ namespace Sol.AI
                         };
                     }
                 }
-                // Gate passed or target too close — allow movement, reset timer.
+ // Gate passed or target too close - allow movement, reset timer.
                 _rotateGateTimer = 0f;
             }
             else
             {
-                // Idle intent — always reset the gate so it's clean for the next move.
+ // Idle intent - always reset the gate so it's clean for the next move.
                 _rotateGateTimer = 0f;
             }
 

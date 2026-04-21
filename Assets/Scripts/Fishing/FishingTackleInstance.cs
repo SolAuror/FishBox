@@ -177,7 +177,7 @@ namespace Sol.Fishing
             _manualReelTipTarget = tipTarget;
             _manualReelLiftDistance = Mathf.Max(0.05f, liftDistance);
             _manualReelSurfacePullStrength = Mathf.Max(0.05f, surfacePullStrength);
-            // Do NOT reset _shouldCompleteReel here — UpdateManualReel sets it when the
+ // Do NOT reset _shouldCompleteReel here - UpdateManualReel sets it when the
             // tackle physically arrives and it must survive until UpdateTackleState reads it.
             // Launch() resets it correctly at cast start.
             SetKinematicState(true);

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.AI;
+using Sol;
 
 namespace Sol.Quests
 {
@@ -39,10 +40,17 @@ namespace Sol.Quests
         [Min(1)] public int Count = 1;
 
         [Tooltip("For CollectItem / DeliverItem / EquipItem: the ItemId (e.g. 'ITM00042').")]
+        [ItemIdDropdown]
         public string ItemId = string.Empty;
 
         [Tooltip("For EquipItem: optional tag on ItemComponent (e.g. 'Lure', 'Bait') when ItemId is empty.")]
         public string ItemTag = string.Empty;
+
+        [Tooltip("For EquipItem: when true, restrict matching to the selected equipment slot.")]
+        public bool MatchSlot = false;
+
+        [Tooltip("For EquipItem: target equipment slot when MatchSlot is enabled.")]
+        public EquipmentSlotType Slot = EquipmentSlotType.MainHand;
 
         [Tooltip("For CatchTotalValue: total gold value threshold.")]
         public int GoldAmount = 0;

@@ -1,7 +1,6 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using Sol.AI;
 
 namespace Sol.Player
 {
@@ -33,8 +32,8 @@ namespace Sol.Player
         [SerializeField] private bool autoFindByName = true;
         #endregion
 
-        private NPCSoul _boundSoul;
-        private NPCSoul _subscribedSoul;
+        private PlayerSoul _boundSoul;
+        private PlayerSoul _subscribedSoul;
 
         private void Awake()
         {
@@ -91,9 +90,9 @@ namespace Sol.Player
             if (playerSoul != null && playerRoot == null)
                 playerRoot = playerSoul.gameObject;
 
-            NPCSoul resolvedSoul = playerSoul;
+            PlayerSoul resolvedSoul = playerSoul;
             if (resolvedSoul == null && playerRoot != null)
-                resolvedSoul = playerRoot.GetComponent<NPCSoul>();
+                resolvedSoul = playerRoot.GetComponent<PlayerSoul>();
 
             if (resolvedSoul != null)
             {
@@ -129,7 +128,7 @@ namespace Sol.Player
             _subscribedSoul = null;
         }
 
-        private void HandleVitalsChanged(NPCSoul _)
+        private void HandleVitalsChanged(PlayerSoul _)
         {
             Refresh(forceText: false);
         }

@@ -69,7 +69,7 @@ namespace Sol
         {
             _containerId = EntityCodeUtility.NormalizeOrEmpty(_containerId, EntityCodeUtility.ContainerPrefix);
 #if UNITY_EDITOR
-            // Prefab assets must not carry a ContainerId ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â otherwise every scene instance
+ // Prefab assets must not carry a ContainerId - otherwise every scene instance
             // inherits the same code and collides on save/load. Instances get a unique
             // code; a collision with another instance is treated as "unassigned" and
             // reassigned to the next free code.
