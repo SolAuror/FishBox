@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -728,7 +728,10 @@ namespace Sol.SaveLoad
                     continue;
                 }
 
-                equipment.Equip(item);
+                if (TryParseEquipmentSlot(saved.SlotType, out EquipmentSlotType restoredSlot))
+                    equipment.Equip(item, restoredSlot);
+                else
+                    equipment.Equip(item);
             }
         }
 
@@ -889,6 +892,34 @@ namespace Sol.SaveLoad
             return items;
         }
 
+        private static bool TryParseEquipmentSlot(string rawSlotType, out EquipmentSlotType slot)
+        {
+            if (Enum.TryParse(rawSlotType, true, out slot))
+                return true;
+
+            if (string.IsNullOrWhiteSpace(rawSlotType))
+                return false;
+
+            if (string.Equals(rawSlotType, "MainHand", StringComparison.OrdinalIgnoreCase))
+            {
+                slot = EquipmentSlotType.RightHand;
+                return true;
+            }
+
+            if (string.Equals(rawSlotType, "OffHand", StringComparison.OrdinalIgnoreCase))
+            {
+                slot = EquipmentSlotType.LeftHand;
+                return true;
+            }
+
+            if (string.Equals(rawSlotType, "Back", StringComparison.OrdinalIgnoreCase))
+            {
+                slot = EquipmentSlotType.Back;
+                return true;
+            }
+
+            return false;
+        }
         private static ContainerSaveData FindMatchingContainer(List<ContainerSaveData> containers, ContainerInteractable interactable) // Finds the best matching ContainerSaveData from the provided list of containers for the specified ContainerInteractable. This first tries to match by hierarchy path, then falls back to matching by ContainerId (if unique), and finally falls back to matching by name and proximity. Returns the best matching ContainerSaveData, or null if no match is found.
         {
             if (containers == null || interactable == null)
@@ -1083,3 +1114,6 @@ namespace Sol.SaveLoad
         }
     }
 }
+
+
+

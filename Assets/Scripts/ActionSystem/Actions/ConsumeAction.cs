@@ -1,3 +1,6 @@
+using Sol.Audio;
+using UnityEngine;
+
 namespace Sol.Actions
 {
     public enum ConsumeActionOutcome
@@ -79,6 +82,12 @@ namespace Sol.Actions
             Outcome = consumed
                 ? ConsumeActionOutcome.Success
                 : ConsumeActionOutcome.ConsumeRejected;
+
+            if (consumed)
+            {
+                Vector3 worldPos = _interactor.Transform != null ? _interactor.Transform.position : Vector3.zero;
+                AudioService.Instance?.PlaySfx(AudioEvent.ItemConsume, worldPos);
+            }
             Complete();
         }
 

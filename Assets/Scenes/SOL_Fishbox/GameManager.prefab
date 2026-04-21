@@ -18,6 +18,8 @@ GameObject:
   - component: {fileID: 112069774871293302}
   - component: {fileID: 3407453402715185778}
   - component: {fileID: 2053283229401983910}
+  - component: {fileID: 5506853494042102839}
+  - component: {fileID: 5434045964872323201}
   m_Layer: 10
   m_Name: GameManager
   m_TagString: Untagged
@@ -37,8 +39,7 @@ Transform:
   m_LocalPosition: {x: 1.52884, y: -2.60686, z: -14.796211}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 3647946991756883420}
+  m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: -0.3, y: -0.95, z: -0.084}
 --- !u!114 &4805029651920948915
@@ -300,65 +301,35 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 12ac9291a526420abfb54317468ecc8e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.HUD.UIInputManager
---- !u!1001 &8860565051180884221
-PrefabInstance:
+--- !u!114 &5506853494042102839
+MonoBehaviour:
   m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 4704130813304856088}
-    m_Modifications:
-    - target: {fileID: 4805278658999001371, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_Name
-      value: ItemPreviewRenderer
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 10.764712
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: -11.267496
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 27.681568
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
---- !u!4 &3647946991756883420 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 5212653296245740833, guid: b0d86b198b1f08d49b608d907c693855, type: 3}
-  m_PrefabInstance: {fileID: 8860565051180884221}
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cba3bda6b8df3c841a3d79e4c028ef42, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Quests.QuestManager
+  _playerRoot: {fileID: 0}
+--- !u!114 &5434045964872323201
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3808976992032612638}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ca12e8c090c41189dc14cb2f0739af7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Audio.AudioService
+  _cueLibrary: {fileID: 11400000, guid: 23515bb7f7273494c9054e7368678fd3, type: 2}
+  _defaultUiVolume: 1
+  _defaultSfxVolume: 1
+  _waveNearDistance: 0
+  _waveFarDistance: 5
+  _waveFarVolumeScale: 0.038
+  _waveProximityExponent: 1

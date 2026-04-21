@@ -5,6 +5,7 @@ using Sol.AI;
 using Sol.Actions;
 using Sol.Grab;
 using Sol.HUD;
+using Sol.ToD;
 using System.Collections;
 
 namespace Sol.Quests
@@ -24,6 +25,7 @@ namespace Sol.Quests
 
         private Inventory _inventory;
         private Equipment _equipment;
+        private Calendar _calendar;
         private bool _actionEventsSubscribed;
 
         private readonly List<QuestSaveData> _active = new();
@@ -108,34 +110,12 @@ namespace Sol.Quests
                 return result;
 
             bool fromBoard = string.IsNullOrWhiteSpace(npcNameOrBoard);
-            float now = Time.realtimeSinceStartup;
 
             for (int i = 0; i < reg.Quests.Count; i++)
             {
                 QuestDefinition def = reg.Quests[i];
-                if (def == null || string.IsNullOrWhiteSpace(def.QuestId))
+                if (!CanOfferQuest(def, npcNameOrBoard, fromBoard))
                     continue;
-
-                if (_completedIds.Contains(def.QuestId))
-                    continue;
-
-                if (FindActive(def.QuestId) != null)
-                    continue;
-
-                if (!fromBoard
-                    && !string.Equals(def.GiverNpcName, npcNameOrBoard, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                if (!ArePrerequisitesMet(def))
-                    continue;
-
-                if (_failedCache.TryGetValue(def.QuestId, out QuestSaveData failed)
-                    && now - failed.FailedAtRealtime < def.RetryAfterSeconds)
-                {
-                    continue;
-                }
 
                 result.Add(def);
             }
@@ -164,18 +144,9 @@ namespace Sol.Quests
             if (def == null)
                 return false;
 
-            if (_completedIds.Contains(questId) || FindActive(questId) != null)
+            bool fromBoard = string.IsNullOrWhiteSpace(giverNpcName);
+            if (!CanOfferQuest(def, giverNpcName, fromBoard))
                 return false;
-
-            if (!ArePrerequisitesMet(def))
-                return false;
-
-            float now = Time.realtimeSinceStartup;
-            if (_failedCache.TryGetValue(questId, out QuestSaveData failed)
-                && now - failed.FailedAtRealtime < def.RetryAfterSeconds)
-            {
-                return false;
-            }
 
             QuestSaveData q = new()
             {
@@ -211,7 +182,7 @@ namespace Sol.Quests
                 return false;
 
             if (!string.IsNullOrWhiteSpace(def.GiverNpcName)
-                && !string.Equals(def.GiverNpcName, npcName, StringComparison.OrdinalIgnoreCase))
+                && !NpcReferenceMatches(def.GiverNpcName, npcName))
             {
                 return false;
             }
@@ -219,6 +190,8 @@ namespace Sol.Quests
             GrantRewards(def.Reward);
 
             q.State = QuestState.Completed;
+            q.CompletedAtRealtime = Time.realtimeSinceStartup;
+            q.CompletedAtTotalDays = GetCurrentTotalDaysElapsed();
             _completedIds.Add(questId);
             _completedCache[questId] = CloneSaveData(q);
 
@@ -260,7 +233,7 @@ namespace Sol.Quests
                     continue;
 
                 if (string.IsNullOrWhiteSpace(def.GiverNpcName)
-                    || string.Equals(def.GiverNpcName, giverNpcName, StringComparison.OrdinalIgnoreCase))
+                    || NpcReferenceMatches(def.GiverNpcName, giverNpcName))
                 {
                     return q;
                 }
@@ -284,7 +257,7 @@ namespace Sol.Quests
                 if (obj == null || obj.Type != QuestObjectiveType.TalkToNpc)
                     continue;
 
-                if (!string.Equals(obj.NpcName, npcName, StringComparison.OrdinalIgnoreCase))
+                if (!NpcReferenceMatches(obj.NpcName, npcName))
                     continue;
 
                 q.CurrentObjectiveProgress = 1;
@@ -308,8 +281,8 @@ namespace Sol.Quests
                 if (obj == null || obj.Type != QuestObjectiveType.DeliverItem)
                     continue;
 
-                if (!string.Equals(obj.NpcName, npcName, StringComparison.OrdinalIgnoreCase)
-                    || !string.Equals(obj.ItemId, itemId, StringComparison.OrdinalIgnoreCase))
+                if (!NpcReferenceMatches(obj.NpcName, npcName)
+                    || !obj.MatchesAnyAcceptableItemId(itemId))
                 {
                     continue;
                 }
@@ -318,6 +291,46 @@ namespace Sol.Quests
                 OnQuestUpdated?.Invoke(q);
                 AdvanceIfComplete(q);
             }
+        }
+
+        public static bool NpcReferenceMatches(string requiredReference, string candidateReference)
+        {
+            if (string.IsNullOrWhiteSpace(requiredReference) || string.IsNullOrWhiteSpace(candidateReference))
+                return false;
+
+            string required = requiredReference.Trim();
+            string candidate = candidateReference.Trim();
+            if (string.Equals(required, candidate, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            string requiredName = ResolveNpcDisplayName(required);
+            string candidateName = ResolveNpcDisplayName(candidate);
+            return !string.IsNullOrWhiteSpace(requiredName)
+                && !string.IsNullOrWhiteSpace(candidateName)
+                && string.Equals(requiredName, candidateName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ResolveNpcDisplayName(string npcReference)
+        {
+            if (string.IsNullOrWhiteSpace(npcReference))
+                return string.Empty;
+
+            string trimmed = npcReference.Trim();
+            string normalizedOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(trimmed);
+            if (!string.IsNullOrWhiteSpace(normalizedOwnerId))
+            {
+                GameObject npc = OwnerRegistry.Resolve(normalizedOwnerId);
+                if (npc != null)
+                {
+                    NPCSoul soul = npc.GetComponent<NPCSoul>();
+                    if (soul != null && !string.IsNullOrWhiteSpace(soul.CharacterName))
+                        return soul.CharacterName.Trim();
+
+                    return npc.name;
+                }
+            }
+
+            return trimmed;
         }
 
         private void HandleInventoryChanged() => EvaluateAll();
@@ -378,7 +391,7 @@ namespace Sol.Quests
             switch (obj.Type)
             {
                 case QuestObjectiveType.CollectItem:
-                    q.CurrentObjectiveProgress = Mathf.Min(CountItemsInInventory(obj.ItemId), Mathf.Max(1, obj.Count));
+                    q.CurrentObjectiveProgress = Mathf.Min(CountItemsInInventory(obj), Mathf.Max(1, obj.Count));
                     OnQuestUpdated?.Invoke(q);
                     break;
 
@@ -486,9 +499,9 @@ namespace Sol.Quests
             }
         }
 
-        private int CountItemsInInventory(string itemId)
+        private int CountItemsInInventory(QuestObjective objective)
         {
-            if (_inventory == null || string.IsNullOrWhiteSpace(itemId))
+            if (_inventory == null || objective == null)
                 return 0;
 
             int total = 0;
@@ -499,7 +512,7 @@ namespace Sol.Quests
                 if (slot?.Item == null)
                     continue;
 
-                if (string.Equals(slot.Item.ItemId, itemId, StringComparison.OrdinalIgnoreCase))
+                if (objective.MatchesAnyAcceptableItemId(slot.Item.ItemId))
                     total += Mathf.Max(1, slot.Count);
             }
 
@@ -579,8 +592,7 @@ namespace Sol.Quests
                 if (obj.MatchSlot && kvp.Key != obj.Slot)
                     continue;
 
-                if (!string.IsNullOrWhiteSpace(obj.ItemId)
-                    && string.Equals(equipped.ItemId, obj.ItemId, StringComparison.OrdinalIgnoreCase))
+                if (obj.MatchesAnyAcceptableItemId(equipped.ItemId))
                 {
                     return true;
                 }
@@ -592,7 +604,7 @@ namespace Sol.Quests
                     return true;
                 }
 
-                if (string.IsNullOrWhiteSpace(obj.ItemId) && string.IsNullOrWhiteSpace(obj.ItemTag) && obj.MatchSlot)
+                if (!obj.HasAnyAcceptableItemId() && string.IsNullOrWhiteSpace(obj.ItemTag) && obj.MatchSlot)
                     return true;
             }
 
@@ -754,10 +766,7 @@ namespace Sol.Quests
                 if (def == null || !def.AutoOffer)
                     continue;
 
-                if (_completedIds.Contains(def.QuestId) || FindActive(def.QuestId) != null)
-                    continue;
-
-                if (!ArePrerequisitesMet(def))
+                if (!CanOfferQuest(def, def.GiverNpcName, fromBoard: false))
                     continue;
 
                 DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(true);
@@ -859,10 +868,73 @@ namespace Sol.Quests
                 CurrentObjectiveProgress = src.CurrentObjectiveProgress,
                 RemainingSeconds = src.RemainingSeconds,
                 FailedAtRealtime = src.FailedAtRealtime,
+                CompletedAtRealtime = src.CompletedAtRealtime,
+                CompletedAtTotalDays = src.CompletedAtTotalDays,
                 GiverNpcName = src.GiverNpcName,
                 PrefixProgress = src.PrefixProgress != null ? new List<int>(src.PrefixProgress) : new List<int>()
             };
             return clone;
+        }
+
+        private bool CanOfferQuest(QuestDefinition def, string npcNameOrBoard, bool fromBoard)
+        {
+            if (def == null || string.IsNullOrWhiteSpace(def.QuestId))
+                return false;
+
+            if (FindActive(def.QuestId) != null)
+                return false;
+
+            if (!fromBoard && !NpcReferenceMatches(def.GiverNpcName, npcNameOrBoard))
+                return false;
+
+            if (!ArePrerequisitesMet(def))
+                return false;
+
+            float now = Time.realtimeSinceStartup;
+            if (_failedCache.TryGetValue(def.QuestId, out QuestSaveData failed)
+                && now - failed.FailedAtRealtime < def.RetryAfterSeconds)
+            {
+                return false;
+            }
+
+            if (!_completedCache.TryGetValue(def.QuestId, out QuestSaveData completed))
+                return true;
+
+            if (!def.Repeatable)
+                return false;
+
+            return IsRepeatCooldownComplete(def, completed, now);
+        }
+
+        private bool IsRepeatCooldownComplete(QuestDefinition def, QuestSaveData completed, float nowRealtime)
+        {
+            if (def == null || completed == null)
+                return false;
+
+            switch (def.RepeatMode)
+            {
+                case QuestRepeatMode.Immediately:
+                    return true;
+
+                case QuestRepeatMode.AfterRealtimeSeconds:
+                    return nowRealtime - completed.CompletedAtRealtime >= Mathf.Max(0f, def.RepeatAfterRealtimeSeconds);
+
+                case QuestRepeatMode.AfterInGameDays:
+                    int requiredDays = Mathf.Max(0, def.RepeatAfterInGameDays);
+                    int dayDelta = GetCurrentTotalDaysElapsed() - Mathf.Max(0, completed.CompletedAtTotalDays);
+                    return dayDelta >= requiredDays;
+
+                default:
+                    return true;
+            }
+        }
+
+        private int GetCurrentTotalDaysElapsed()
+        {
+            if (_calendar == null)
+                _calendar = FindFirstObjectByType<Calendar>();
+
+            return _calendar != null ? Mathf.Max(0, _calendar.TotalDaysElapsed) : 0;
         }
 
         private QuestSaveData FindActive(string questId)
@@ -945,6 +1017,7 @@ namespace Sol.Quests
 
             _inventory = root.GetComponentInChildren<Inventory>(true);
             _equipment = root.GetComponentInChildren<Equipment>(true);
+            _calendar = FindFirstObjectByType<Calendar>();
         }
 
         private void SubscribeToPlayer()

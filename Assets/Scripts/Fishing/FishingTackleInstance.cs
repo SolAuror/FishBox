@@ -69,6 +69,7 @@ namespace Sol.Fishing
         private float _driftPhaseZ;
 
         public static IReadOnlyList<FishingTackleInstance> ActiveInstances => s_ActiveInstances;
+        public event System.Action<bool> OnEnteredFloating;
         public bool ShouldCancelCast => _shouldCancelCast;
         public bool ShouldCompleteReel => _shouldCompleteReel;
         public bool CanAttractFish => _state == TackleState.Floating && !_shouldCancelCast && !_shouldCompleteReel && _hookedFish == null;
@@ -525,6 +526,7 @@ namespace Sol.Fishing
             _floatHorizontalVelocity = Vector3.zero;
             _driftPhaseX = Random.Range(0f, Mathf.PI * 2f);
             _driftPhaseZ = Random.Range(0f, Mathf.PI * 2f);
+            OnEnteredFloating?.Invoke(false);
         }
 
         private void BeginFloating(float surfaceHeight)
@@ -542,6 +544,7 @@ namespace Sol.Fishing
             _floatHorizontalVelocity = Vector3.zero;
             _driftPhaseX = Random.Range(0f, Mathf.PI * 2f);
             _driftPhaseZ = Random.Range(0f, Mathf.PI * 2f);
+            OnEnteredFloating?.Invoke(true);
         }
 
         private void UpdateHookedFishState()

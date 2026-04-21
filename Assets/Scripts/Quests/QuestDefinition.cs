@@ -1,8 +1,16 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Sol;
 
 namespace Sol.Quests
 {
+    public enum QuestRepeatMode
+    {
+        Immediately = 0,
+        AfterRealtimeSeconds = 1,
+        AfterInGameDays = 2,
+    }
+
     /// <summary>
     /// Authored quest definition. Runtime state lives in <see cref="QuestSaveData"/> owned by the QuestManager.
     /// </summary>
@@ -16,7 +24,8 @@ namespace Sol.Quests
         [TextArea(2, 6)]
         [SerializeField] private string _summary = string.Empty;
 
-        [Tooltip("CharacterName of the NPC that offers and accepts turn-in. Empty = quest board only.")]
+        [Tooltip("NPC owner id (OWN#####) that offers and accepts turn-in. Empty = quest board only.")]
+        [NpcIdDropdown]
         [SerializeField] private string _giverNpcName = string.Empty;
 
         [Tooltip("Objectives are completed in order.")]
@@ -25,6 +34,7 @@ namespace Sol.Quests
         [SerializeField] private QuestReward _reward = new();
 
         [Tooltip("Quest IDs that must be Completed before this quest is offered.")]
+        [QuestIdDropdown]
         [SerializeField] private List<string> _prerequisiteQuestIds = new();
 
         [Tooltip("0 = untimed. Otherwise real-time seconds before quest fails.")]
@@ -37,6 +47,20 @@ namespace Sol.Quests
 
         [Tooltip("If true, offered automatically on first game start when prerequisites pass (e.g. tutorial).")]
         [SerializeField] private bool _autoOffer = false;
+
+        [Tooltip("If enabled, this quest can be offered again after it has been completed.")]
+        [SerializeField] private bool _repeatable = false;
+
+        [Tooltip("How this repeatable quest becomes available again after completion.")]
+        [SerializeField] private QuestRepeatMode _repeatMode = QuestRepeatMode.Immediately;
+
+        [Tooltip("Used when Repeat Mode is AfterRealtimeSeconds.")]
+        [Min(0f)]
+        [SerializeField] private float _repeatAfterRealtimeSeconds = 0f;
+
+        [Tooltip("Used when Repeat Mode is AfterInGameDays.")]
+        [Min(0)]
+        [SerializeField] private int _repeatAfterInGameDays = 0;
         #endregion
 
         public string QuestId => _questId;
@@ -49,6 +73,10 @@ namespace Sol.Quests
         public float TimeLimitSeconds => _timeLimitSeconds;
         public float RetryAfterSeconds => _retryAfterSeconds;
         public bool AutoOffer => _autoOffer;
+        public bool Repeatable => _repeatable;
+        public QuestRepeatMode RepeatMode => _repeatMode;
+        public float RepeatAfterRealtimeSeconds => _repeatAfterRealtimeSeconds;
+        public int RepeatAfterInGameDays => _repeatAfterInGameDays;
         public bool IsTimed => _timeLimitSeconds > 0f;
     }
 }

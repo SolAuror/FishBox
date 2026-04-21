@@ -1,12 +1,8 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Sol.Grab;
 
 namespace Sol
 {
-    /// <summary>
-    /// Centralized execution path for all item actions.
- /// Called by UI, AI, or any system - never duplicated.
-    /// </summary>
     public static class ItemActionSystem
     {
         public static bool CanExecute(ItemActionType action, InventorySlot slot, Inventory inventory, Interactor instigator)
@@ -18,26 +14,15 @@ namespace Sol
             if (!ItemTypeRules.SupportsAction(item.Type, item.IsConsumable, action))
                 return false;
 
-            if (action == ItemActionType.Equip)
-            {
-                if (instigator.Owner == null || !instigator.Owner.TryGetComponent(out Equipment equipment))
-                    return false;
+            if (action != ItemActionType.Equip)
+                return true;
 
-                if (!ItemTypeRules.TryGetEquipmentSlot(item.Type, out _))
-                    return false;
+            if (instigator.Owner == null || !instigator.Owner.TryGetComponent(out Equipment equipment))
+                return false;
 
-                if (equipment.IsEquipped(item))
-                    return true;
-
-                return !equipment.IsSlotOccupied(ResolveEquipmentSlot(item.Type));
-            }
-
-            return true;
+            return equipment.CanEquip(item) || equipment.IsEquipped(item);
         }
 
-        /// <summary>
-        /// Execute an action on an inventory slot. Returns true if the action succeeded.
-        /// </summary>
         public static bool Execute(ItemActionType action, InventorySlot slot, Inventory inventory, Interactor instigator)
         {
             if (!CanExecute(action, slot, inventory, instigator))
@@ -45,10 +30,10 @@ namespace Sol
 
             return action switch
             {
-                ItemActionType.Use   => ExecuteUse(slot, inventory, instigator),
+                ItemActionType.Use => ExecuteUse(slot, inventory, instigator),
                 ItemActionType.Equip => ExecuteEquip(slot, inventory, instigator),
-                ItemActionType.Drop  => ExecuteDrop(slot, inventory, instigator),
-                _                    => false
+                ItemActionType.Drop => ExecuteDrop(slot, inventory, instigator),
+                _ => false
             };
         }
 
@@ -59,31 +44,28 @@ namespace Sol
 
         private static bool ExecuteEquip(InventorySlot slot, Inventory inventory, Interactor instigator)
         {
-            var equipment = instigator.Owner.GetComponent<Equipment>();
-            if (equipment == null) return false;
+            Equipment equipment = instigator.Owner.GetComponent<Equipment>();
+            if (equipment == null)
+                return false;
 
-            var item = slot.Item;
-
-            // Toggle: if already equipped, unequip instead.
+            ItemComponent item = slot.Item;
             if (equipment.IsEquipped(item))
             {
                 equipment.UnequipItem(item);
                 return true;
             }
 
- // Not yet equipped - equip but keep the inventory slot.
             return equipment.Equip(item);
         }
 
         private static bool ExecuteDrop(InventorySlot slot, Inventory inventory, Interactor instigator)
         {
-            if (slot?.Item == null) return false;
+            if (slot?.Item == null)
+                return false;
 
-            var equipment = instigator.Owner.GetComponent<Equipment>();
-
+            Equipment equipment = instigator.Owner.GetComponent<Equipment>();
             if (equipment != null && equipment.IsEquipped(slot.Item))
             {
- // Item is on a bone - detach and let it fall from its current world position.
                 ItemComponent equippedItem = equipment.DetachForDrop(slot.Item);
                 if (equippedItem == null)
                     return false;
@@ -95,39 +77,32 @@ namespace Sol
                 return true;
             }
 
-            // Pop the correct item reference (extras first, then primary).
-            var item = slot.PopItem();
+            ItemComponent item = slot.PopItem();
             if (item == null)
                 return false;
 
             inventory.Remove(slot, 1);
 
-            // Place in front of the instigator.
-            var t = instigator.Transform;
+            Transform t = instigator.Transform;
             item.transform.SetParent(null);
             item.transform.position = t.position + t.forward * 1.5f + Vector3.up * 0.5f;
             item.transform.rotation = Quaternion.identity;
             item.gameObject.SetActive(true);
 
-            var rb = item.GetComponent<Rigidbody>();
+            Rigidbody rb = item.GetComponent<Rigidbody>();
             if (rb != null)
             {
                 rb.isKinematic = false;
                 rb.detectCollisions = true;
-                rb.linearVelocity  = Vector3.zero;
+                rb.linearVelocity = Vector3.zero;
                 rb.angularVelocity = Vector3.zero;
             }
 
-            var col = item.GetComponent<Collider>();
-            if (col != null) col.enabled = true;
+            Collider col = item.GetComponent<Collider>();
+            if (col != null)
+                col.enabled = true;
 
             return true;
-        }
-
-        private static EquipmentSlotType ResolveEquipmentSlot(ItemType type)
-        {
-            ItemTypeRules.TryGetEquipmentSlot(type, out EquipmentSlotType slot);
-            return slot;
         }
     }
 }

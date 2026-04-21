@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Sol.AI;
 using Sol;
 
@@ -25,6 +26,13 @@ namespace Sol.Quests
         [Min(1)] public int Count = 1;
     }
 
+    [Serializable]
+    public class ItemIdRequirement
+    {
+        [ItemIdDropdown]
+        public string ItemId = string.Empty;
+    }
+
     /// <summary>
     /// Polymorphic sequential quest objective. Only the fields relevant to <see cref="Type"/> are used.
     /// </summary>
@@ -39,18 +47,21 @@ namespace Sol.Quests
         [Tooltip("For CatchCount / CollectItem / DeliverItem: target count. For CatchRarity: count of that rarity.")]
         [Min(1)] public int Count = 1;
 
-        [Tooltip("For CollectItem / DeliverItem / EquipItem: the ItemId (e.g. 'ITM00042').")]
-        [ItemIdDropdown]
-        public string ItemId = string.Empty;
+        [FormerlySerializedAs("ItemId")]
+        [SerializeField, HideInInspector]
+        private string _legacySingleItemId = string.Empty;
 
-        [Tooltip("For EquipItem: optional tag on ItemComponent (e.g. 'Lure', 'Bait') when ItemId is empty.")]
+        [Tooltip("For CollectItem / DeliverItem / EquipItem: acceptable ItemIds (any one can match).")]
+        public List<ItemIdRequirement> AcceptableItemIds = new();
+
+        [Tooltip("For EquipItem: optional tag on ItemComponent (e.g. 'Lure', 'Bait') when acceptable ids are empty.")]
         public string ItemTag = string.Empty;
 
         [Tooltip("For EquipItem: when true, restrict matching to the selected equipment slot.")]
         public bool MatchSlot = false;
 
         [Tooltip("For EquipItem: target equipment slot when MatchSlot is enabled.")]
-        public EquipmentSlotType Slot = EquipmentSlotType.MainHand;
+        public EquipmentSlotType Slot = EquipmentSlotType.RightHand;
 
         [Tooltip("For CatchTotalValue: total gold value threshold.")]
         public int GoldAmount = 0;
@@ -61,7 +72,49 @@ namespace Sol.Quests
         [Tooltip("For CatchByPrefix: list of prefix+count pairs (e.g. 2 Tiny + 1 Lofty).")]
         public List<PrefixRequirement> PrefixRequirements = new();
 
-        [Tooltip("For DeliverItem / TalkToNpc: the NPC CharacterName.")]
+        [Tooltip("For DeliverItem / TalkToNpc: NPC owner id (OWN#####).")]
+        [NpcIdDropdown]
         public string NpcName = string.Empty;
+
+        public bool HasAnyAcceptableItemId()
+        {
+            foreach (string _ in EnumerateAcceptableItemIds())
+                return true;
+
+            return false;
+        }
+
+        public bool MatchesAnyAcceptableItemId(string candidateItemId)
+        {
+            if (string.IsNullOrWhiteSpace(candidateItemId))
+                return false;
+
+            foreach (string acceptable in EnumerateAcceptableItemIds())
+            {
+                if (string.Equals(acceptable, candidateItemId, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public IEnumerable<string> EnumerateAcceptableItemIds()
+        {
+            if (!string.IsNullOrWhiteSpace(_legacySingleItemId))
+                yield return _legacySingleItemId.Trim();
+
+            if (AcceptableItemIds == null)
+                yield break;
+
+            for (int i = 0; i < AcceptableItemIds.Count; i++)
+            {
+                string acceptable = AcceptableItemIds[i]?.ItemId;
+                if (string.IsNullOrWhiteSpace(acceptable))
+                    continue;
+
+                yield return acceptable.Trim();
+            }
+        }
     }
 }
+

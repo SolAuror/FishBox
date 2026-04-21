@@ -21,6 +21,19 @@ namespace Sol.Grab
         Gold = 11
     }
 
+    public enum EquipDomain
+    {
+        Auto = 0,
+        Armor = 1,
+        WeaponTool = 2
+    }
+
+    public enum WeaponHanding
+    {
+        OneHanded = 0,
+        TwoHanded = 1
+    }
+
     [RequireComponent(typeof(GrabbableComponent))]
     [RequireComponent(typeof(Collider))]
     public class ItemComponent : MonoBehaviour, IInteractable
@@ -65,6 +78,9 @@ namespace Sol.Grab
         [SerializeField] private string _equipBone = string.Empty;
         [SerializeField] private Vector3 _equipOffset;
         [SerializeField] private Vector3 _equipRotation;
+        [SerializeField] private EquipDomain _equipDomain = EquipDomain.Auto;
+        [SerializeField] private WeaponHanding _weaponHanding = WeaponHanding.OneHanded;
+        [SerializeField] private List<EquipmentSlotType> _allowedEquipSlots = new();
 
         [Header("Pickup")]
         [Tooltip("Optional hand target used by the pickup reach. If unassigned, the system falls back to the item's collider or transform.")]
@@ -100,6 +116,9 @@ namespace Sol.Grab
         public string EquipBone => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipBone : string.Empty;
         public Vector3 EquipOffset => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipOffset : Vector3.zero;
         public Vector3 EquipRotation => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipRotation : Vector3.zero;
+        public EquipDomain EquipCategory => _equipDomain;
+        public WeaponHanding WeaponHanding => _weaponHanding;
+        public IReadOnlyList<EquipmentSlotType> AllowedEquipSlots => _allowedEquipSlots;
         public Transform PickupGrip => _pickupGrip;
 
         public List<ItemActionType> GetAvailableActions()

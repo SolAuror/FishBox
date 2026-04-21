@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEditorInternal;
 using UnityEngine;
 using Sol.Grab;
+using Sol.Quests;
 
 namespace Sol.AI.Editor
 {
@@ -300,6 +301,223 @@ namespace Sol.Editor
         }
 
         private struct OwnerChoice
+        {
+            public string Id;
+            public string Display;
+        }
+    }
+
+    [CustomPropertyDrawer(typeof(NpcIdDropdownAttribute))]
+    public sealed class NpcIdDropdownDrawer : PropertyDrawer
+    {
+        private const string NoneLabel = "<None>";
+        private const string MissingLabelPrefix = "<Missing>";
+
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            if (property.propertyType != SerializedPropertyType.String)
+            {
+                EditorGUI.PropertyField(position, property, label, true);
+                return;
+            }
+
+            NpcIdDropdownAttribute config = (NpcIdDropdownAttribute)attribute;
+            List<NpcChoice> choices = BuildNpcChoices(config.AllowEmpty);
+            if (choices.Count == 0)
+            {
+                EditorGUI.PropertyField(position, property, label, true);
+                return;
+            }
+
+            string current = property.stringValue ?? string.Empty;
+            int currentIndex = choices.FindIndex(choice =>
+                string.Equals(choice.Id, current, System.StringComparison.OrdinalIgnoreCase));
+            if (currentIndex < 0)
+            {
+                choices.Add(new NpcChoice
+                {
+                    Id = current,
+                    Display = string.IsNullOrWhiteSpace(current) ? NoneLabel : $"{MissingLabelPrefix} {current}"
+                });
+                currentIndex = choices.Count - 1;
+            }
+
+            string[] display = new string[choices.Count];
+            for (int i = 0; i < choices.Count; i++)
+                display[i] = choices[i].Display;
+
+            EditorGUI.BeginProperty(position, label, property);
+            EditorGUI.showMixedValue = property.hasMultipleDifferentValues;
+            int selected = EditorGUI.Popup(position, label.text, currentIndex, display);
+            EditorGUI.showMixedValue = false;
+            if (selected >= 0 && selected < choices.Count)
+                property.stringValue = choices[selected].Id;
+            EditorGUI.EndProperty();
+        }
+
+        private static List<NpcChoice> BuildNpcChoices(bool allowEmpty)
+        {
+            List<NpcChoice> choices = new List<NpcChoice>();
+            HashSet<string> seen = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+
+            if (allowEmpty)
+            {
+                choices.Add(new NpcChoice { Id = string.Empty, Display = NoneLabel });
+                seen.Add(string.Empty);
+            }
+
+            Sol.AI.NPCSoul[] npcSouls = Object.FindObjectsByType<Sol.AI.NPCSoul>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < npcSouls.Length; i++)
+            {
+                Sol.AI.NPCSoul soul = npcSouls[i];
+                if (soul == null || string.IsNullOrWhiteSpace(soul.OwnerId) || !seen.Add(soul.OwnerId))
+                    continue;
+
+                string displayName = string.IsNullOrWhiteSpace(soul.CharacterName) ? soul.gameObject.name : soul.CharacterName;
+                choices.Add(new NpcChoice
+                {
+                    Id = soul.OwnerId,
+                    Display = $"{displayName} ({soul.OwnerId})"
+                });
+            }
+
+            string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab");
+            for (int i = 0; i < prefabGuids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(prefabGuids[i]);
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null)
+                    continue;
+
+                Sol.AI.NPCSoul soul = prefab.GetComponentInChildren<Sol.AI.NPCSoul>(true);
+                if (soul == null || string.IsNullOrWhiteSpace(soul.OwnerId) || !seen.Add(soul.OwnerId))
+                    continue;
+
+                string displayName = string.IsNullOrWhiteSpace(soul.CharacterName) ? prefab.name : soul.CharacterName;
+                choices.Add(new NpcChoice
+                {
+                    Id = soul.OwnerId,
+                    Display = $"{displayName} ({soul.OwnerId})"
+                });
+            }
+
+            choices.Sort((a, b) => System.StringComparer.OrdinalIgnoreCase.Compare(a.Display, b.Display));
+            return choices;
+        }
+
+        private struct NpcChoice
+        {
+            public string Id;
+            public string Display;
+        }
+    }
+
+    [CustomPropertyDrawer(typeof(QuestIdDropdownAttribute))]
+    public sealed class QuestIdDropdownDrawer : PropertyDrawer
+    {
+        private const string NoneLabel = "<None>";
+        private const string MissingLabelPrefix = "<Missing>";
+
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            if (property.propertyType != SerializedPropertyType.String)
+            {
+                EditorGUI.PropertyField(position, property, label, true);
+                return;
+            }
+
+            QuestIdDropdownAttribute config = (QuestIdDropdownAttribute)attribute;
+            List<QuestChoice> choices = GatherQuestChoices(config.AllowEmpty);
+            if (choices.Count == 0)
+            {
+                EditorGUI.PropertyField(position, property, label, true);
+                return;
+            }
+
+            string current = property.stringValue ?? string.Empty;
+            int currentIndex = choices.FindIndex(choice =>
+                string.Equals(choice.Id, current, System.StringComparison.OrdinalIgnoreCase));
+            if (currentIndex < 0)
+            {
+                choices.Add(new QuestChoice
+                {
+                    Id = current,
+                    Display = string.IsNullOrWhiteSpace(current) ? NoneLabel : $"{MissingLabelPrefix} {current}"
+                });
+                currentIndex = choices.Count - 1;
+            }
+
+            string[] display = new string[choices.Count];
+            for (int i = 0; i < choices.Count; i++)
+                display[i] = choices[i].Display;
+
+            EditorGUI.BeginProperty(position, label, property);
+            EditorGUI.showMixedValue = property.hasMultipleDifferentValues;
+            int selected = EditorGUI.Popup(position, label.text, currentIndex, display);
+            EditorGUI.showMixedValue = false;
+            if (selected >= 0 && selected < choices.Count)
+                property.stringValue = choices[selected].Id;
+            EditorGUI.EndProperty();
+        }
+
+        private static List<QuestChoice> GatherQuestChoices(bool allowEmpty)
+        {
+            List<QuestChoice> choices = new List<QuestChoice>();
+            HashSet<string> seen = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+
+            if (allowEmpty)
+            {
+                choices.Add(new QuestChoice { Id = string.Empty, Display = NoneLabel });
+                seen.Add(string.Empty);
+            }
+
+            QuestRegistry registry = QuestRegistry.Get();
+            if (registry != null && registry.Quests != null)
+            {
+                for (int i = 0; i < registry.Quests.Count; i++)
+                {
+                    QuestDefinition def = registry.Quests[i];
+                    if (def == null || string.IsNullOrWhiteSpace(def.QuestId))
+                        continue;
+
+                    string id = def.QuestId.Trim();
+                    if (!seen.Add(id))
+                        continue;
+
+                    string title = string.IsNullOrWhiteSpace(def.Title) ? id : def.Title.Trim();
+                    choices.Add(new QuestChoice
+                    {
+                        Id = id,
+                        Display = $"{title} ({id})"
+                    });
+                }
+            }
+
+            string[] guids = AssetDatabase.FindAssets("t:QuestDefinition");
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                QuestDefinition def = AssetDatabase.LoadAssetAtPath<QuestDefinition>(path);
+                if (def == null || string.IsNullOrWhiteSpace(def.QuestId))
+                    continue;
+
+                string id = def.QuestId.Trim();
+                if (!seen.Add(id))
+                    continue;
+
+                string title = string.IsNullOrWhiteSpace(def.Title) ? id : def.Title.Trim();
+                choices.Add(new QuestChoice
+                {
+                    Id = id,
+                    Display = $"{title} ({id})"
+                });
+            }
+
+            choices.Sort((a, b) => System.StringComparer.OrdinalIgnoreCase.Compare(a.Display, b.Display));
+            return choices;
+        }
+
+        private struct QuestChoice
         {
             public string Id;
             public string Display;

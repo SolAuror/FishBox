@@ -34,6 +34,12 @@ namespace Sol.Quests
         /// <summary>Realtime-since-startup when the quest last failed (for retry cooldown).</summary>
         public float FailedAtRealtime = 0f;
 
+        /// <summary>Realtime-since-startup when the quest was completed (for repeat cooldown).</summary>
+        public float CompletedAtRealtime = 0f;
+
+        /// <summary>Total in-game days elapsed when the quest was completed (for repeat cooldown).</summary>
+        public int CompletedAtTotalDays = 0;
+
         public string GiverNpcName = string.Empty;
     }
 }

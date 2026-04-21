@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -125,10 +126,6 @@ namespace Sol
 #endif
     }
 
-    /// <summary>
-    /// Central compatibility rules for item types.
-    /// Keep this as the single source of truth for action and field eligibility.
-    /// </summary>
     public static class ItemTypeRules
     {
         public static bool IsConsumableType(ItemType itemType)
@@ -161,23 +158,129 @@ namespace Sol
             };
         }
 
-        public static bool TryGetEquipmentSlot(ItemType itemType, out EquipmentSlotType slotType)
+        public static bool IsArmorSlot(EquipmentSlotType slotType)
         {
-            slotType = itemType switch
-            {
-                ItemType.Weapon => EquipmentSlotType.MainHand,
-                ItemType.Armor => EquipmentSlotType.Chest,
-                ItemType.Equipable => EquipmentSlotType.Back,
-                _ => default
-            };
+            return slotType == EquipmentSlotType.Head
+                || slotType == EquipmentSlotType.Hands
+                || slotType == EquipmentSlotType.Chest
+                || slotType == EquipmentSlotType.Legs
+                || slotType == EquipmentSlotType.Feet
+                || slotType == EquipmentSlotType.Back;
+        }
 
-            return IsEquipableType(itemType);
+        public static bool IsHandSlot(EquipmentSlotType slotType)
+        {
+            return slotType == EquipmentSlotType.LeftHand
+                || slotType == EquipmentSlotType.RightHand;
+        }
+
+        public static bool IsSheathSlot(EquipmentSlotType slotType)
+        {
+            return slotType == EquipmentSlotType.LeftHip
+                || slotType == EquipmentSlotType.RightHip
+                || slotType == EquipmentSlotType.LeftBack
+                || slotType == EquipmentSlotType.RightBack
+                || slotType == EquipmentSlotType.BackWaist;
+        }
+
+        public static EquipDomain ResolveEquipDomain(ItemComponent item)
+        {
+            if (item == null)
+                return EquipDomain.WeaponTool;
+
+            if (item.EquipCategory != EquipDomain.Auto)
+                return item.EquipCategory;
+
+            return item.Type == ItemType.Armor ? EquipDomain.Armor : EquipDomain.WeaponTool;
+        }
+
+        public static bool CanItemUseSlot(ItemComponent item, EquipmentSlotType slotType)
+        {
+            if (item == null || !IsEquipableType(item.Type))
+                return false;
+
+            EquipDomain domain = ResolveEquipDomain(item);
+            if (domain == EquipDomain.Armor)
+                return IsArmorSlot(slotType);
+
+            return IsHandSlot(slotType) || IsSheathSlot(slotType);
+        }
+
+        public static bool TryResolveDefaultSlot(ItemComponent item, out EquipmentSlotType slotType)
+        {
+            slotType = default;
+            if (item == null || !IsEquipableType(item.Type))
+                return false;
+
+            IReadOnlyList<EquipmentSlotType> allowed = item.AllowedEquipSlots;
+            if (allowed != null)
+            {
+                for (int i = 0; i < allowed.Count; i++)
+                {
+                    EquipmentSlotType candidate = allowed[i];
+                    if (!CanItemUseSlot(item, candidate))
+                        continue;
+
+                    slotType = candidate;
+                    return true;
+                }
+            }
+
+            EquipDomain domain = ResolveEquipDomain(item);
+            if (domain == EquipDomain.Armor)
+            {
+                slotType = item.Type switch
+                {
+                    ItemType.Equipable => EquipmentSlotType.Back,
+                    _ => EquipmentSlotType.Chest
+                };
+                return true;
+            }
+
+            slotType = EquipmentSlotType.RightHand;
+            return true;
+        }
+
+        public static bool GetRequiredSlotsForEquip(ItemComponent item, EquipmentSlotType desiredSlot, List<EquipmentSlotType> outputSlots)
+        {
+            if (outputSlots == null)
+                return false;
+
+            outputSlots.Clear();
+            if (!CanItemUseSlot(item, desiredSlot))
+                return false;
+
+            IReadOnlyList<EquipmentSlotType> allowed = item.AllowedEquipSlots;
+            if (allowed != null && allowed.Count > 0)
+            {
+                bool explicitlyAllowed = false;
+                for (int i = 0; i < allowed.Count; i++)
+                {
+                    if (allowed[i] != desiredSlot)
+                        continue;
+
+                    explicitlyAllowed = true;
+                    break;
+                }
+
+                if (!explicitlyAllowed)
+                    return false;
+            }
+
+            if (ResolveEquipDomain(item) == EquipDomain.WeaponTool
+                && IsHandSlot(desiredSlot)
+                && item.WeaponHanding == WeaponHanding.TwoHanded)
+            {
+                outputSlots.Add(EquipmentSlotType.LeftHand);
+                outputSlots.Add(EquipmentSlotType.RightHand);
+                return true;
+            }
+
+            outputSlots.Add(desiredSlot);
+            return true;
         }
     }
 
-    /// <summary>
-    /// Shared ownership id normalization and ownership matching logic.
-    /// </summary>
     public static class ItemOwnershipUtility
     {
         public static string NormalizeOwnerIdOrEmpty(string rawOwnerId)
@@ -209,9 +312,6 @@ namespace Sol
         }
     }
 
-    /// <summary>
-    /// Draws a string field as an ItemRegistry-backed ItemId dropdown in the Unity Inspector.
-    /// </summary>
     public sealed class ItemIdDropdownAttribute : PropertyAttribute
     {
         public bool AllowEmpty { get; }
@@ -222,9 +322,6 @@ namespace Sol
         }
     }
 
-    /// <summary>
-    /// Draws a string field as an owner-id dropdown in the Unity Inspector.
-    /// </summary>
     public sealed class OwnerIdDropdownAttribute : PropertyAttribute
     {
         public bool AllowEmpty { get; }
@@ -235,17 +332,39 @@ namespace Sol
         }
     }
 
+    /// <summary>
+    /// Draws a string field as an NPC owner-id dropdown (OWN#####).
+    /// </summary>
+    public sealed class NpcIdDropdownAttribute : PropertyAttribute
+    {
+        public bool AllowEmpty { get; }
+
+        public NpcIdDropdownAttribute(bool allowEmpty = true)
+        {
+            AllowEmpty = allowEmpty;
+        }
+    }
+
+    /// <summary>
+    /// Draws a string field as a QuestId dropdown (QST#####).
+    /// </summary>
+    public sealed class QuestIdDropdownAttribute : PropertyAttribute
+    {
+        public bool AllowEmpty { get; }
+
+        public QuestIdDropdownAttribute(bool allowEmpty = true)
+        {
+            AllowEmpty = allowEmpty;
+        }
+    }
+
     public interface IInteractable
     {
         string InteractionPrompt { get; }
         bool CanInteract(Interactor interactor);
 
-        /// <summary>
-        /// Return the action that should be dispatched when this object is interacted with.
-        /// The caller (InteractAction / AI) dispatches the returned action through ActionSystem.
-        /// Return null if no action should be dispatched.
-        /// </summary>
         GameAction GetInteraction(Interactor interactor);
     }
 }
+
 

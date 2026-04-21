@@ -1,4 +1,5 @@
 using Sol.Grab;
+using Sol.Audio;
 using UnityEngine;
 
 namespace Sol.Actions
@@ -83,10 +84,17 @@ namespace Sol.Actions
 
             if (added)
             {
+                Vector3 pickupPosition = _item != null ? _item.transform.position : Vector3.zero;
                 if (_item != null && _item.Type == ItemType.Gold)
+                {
+                    AudioService.Instance?.PlaySfx(AudioEvent.GoldWorldPickup, pickupPosition);
                     Object.Destroy(_item.gameObject);
+                }
                 else
+                {
+                    AudioService.Instance?.PlaySfx(AudioEvent.ItemPickup, pickupPosition);
                     _item.gameObject.SetActive(false);
+                }
 
                 Outcome = PickupItemActionOutcome.Success;
             }

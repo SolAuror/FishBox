@@ -26,6 +26,9 @@ namespace Sol.Editor
         private SerializedProperty _equipBone;
         private SerializedProperty _equipOffset;
         private SerializedProperty _equipRotation;
+        private SerializedProperty _equipDomain;
+        private SerializedProperty _weaponHanding;
+        private SerializedProperty _allowedEquipSlots;
 
         private SerializedProperty _pickupGrip;
 
@@ -51,6 +54,9 @@ namespace Sol.Editor
             _equipBone = serializedObject.FindProperty("_equipBone");
             _equipOffset = serializedObject.FindProperty("_equipOffset");
             _equipRotation = serializedObject.FindProperty("_equipRotation");
+            _equipDomain = serializedObject.FindProperty("_equipDomain");
+            _weaponHanding = serializedObject.FindProperty("_weaponHanding");
+            _allowedEquipSlots = serializedObject.FindProperty("_allowedEquipSlots");
 
             _pickupGrip = serializedObject.FindProperty("_pickupGrip");
         }
@@ -98,6 +104,9 @@ namespace Sol.Editor
                 EditorGUILayout.PropertyField(_equipBone);
                 EditorGUILayout.PropertyField(_equipOffset);
                 EditorGUILayout.PropertyField(_equipRotation);
+                EditorGUILayout.PropertyField(_equipDomain);
+                EditorGUILayout.PropertyField(_weaponHanding);
+                EditorGUILayout.PropertyField(_allowedEquipSlots, includeChildren: true);
             }
 
             EditorGUILayout.Space();

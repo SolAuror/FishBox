@@ -5,6 +5,7 @@ using Sol.Actions;
 using Sol.Grab;
 using Sol.Locomotion;
 using Sol.Outline;
+using Sol.Audio;
 
 namespace Sol.Fishing
 {
@@ -489,6 +490,7 @@ namespace Sol.Fishing
             _isCastPending = true;
             _castReleasedByEvent = false;
             _castStartTime = Time.time;
+            AudioService.Instance?.PlaySfx(AudioEvent.FishingCast, _activeLineOrigin.position);
 
             TriggerCastAnimation();
             _locomotionController?.SetMovementLock(GetMovementLockDuration());
@@ -507,6 +509,7 @@ namespace Sol.Fishing
                 return;
 
             _activeTackle = tackleInstance;
+            _activeTackle.OnEnteredFloating += HandleTackleEnteredFloating;
 
             if (_activeRod != null)
             {
@@ -551,6 +554,7 @@ namespace Sol.Fishing
                 _reelStartPosition = _activeTackle.transform.position;
                 _reelTotalDistance = Vector3.Distance(_reelStartPosition, _activeLineOrigin.position);
                 ForceReelAnimationProgress();
+                AudioService.Instance?.PlaySfx(AudioEvent.FishingReelLoopStart, _activeLineOrigin.position);
             }
 
             _isReeling = true;
@@ -611,6 +615,7 @@ namespace Sol.Fishing
             {
                 _isReeling = false;
                 SetAnimatorReelState(false, _reelProgress);
+                AudioService.Instance?.PlaySfx(AudioEvent.FishingReelLoopStop, _activeLineOrigin != null ? _activeLineOrigin.position : transform.position);
 
                 bool fishHooked = _activeTackle != null && _activeTackle.HasHookedFish;
                 if (!fishHooked)
@@ -680,12 +685,16 @@ namespace Sol.Fishing
             }
 
             if (_activeTackle != null)
+            {
+                _activeTackle.OnEnteredFloating -= HandleTackleEnteredFloating;
                 Destroy(_activeTackle.gameObject);
+            }
 
             _activeTackle = null;
             _isReeling = false;
             _reelProgress = 0f;
             SetAnimatorReelState(false, 0f);
+            AudioService.Instance?.PlaySfx(AudioEvent.FishingReelLoopStop, _activeLineOrigin != null ? _activeLineOrigin.position : transform.position);
             UpdateRestingTackleVisual();
         }
 
@@ -854,6 +863,9 @@ namespace Sol.Fishing
 
         private void ClearCastState(bool destroyTackle)
         {
+            if (_isReeling)
+                AudioService.Instance?.PlaySfx(AudioEvent.FishingReelLoopStop, _activeLineOrigin != null ? _activeLineOrigin.position : transform.position);
+
             _isCastPending = false;
             _castReleasedByEvent = false;
             _isReeling = false;
@@ -865,7 +877,13 @@ namespace Sol.Fishing
                 _activeRod.ReattachLoadedBaitToRod();
 
             if (destroyTackle && _activeTackle != null)
+            {
+                _activeTackle.OnEnteredFloating -= HandleTackleEnteredFloating;
                 Destroy(_activeTackle.gameObject);
+            }
+
+            if (_activeTackle != null)
+                _activeTackle.OnEnteredFloating -= HandleTackleEnteredFloating;
 
             _activeTackle = null;
 
@@ -876,6 +894,15 @@ namespace Sol.Fishing
             SetAnimatorReelState(false, 0f);
 
             UpdateRestingTackleVisual();
+        }
+
+        private void HandleTackleEnteredFloating(bool touchedWater)
+        {
+            if (!touchedWater)
+                return;
+
+            Vector3 splashPos = _activeTackle != null ? _activeTackle.transform.position : transform.position;
+            AudioService.Instance?.PlaySfx(AudioEvent.FishingSplash, splashPos);
         }
 
         private void UpdateDisplayedCatchState()

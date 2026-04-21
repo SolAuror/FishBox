@@ -22,7 +22,7 @@ namespace Sol
         private enum ConversationOptionId
         {
             Trade,
-            QuestOffer,
+            Quest,
             QuestTurnIn,
             QuestDeliver,
             Goodbye
@@ -122,17 +122,20 @@ namespace Sol
             string speakerName = _soul != null && !string.IsNullOrWhiteSpace(_soul.CharacterName)
                 ? _soul.CharacterName
                 : gameObject.name;
+            string speakerReference = _soul != null && !string.IsNullOrWhiteSpace(_soul.OwnerId)
+                ? _soul.OwnerId
+                : speakerName;
 
  // Quest conversation options - order: turn-in, deliver, offer, then goodbye.
             QuestManager qm = QuestManager.Instance;
             if (qm != null)
             {
-                if (HasQuestReadyToTurnIn(qm, speakerName))
+                if (HasQuestReadyToTurnIn(qm, speakerReference))
                     AddConversationOption(ConversationOptionId.QuestTurnIn, optionIds, optionLabels);
-                if (HasDeliverableForNpc(qm, speakerName, interactor))
+                if (HasDeliverableForNpc(qm, speakerReference, interactor))
                     AddConversationOption(ConversationOptionId.QuestDeliver, optionIds, optionLabels);
-                if (qm.GetOfferableQuests(speakerName).Count > 0)
-                    AddConversationOption(ConversationOptionId.QuestOffer, optionIds, optionLabels);
+                if (qm.GetOfferableQuests(speakerReference).Count > 0)
+                    AddConversationOption(ConversationOptionId.Quest, optionIds, optionLabels);
             }
 
             AddConversationOption(ConversationOptionId.Goodbye, optionIds, optionLabels);
@@ -165,7 +168,7 @@ namespace Sol
             return optionId switch
             {
                 ConversationOptionId.Trade => _tradeOptionLabel,
-                ConversationOptionId.QuestOffer => "Any work?",
+                ConversationOptionId.Quest => "Quest",
                 ConversationOptionId.QuestTurnIn => "Quest complete",
                 ConversationOptionId.QuestDeliver => "Deliver item",
                 _ => _goodbyeOptionLabel
@@ -183,20 +186,23 @@ namespace Sol
             string speakerName = _soul != null && !string.IsNullOrWhiteSpace(_soul.CharacterName)
                 ? _soul.CharacterName
                 : gameObject.name;
+            string speakerReference = _soul != null && !string.IsNullOrWhiteSpace(_soul.OwnerId)
+                ? _soul.OwnerId
+                : speakerName;
 
             switch (optionIds[optionIndex])
             {
                 case ConversationOptionId.Trade:
                     OpenTradeFromConversation(interactor);
                     break;
-                case ConversationOptionId.QuestOffer:
-                    OfferNextQuest(speakerName);
+                case ConversationOptionId.Quest:
+                    OfferNextQuest(speakerReference);
                     break;
                 case ConversationOptionId.QuestTurnIn:
-                    TurnInReadyQuest(speakerName);
+                    TurnInReadyQuest(speakerReference);
                     break;
                 case ConversationOptionId.QuestDeliver:
-                    DeliverItemToNpc(speakerName, interactor);
+                    DeliverItemToNpc(speakerReference, interactor);
                     break;
             }
         }
@@ -213,7 +219,7 @@ namespace Sol
                 QuestDefinition def = QuestRegistry.Get()?.Find(q.QuestId);
                 if (def == null) continue;
                 if (string.IsNullOrWhiteSpace(def.GiverNpcName)) continue;
-                if (string.Equals(def.GiverNpcName, speakerName, System.StringComparison.OrdinalIgnoreCase))
+                if (QuestManager.NpcReferenceMatches(def.GiverNpcName, speakerName))
                     return true;
             }
             return false;
@@ -232,21 +238,21 @@ namespace Sol
                 if (q.CurrentObjectiveIndex < 0 || q.CurrentObjectiveIndex >= def.Objectives.Count) continue;
                 QuestObjective obj = def.Objectives[q.CurrentObjectiveIndex];
                 if (obj.Type != QuestObjectiveType.DeliverItem) continue;
-                if (!string.Equals(obj.NpcName, speakerName, System.StringComparison.OrdinalIgnoreCase)) continue;
-                if (PlayerHasItem(interactor.Inventory, obj.ItemId)) return true;
+                if (!QuestManager.NpcReferenceMatches(obj.NpcName, speakerName)) continue;
+                if (PlayerHasAnyDeliverableItem(interactor.Inventory, obj)) return true;
             }
             return false;
         }
 
-        private static bool PlayerHasItem(Inventory inv, string itemId)
+        private static bool PlayerHasAnyDeliverableItem(Inventory inv, QuestObjective objective)
         {
-            if (inv == null || string.IsNullOrWhiteSpace(itemId)) return false;
+            if (inv == null || objective == null) return false;
             var slots = inv.Slots;
             for (int i = 0; i < slots.Count; i++)
             {
                 var s = slots[i];
                 if (s?.Item == null) continue;
-                if (string.Equals(s.Item.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+                if (objective.MatchesAnyAcceptableItemId(s.Item.ItemId))
                     return true;
             }
             return false;
@@ -284,7 +290,7 @@ namespace Sol
                 if (q.State != QuestState.ReadyToTurnIn) continue;
                 QuestDefinition def = QuestRegistry.Get()?.Find(q.QuestId);
                 if (def == null) continue;
-                if (!string.Equals(def.GiverNpcName, speakerName, System.StringComparison.OrdinalIgnoreCase)) continue;
+                if (!QuestManager.NpcReferenceMatches(def.GiverNpcName, speakerName)) continue;
                 target = q; targetDef = def; break;
             }
             if (target == null || targetDef == null) return;
@@ -318,7 +324,7 @@ namespace Sol
                 if (q.CurrentObjectiveIndex < 0 || q.CurrentObjectiveIndex >= def.Objectives.Count) continue;
                 QuestObjective obj = def.Objectives[q.CurrentObjectiveIndex];
                 if (obj.Type != QuestObjectiveType.DeliverItem) continue;
-                if (!string.Equals(obj.NpcName, speakerName, System.StringComparison.OrdinalIgnoreCase)) continue;
+                if (!QuestManager.NpcReferenceMatches(obj.NpcName, speakerName)) continue;
 
  // Transfer one matching item from player - this NPC.
                 var slots = interactor.Inventory.Slots;
@@ -326,11 +332,12 @@ namespace Sol
                 {
                     var slot = slots[s];
                     if (slot?.Item == null) continue;
-                    if (!string.Equals(slot.Item.ItemId, obj.ItemId, System.StringComparison.OrdinalIgnoreCase)) continue;
+                    if (!obj.MatchesAnyAcceptableItemId(slot.Item.ItemId)) continue;
                     ItemComponent item = slot.Item;
+                    string deliveredItemId = item.ItemId;
                     interactor.Inventory.Remove(slot, 1);
                     _inventory.Add(item);
-                    qm.NotifyDeliveredItem(speakerName, obj.ItemId);
+                    qm.NotifyDeliveredItem(speakerName, deliveredItemId);
                     return;
                 }
             }

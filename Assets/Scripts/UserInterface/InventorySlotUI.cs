@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -285,7 +285,26 @@ namespace Sol.HUD
 
         private string[] BuildInventoryStatTexts(ItemComponent item)
         {
-            return ItemPresentationUtility.BuildCompactInventoryStatTexts(item);
+            string[] values = ItemPresentationUtility.BuildCompactInventoryStatTexts(item);
+            if (_equipment == null || item == null || !_equipment.IsEquipped(item))
+                return values;
+
+            if (_equipment.TryGetPrimarySlot(item, out EquipmentSlotType equippedSlot))
+            {
+                string equippedText = $"Equipped: {equippedSlot}";
+                for (int i = 0; i < values.Length; i++)
+                {
+                    if (!string.IsNullOrEmpty(values[i]))
+                        continue;
+
+                    values[i] = equippedText;
+                    return values;
+                }
+
+                values[values.Length - 1] = equippedText;
+            }
+
+            return values;
         }
 
         private string[] BuildTradeStatTexts(ItemComponent item)
@@ -314,3 +333,4 @@ namespace Sol.HUD
         }
     }
 }
+

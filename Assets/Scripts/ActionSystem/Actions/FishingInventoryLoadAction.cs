@@ -1,4 +1,4 @@
-using Sol.Fishing;
+﻿using Sol.Fishing;
 using Sol.Grab;
 
 namespace Sol.Actions
@@ -187,7 +187,8 @@ namespace Sol.Actions
                 return false;
             }
 
-            return ItemTypeRules.TryGetEquipmentSlot(item.Type, out slot);
+            return ItemTypeRules.TryResolveDefaultSlot(item, out slot);
         }
     }
 }
+

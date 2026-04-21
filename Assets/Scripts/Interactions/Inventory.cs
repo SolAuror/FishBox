@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
@@ -82,7 +82,7 @@ namespace Sol
         /// <summary>Read-only view of all slots.</summary>
         public IReadOnlyList<InventorySlot> Slots => _slots;
         public int Capacity => _capacity;
-        public int Count => _slots.Count;
+        public int Count => GetCapacityUsedSlotCount();
         public InventoryContainerType ContainerType => _containerType;
         public bool IsContainer => _containerType == InventoryContainerType.Container;
         public bool IsWorldContainer => IsContainer;
@@ -401,7 +401,7 @@ namespace Sol
             }
 
             // New slot.
-            if (_slots.Count >= _capacity) return false;
+            if (GetCapacityUsedSlotCount() >= _capacity) return false;
 
             _slots.Add(new InventorySlot(item));
             NotifyChanged();
@@ -662,7 +662,31 @@ namespace Sol
             NotifyChanged();
         }
 
-        private void NotifyChanged()
+
+        private int GetCapacityUsedSlotCount()
+        {
+            if (_slots.Count == 0)
+                return 0;
+
+            Equipment equipment = GetComponent<Equipment>();
+            if (equipment == null)
+                return _slots.Count;
+
+            int used = 0;
+            for (int i = 0; i < _slots.Count; i++)
+            {
+                InventorySlot slot = _slots[i];
+                if (slot?.Item == null)
+                    continue;
+
+                if (equipment.IsEquipped(slot.Item))
+                    continue;
+
+                used++;
+            }
+
+            return used;
+        }        private void NotifyChanged()
         {
             if (_deferChangedDepth > 0)
             {
@@ -820,11 +844,13 @@ namespace Sol
         public bool AddSlot(InventorySlot slot)
         {
             if (slot == null) return false;
-            if (_slots.Count >= _capacity) return false;
+            if (GetCapacityUsedSlotCount() >= _capacity) return false;
             _slots.Add(slot);
             NotifyChanged();
             return true;
         }
     }
 }
+
+
 

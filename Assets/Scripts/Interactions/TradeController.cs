@@ -1,4 +1,7 @@
-﻿namespace Sol
+using Sol.Audio;
+using UnityEngine;
+
+namespace Sol
 {
     /// <summary>
     /// Transfers items between two inventories. Used by the trade UI.
@@ -159,6 +162,8 @@
             playerInv.Remove(slot, 1);
             npcInv.Gold -= price;
             playerInv.Gold += price;
+            Vector3 playerPos = playerInv.transform != null ? playerInv.transform.position : Vector3.zero;
+            AudioService.Instance?.PlaySfx(AudioEvent.GoldGained, playerPos);
             return true;
         }
 
@@ -190,6 +195,8 @@
             npcInv.Remove(slot, 1);
             playerInv.Gold -= price;
             npcInv.Gold += price;
+            Vector3 playerPos = playerInv.transform != null ? playerInv.transform.position : Vector3.zero;
+            AudioService.Instance?.PlaySfx(AudioEvent.GoldSpent, playerPos);
             return true;
         }
 
@@ -247,4 +254,5 @@
         }
     }
 }
+
 

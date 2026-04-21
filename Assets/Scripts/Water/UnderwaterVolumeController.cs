@@ -1,4 +1,5 @@
 using UnityEngine;
+using Sol.Audio;
 
 /// <summary>
 /// ---------------------------------------------------------------------------
@@ -71,6 +72,7 @@ public class UnderwaterVolumeController : MonoBehaviour
     // -----------------------------------------------------------------------
     float _underwaterFactor;
     float _debugTimer;
+    bool _isUnderwaterAudioState;
 
     static readonly int _SID_UnderwaterFactor = Shader.PropertyToID("_UnderwaterFactor");
     static readonly int _SID_UnderwaterDepth  = Shader.PropertyToID("_UnderwaterDepth");
@@ -82,6 +84,8 @@ public class UnderwaterVolumeController : MonoBehaviour
         Shader.SetGlobalFloat(_SID_UnderwaterFactor, 0f);
         Shader.SetGlobalFloat(_SID_UnderwaterDepth,  0f);
         _underwaterFactor = 0f;
+        _isUnderwaterAudioState = false;
+        AudioService.Instance?.SetUnderwater(false);
     }
 
     void LateUpdate()
@@ -160,6 +164,13 @@ public class UnderwaterVolumeController : MonoBehaviour
 
         Shader.SetGlobalFloat(_SID_UnderwaterFactor, _underwaterFactor);
         Shader.SetGlobalFloat(_SID_UnderwaterDepth,  Mathf.Max(underwaterDepth, 0f));
+
+        bool shouldBeUnderwater = _underwaterFactor > 0.01f;
+        if (shouldBeUnderwater != _isUnderwaterAudioState)
+        {
+            _isUnderwaterAudioState = shouldBeUnderwater;
+            AudioService.Instance?.SetUnderwater(_isUnderwaterAudioState);
+        }
 
         // --- Debug logging (once per second) ---
         if (debugLog)

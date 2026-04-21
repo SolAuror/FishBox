@@ -2,12 +2,23 @@ namespace Sol
 {
     public enum EquipmentSlotType
     {
+        // Armor / wearables
         Head,
+        Hands,
         Chest,
         Legs,
         Feet,
-        MainHand,
-        OffHand,
-        Back
+        Back,
+
+        // Unsheathed
+        LeftHand,
+        RightHand,
+
+        // Sheathed
+        LeftHip,
+        RightHip,
+        LeftBack,
+        RightBack,
+        BackWaist
     }
 }

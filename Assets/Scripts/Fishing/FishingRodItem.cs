@@ -19,9 +19,11 @@ namespace Sol.Fishing
         [Tooltip("Inspector: tunes line material.")]
         [SerializeField] private Material _lineMaterial;
         [SerializeField] private FishingBaitDefinition _defaultBait;
-        [Tooltip("Inspector: tunes loaded bait item.")]
-        [SerializeField] private ItemComponent _loadedBaitItem;
-        [SerializeField] private ItemComponent _loadedTackleItem;
+        [Tooltip("Inspector: tunes loaded bait item id.")]
+        [ItemIdDropdown]
+        [SerializeField] private string _loadedBaitItemId = string.Empty;
+        [ItemIdDropdown]
+        [SerializeField] private string _loadedTackleItemId = string.Empty;
         [Tooltip("Inspector: tunes caught fish local euler angles.")]
         [SerializeField] private Vector3 _caughtFishLocalEulerAngles = new(-90f, 0f, 0f);
         [SerializeField, Min(0f)] private float _caughtFishHangPadding = 0.015f;
@@ -55,6 +57,8 @@ namespace Sol.Fishing
         [SerializeField, Min(2)] private int _lineSegments = 12;
         [SerializeField, Min(0.001f)] private float _lineWidth = 0.015f;
         [SerializeField, Min(0f)] private float _lineSlack = 0.2f;
+        private ItemComponent _loadedBaitItem;
+        private ItemComponent _loadedTackleItem;
         private ItemComponent _displayedCatchItem;
 
         public Transform TacklePoint => _tacklePoint != null ? _tacklePoint : transform;
@@ -63,6 +67,8 @@ namespace Sol.Fishing
         public GameObject CastTacklePrefab => _castTacklePrefab;
         public Material LineMaterial => _lineMaterial;
         public FishingBaitDefinition DefaultBait => _defaultBait;
+        public string LoadedBaitItemId => _loadedBaitItemId;
+        public string LoadedTackleItemId => _loadedTackleItemId;
         public ItemComponent LoadedBaitItem => _loadedBaitItem;
         public FishingBaitItem LoadedBait => _loadedBaitItem != null ? _loadedBaitItem.GetComponent<FishingBaitItem>() : null;
         public ItemComponent LoadedTackleItem => _loadedTackleItem;
@@ -100,6 +106,7 @@ namespace Sol.Fishing
         public void SetLoadedBaitItem(ItemComponent item)
         {
             _loadedBaitItem = item;
+            _loadedBaitItemId = NormalizeItemIdOrEmpty(item != null ? item.ItemId : string.Empty);
             if (_loadedBaitItem == null)
                 return;
 
@@ -143,6 +150,7 @@ namespace Sol.Fishing
         {
             ItemComponent item = _loadedBaitItem;
             _loadedBaitItem = null;
+            _loadedBaitItemId = string.Empty;
             if (item == null)
                 return null;
 
@@ -155,6 +163,7 @@ namespace Sol.Fishing
         public void SetLoadedTackleItem(ItemComponent item)
         {
             _loadedTackleItem = item;
+            _loadedTackleItemId = NormalizeItemIdOrEmpty(item != null ? item.ItemId : string.Empty);
             if (_loadedTackleItem == null)
                 return;
 
@@ -170,6 +179,7 @@ namespace Sol.Fishing
         {
             ItemComponent item = _loadedTackleItem;
             _loadedTackleItem = null;
+            _loadedTackleItemId = string.Empty;
             if (item == null)
                 return null;
 
@@ -213,12 +223,15 @@ namespace Sol.Fishing
         private void Awake()
         {
             ResolveReferences();
+            ResolveLoadedItemsFromIds();
             SanitizeAttachedTackle();
         }
 
         private void OnValidate()
         {
             ResolveReferences();
+            _loadedBaitItemId = NormalizeItemIdOrEmpty(_loadedBaitItemId);
+            _loadedTackleItemId = NormalizeItemIdOrEmpty(_loadedTackleItemId);
         }
 
         private void OnEnable()
@@ -264,6 +277,7 @@ namespace Sol.Fishing
                 else
                 {
                     _loadedBaitItem = null;
+                    _loadedBaitItemId = string.Empty;
                 }
             }
 
@@ -277,6 +291,7 @@ namespace Sol.Fishing
                 else
                 {
                     _loadedTackleItem = null;
+                    _loadedTackleItemId = string.Empty;
                 }
             }
 
@@ -302,6 +317,43 @@ namespace Sol.Fishing
 
             Transform baitPoint = FindChildByName(_loadedTackleItem.transform, BaitPointName);
             return baitPoint != null ? baitPoint : _loadedTackleItem.transform;
+        }
+
+        private void ResolveLoadedItemsFromIds()
+        {
+            if (!Application.isPlaying || !gameObject.scene.IsValid())
+                return;
+
+            ItemRegistry registry = ItemRegistry.Get();
+            if (registry == null)
+                return;
+
+            if (_loadedTackleItem == null && !string.IsNullOrWhiteSpace(_loadedTackleItemId))
+            {
+                ItemComponent tacklePrefab = registry.GetPrefab(_loadedTackleItemId);
+                if (tacklePrefab != null)
+                {
+                    ItemComponent tackleInstance = Instantiate(tacklePrefab, transform);
+                    tackleInstance.gameObject.SetActive(false);
+                    SetLoadedTackleItem(tackleInstance);
+                }
+            }
+
+            if (_loadedBaitItem == null && !string.IsNullOrWhiteSpace(_loadedBaitItemId))
+            {
+                ItemComponent baitPrefab = registry.GetPrefab(_loadedBaitItemId);
+                if (baitPrefab != null)
+                {
+                    ItemComponent baitInstance = Instantiate(baitPrefab, transform);
+                    baitInstance.gameObject.SetActive(false);
+                    SetLoadedBaitItem(baitInstance);
+                }
+            }
+        }
+
+        private static string NormalizeItemIdOrEmpty(string rawItemId)
+        {
+            return Sol.EntityCodeUtility.NormalizeOrEmpty(rawItemId, Sol.EntityCodeUtility.ItemPrefix);
         }
 
         private static void AttachItemToPoint(ItemComponent item, Transform attachPoint)

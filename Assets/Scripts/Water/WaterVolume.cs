@@ -106,6 +106,37 @@ public class WaterVolume : MonoBehaviour
         return null;
     }
 
+    public static float DistanceToNearestWaterXZ(Vector3 worldPos)
+    {
+        float closest = float.PositiveInfinity;
+
+        for (int i = 0; i < s_Volumes.Count; i++)
+        {
+            WaterVolume volume = s_Volumes[i];
+            if (volume == null || volume._col == null)
+                continue;
+
+            Bounds bounds = volume._col.bounds;
+            float dx = 0f;
+            if (worldPos.x < bounds.min.x)
+                dx = bounds.min.x - worldPos.x;
+            else if (worldPos.x > bounds.max.x)
+                dx = worldPos.x - bounds.max.x;
+
+            float dz = 0f;
+            if (worldPos.z < bounds.min.z)
+                dz = bounds.min.z - worldPos.z;
+            else if (worldPos.z > bounds.max.z)
+                dz = worldPos.z - bounds.max.z;
+
+            float distance = Mathf.Sqrt((dx * dx) + (dz * dz));
+            if (distance < closest)
+                closest = distance;
+        }
+
+        return float.IsPositiveInfinity(closest) ? float.MaxValue : closest;
+    }
+
     void OnEnable()
     {
         s_Volumes.Add(this);

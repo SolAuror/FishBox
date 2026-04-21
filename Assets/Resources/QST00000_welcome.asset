@@ -10,90 +10,98 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0a367c0916aab854abc505c86c35732f, type: 3}
-  m_Name: QST00000_Quest
+  m_Name: QST00000_welcome
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Quests.QuestDefinition
   _questId: QST00000
   _title: Welcome to the island...
   _summary: Teach a man to fish...
-  _giverNpcName: Elsbeth
+  _giverNpcName: OWN00003
   _objectives:
   - Type: 6
     DisplayText: Talk to Elsbeth..
     Count: 1
-    ItemId: 
+    _legacySingleItemId: 
+    AcceptableItemIds: []
     ItemTag: 
     MatchSlot: 0
     Slot: 4
     GoldAmount: 0
     Rarity: 0
     PrefixRequirements: []
-    NpcName: Elsbeth
+    NpcName: OWN00003
   - Type: 4
     DisplayText: Find a Rod...
     Count: 1
-    ItemId: IT00018
+    _legacySingleItemId: ITM00018
+    AcceptableItemIds: []
     ItemTag: 
     MatchSlot: 0
     Slot: 4
     GoldAmount: 0
     Rarity: 0
     PrefixRequirements: []
-    NpcName: Elsbeth
+    NpcName: 
+  - Type: 7
+    DisplayText: Equip the Rod..
+    Count: 1
+    _legacySingleItemId: 
+    AcceptableItemIds:
+    - ItemId: ITM00018
+    ItemTag: 
+    MatchSlot: 1
+    Slot: 6
+    GoldAmount: 0
+    Rarity: 0
+    PrefixRequirements: []
+    NpcName: 
   - Type: 4
     DisplayText: Find a Lure...
     Count: 1
-    ItemId: ITM00019, ITM00020
-    ItemTag: 
-    MatchSlot: 0
-    Slot: 4
-    GoldAmount: 0
-    Rarity: 0
-    PrefixRequirements: []
-    NpcName: Elsbeth
-  - Type: 7
-    DisplayText: Find a Lure...
-    Count: 1
-    ItemId: ITM00018
+    _legacySingleItemId: ITM00019
+    AcceptableItemIds: []
     ItemTag: 
     MatchSlot: 1
     Slot: 4
     GoldAmount: 0
     Rarity: 0
     PrefixRequirements: []
-    NpcName: Elsbeth
+    NpcName: 
   - Type: 7
     DisplayText: Equip a Lure...
     Count: 1
-    ItemId: ITM00019
+    _legacySingleItemId: ITM00019
+    AcceptableItemIds: []
     ItemTag: 
-    MatchSlot: 1
+    MatchSlot: 0
     Slot: 4
     GoldAmount: 0
     Rarity: 0
     PrefixRequirements: []
-    NpcName: Elsbeth
+    NpcName: 
   - Type: 0
     DisplayText: Catch a Fish!!
     Count: 1
-    ItemId: ITM10000
+    _legacySingleItemId: ITM10000
+    AcceptableItemIds: []
     ItemTag: 
     MatchSlot: 0
     Slot: 4
     GoldAmount: 0
     Rarity: 0
     PrefixRequirements: []
-    NpcName: Elsbeth
+    NpcName: 
   - Type: 5
     DisplayText: Bring the fish back to Elsbeth...
     Count: 1
-    ItemId: ITM10000
+    _legacySingleItemId: ITM10000
+    AcceptableItemIds: []
     ItemTag: 
     MatchSlot: 0
     Slot: 4
     GoldAmount: 0
     Rarity: 0
     PrefixRequirements: []
-    NpcName: Elsbeth
+    NpcName: OWN00003
   _reward:
     Gold: 100
     Items:
@@ -103,3 +111,7 @@ MonoBehaviour:
   _timeLimitSeconds: 0
   _retryAfterSeconds: 0
   _autoOffer: 1
+  _repeatable: 0
+  _repeatMode: 0
+  _repeatAfterRealtimeSeconds: 0
+  _repeatAfterInGameDays: 0

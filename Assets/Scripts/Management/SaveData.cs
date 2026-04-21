@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.AI;
@@ -10,7 +10,7 @@ namespace Sol.SaveLoad
     public class GameSaveData                               // Root class for all save data. Contains metadata and all relevant game state data for saving and loading.
     {
         public const int InitialVersion = 1;                // First version of the save data structure.
-        public const int CurrentVersion = 4;                // Increment when making changes to the save data structure.
+        public const int CurrentVersion = 5;                // Increment when making changes to the save data structure.
 
         public int SaveVersion = CurrentVersion;            // Used to handle loading old save versions and applying necessary conversions.
 
@@ -160,3 +160,4 @@ namespace Sol.SaveLoad
         public static implicit operator Quaternion(SerializableQuaternion value) => value.ToQuaternion();
     }
 }
+
