@@ -2397,7 +2397,7 @@ MonoBehaviour:
   trackedCamera: {fileID: 4235778780282959135}
   playerTransform: {fileID: 2251541900706323961}
   blendSpeed: 4.93
-  fullSubmersionDepth: 0.3
+  fullSubmersionDepth: 1.4
   surfaceEnterBias: 0.15
   debugLog: 0
 --- !u!1 &6016301491480091492

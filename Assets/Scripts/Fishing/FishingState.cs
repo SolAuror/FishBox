@@ -14,21 +14,29 @@ namespace Sol.Fishing
         private const string DefaultRodName = "Fishing Rod";
         private const string DefaultTackleName = "Tackle";
         private const string LineObjectName = "[FishingLine]";
+#region Inspector Settings
 
         [Header("Animator")]
+        [Tooltip("Inspector: tunes animator.")]
         [SerializeField] private Animator _animator;
         [SerializeField] private string _hasRodEquippedParameter = "hasRodEquipped";
+        [Tooltip("Inspector: tunes cast rod trigger parameter.")]
         [SerializeField] private string _castRodTriggerParameter = "CastRod";
         [SerializeField] private string _isReelingParameter = "isReeling";
+        [Tooltip("Inspector: tunes reel progress parameter.")]
         [SerializeField] private string _reelProgressParameter = "ReelProgress";
 
         [Header("References")]
+        [Tooltip("Inspector: tunes equipment.")]
         [SerializeField] private Equipment _equipment;
         [SerializeField] private LocomotionInput _locomotionInput;
+        [Tooltip("Inspector: tunes locomotion controller.")]
         [SerializeField] private LocomotionController _locomotionController;
 
         [Header("Fallback Rod Settings")]
+        [Tooltip("Inspector: tunes fallback rod item name.")]
         [SerializeField] private string _fallbackRodItemName = DefaultRodName;
+        [Tooltip("Inspector: tunes fallback tackle visual name.")]
         [SerializeField] private string _fallbackTackleVisualName = DefaultTackleName;
         [SerializeField, Min(1f)] private float _fallbackMaxCastDistance = 18f;
         [SerializeField, Min(0.05f)] private float _fallbackCastFlightDuration = 0.45f;
@@ -41,6 +49,7 @@ namespace Sol.Fishing
         [SerializeField, Min(0.05f)] private float _fallbackReelLiftDistance = 1.6f;
         [SerializeField, Min(0.05f)] private float _fallbackReelSurfacePullStrength = 8f;
         [SerializeField, Min(0f)] private float _fallbackMovementLockDuration = 0.32f;
+        [Tooltip("Inspector: tunes fallback surface offset.")]
         [SerializeField] private float _fallbackSurfaceOffset = 0.04f;
         [SerializeField, Min(0f)] private float _fallbackFloatBobAmplitude = 0.035f;
         [SerializeField, Min(0f)] private float _fallbackFloatBobFrequency = 2.1f;
@@ -61,10 +70,13 @@ namespace Sol.Fishing
         [SerializeField, Min(2)] private int _fallbackLineSegments = 12;
         [SerializeField, Min(0.001f)] private float _fallbackLineWidth = 0.015f;
         [SerializeField, Min(0f)] private float _fallbackLineSlack = 0.2f;
+        [Tooltip("Inspector: tunes fallback line material.")]
         [SerializeField] private Material _fallbackLineMaterial;
 
         [Header("Cast Query")]
+        [Tooltip("Inspector: tunes cast blocking layers.")]
         [SerializeField] private LayerMask _castBlockingLayers = ~0;
+#endregion
 
         private static Material s_RuntimeLineMaterial;
 
@@ -292,7 +304,7 @@ namespace Sol.Fishing
                 previousTackle.gameObject.SetActive(false);
                 if (!inventory.Add(previousTackle))
                 {
-                    // Inventory full — abort swap. Restore the old tackle to the rod.
+                    // Inventory full ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â abort swap. Restore the old tackle to the rod.
                     previousTackle.transform.SetParent(_activeRod.transform, false);
                     _activeRod.SetLoadedTackleItem(previousTackle);
                     // The slot was already removed from inventory; return the new item safely.
@@ -326,7 +338,7 @@ namespace Sol.Fishing
                 previousBait.gameObject.SetActive(false);
                 if (!inventory.Add(previousBait))
                 {
-                    // Inventory full — abort swap. Restore the old bait to the rod.
+                    // Inventory full ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â abort swap. Restore the old bait to the rod.
                     previousBait.transform.SetParent(_activeRod.transform, false);
                     _activeRod.SetLoadedBaitItem(previousBait);
                     ReturnItemToInventoryOrDrop(slotItem, inventory);
@@ -632,7 +644,7 @@ namespace Sol.Fishing
 
             // Surface target is the rod tip's XZ position at start-height. This is independent
             // of _reelProgress, which breaks the circular dependency that previously kept
-            // surfaceTarget == tackle position (progress=0 → lerp to start → tackle can't move).
+            // surfaceTarget == tackle position (progress=0 ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ lerp to start ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ tackle can't move).
             Vector3 surfaceTarget = new Vector3(rodTipPosition.x, _reelStartPosition.y, rodTipPosition.z);
 
             // Tell the tackle where to go first, then measure how far it has come.

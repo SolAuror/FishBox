@@ -8,8 +8,11 @@ namespace Sol.Fishing
     {
         public const float DefaultFoodInterestMultiplier = 1.35f;
         public const float DefaultFoodRadiusMultiplier = 1.1f;
+#region Inspector Settings
 
+        [Tooltip("Inspector: tunes bait definition.")]
         [SerializeField] private FishingBaitDefinition _baitDefinition;
+#endregion
         [SerializeField, Min(0.1f)] private float _interestMultiplier = 2f;
         [SerializeField, Min(0.25f)] private float _radiusMultiplier = 1.35f;
 

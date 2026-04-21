@@ -17,13 +17,19 @@ namespace Sol
     [DisallowMultipleComponent]
     public sealed class BedSleepInteractable : MonoBehaviour, IInteractable
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes prompt.")]
         [SerializeField] private string _prompt = "Sleep";
         [SerializeField] private string _displayName = "Bed";
+        [Tooltip("Inspector: tunes default hours.")]
         [SerializeField] [Min(1)] private int _defaultHours = 8;
         [SerializeField] [Min(1)] private int _minHours = 1;
+        [Tooltip("Inspector: tunes max hours.")]
         [SerializeField] [Min(1)] private int _maxHours = 24;
         [SerializeField] [Range(0f, 100f)] private float _healthRecoveryPercentPerHour = 12.5f;
+        [Tooltip("Inspector: tunes sleep fade duration.")]
         [SerializeField] [Min(0f)] private float _sleepFadeDuration = 0.5f;
+        #endregion
 
         private bool _sleepSessionActive;
         private Interactor _activeInteractor;

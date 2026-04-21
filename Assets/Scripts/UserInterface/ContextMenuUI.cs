@@ -16,10 +16,15 @@ namespace Sol.HUD
     /// </summary>
     public class ContextMenuUI : MonoBehaviour
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes panel.")]
         [SerializeField] private GameObject _panel;
         [SerializeField] private RectTransform _panelRect;
+        [Tooltip("Inspector: tunes button container.")]
         [SerializeField] private Transform _buttonContainer;
+        [Tooltip("Inspector: tunes button prefab.")]
         [SerializeField] private Button _buttonPrefab;
+        #endregion
 
         public static ContextMenuUI Instance { get; private set; }
 

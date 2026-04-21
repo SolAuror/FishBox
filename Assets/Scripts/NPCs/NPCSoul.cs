@@ -17,9 +17,12 @@ namespace Sol.AI
     /// </summary>
     public class NPCSoul : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("Identity")]
+        [Tooltip("Inspector: tunes soul type.")]
         [SerializeField] private SoulType _soulType = SoulType.NPC;
         [FormerlySerializedAs("NPCName")]
+        [Tooltip("Inspector: tunes character name.")]
         [SerializeField] private string _characterName = string.Empty;
 
         public SoulType SoulKind
@@ -42,7 +45,9 @@ namespace Sol.AI
         }
 
         [Header("Vitals")]
+        [Tooltip("Inspector: tunes health.")]
         [SerializeField] private float _health = 100f; public float MaxHealth = 100f;
+        #endregion
 
         public float Health
         {

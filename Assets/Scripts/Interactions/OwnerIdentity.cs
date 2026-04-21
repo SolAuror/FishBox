@@ -8,7 +8,10 @@ namespace Sol
     /// </summary>
     public sealed class OwnerIdentity : MonoBehaviour
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes owner id.")]
         [SerializeField] private string _ownerId = string.Empty;
+        #endregion
 
         public string OwnerId => NormalizeOwnerId(_ownerId);
 

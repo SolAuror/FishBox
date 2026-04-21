@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,10 +12,15 @@ namespace Sol.HUD
     /// </summary>
     public class InventoryToggle : MonoBehaviour
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes inventory panel.")]
         [SerializeField] private GameObject _inventoryPanel;
         [SerializeField] private TooltipUI _tooltip;
+        [Tooltip("Inspector: tunes context menu.")]
         [SerializeField] private ContextMenuUI _contextMenu;
+        [Tooltip("Inspector: tunes close button.")]
         [SerializeField] private Button _closeButton;
+        #endregion
 
         public bool IsOpen { get; private set; }
 

@@ -7,7 +7,9 @@ namespace Sol.Locomotion
     public class LocomotionAnimation : MonoBehaviour
     {
 #region Class Variables
+        [Tooltip("Inspector: tunes animator.")]
         [SerializeField] private Animator _animator;
+        [Tooltip("Inspector: tunes locomotion blend speed.")]
         [SerializeField] private float locomotionBlendSpeed = 8f;
         private LocomotionState _state;
         private LocomotionInput _locomotionInput;

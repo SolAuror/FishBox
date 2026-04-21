@@ -10,6 +10,7 @@ namespace Sol.ToD
     /// </summary>
     public class CelestialBody : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("-- Config ------------------------")]
         [Tooltip("Optional ScriptableObject config. Values here override inspector defaults.")]
         [SerializeField] CelestialBodyConfig config;
@@ -34,6 +35,7 @@ namespace Sol.ToD
 
         [Tooltip("Eclipse tint color.")]
         [SerializeField] Color eclipseTintColor = new Color(0.6f, 0.15f, 0.1f);
+        #endregion
 
         // -- Public state (set by TimeofDay each frame) --
 

@@ -10,34 +10,50 @@ namespace Sol.HUD
 {
     public class TradeUI : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("Panels")]
+        [Tooltip("Inspector: tunes trade panel.")]
         [SerializeField] private GameObject _tradePanel;
         [SerializeField] private InventoryUI _playerInventoryUI;
+        [Tooltip("Inspector: tunes npc inventory ui.")]
         [SerializeField] private InventoryUI _npcInventoryUI;
         [SerializeField] private TextMeshProUGUI _playerInventoryTitleText;
+        [Tooltip("Inspector: tunes npc inventory title text.")]
         [SerializeField] private TextMeshProUGUI _npcInventoryTitleText;
 
         [Header("Cart")]
+        [Tooltip("Inspector: tunes confirm button.")]
         [SerializeField] private Button _confirmButton;
         [SerializeField] private Button _cancelButton;
+        [Tooltip("Inspector: tunes cancel button text.")]
         [SerializeField] private TextMeshProUGUI _cancelButtonText;
         [SerializeField] private TextMeshProUGUI _buyText;
+        [Tooltip("Inspector: tunes sell text.")]
         [SerializeField] private TextMeshProUGUI _sellText;
         [SerializeField] private TextMeshProUGUI _netDirectionText;
+        [Tooltip("Inspector: tunes total cost text.")]
         [SerializeField] private TextMeshProUGUI _totalCostText;
 
         [Header("Fixed Item Info")]
+        [Tooltip("Inspector: tunes item name text.")]
         [SerializeField] private TextMeshProUGUI _itemNameText;
         [SerializeField] private TextMeshProUGUI _itemTypeText;
+        [Tooltip("Inspector: tunes item flavour text.")]
         [SerializeField] private TextMeshProUGUI _itemFlavourText;
         [SerializeField] private TextMeshProUGUI _itemStatsText;
+        [Tooltip("Inspector: tunes item id text.")]
         [SerializeField] private TextMeshProUGUI _itemIdText;
         [Header("Reference Codes")]
+        [Tooltip("Inspector: tunes show reference codes.")]
         [SerializeField] private bool _showReferenceCodes = true;
+        [Tooltip("Inspector: tunes preview image.")]
         [SerializeField] private RawImage _previewImage;
         [Header("Stolen Indicator")]
+        [Tooltip("Inspector: tunes item name stolen icon.")]
         [SerializeField] private Image _itemNameStolenIcon;
+        [Tooltip("Inspector: tunes stolen icon sprite.")]
         [SerializeField] private Sprite _stolenIconSprite;
+        #endregion
 
         public bool IsOpen { get; private set; }
         public static TradeUI Instance { get; private set; }
@@ -50,6 +66,7 @@ namespace Sol.HUD
         private bool _isFreeTrade;
         private string _defaultCancelLabel = "Cancel";
 
+        #region Lifecycle
         private void Awake()
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
@@ -76,7 +93,9 @@ namespace Sol.HUD
             RefreshCartSummary();
             ClearInspectedItem();
         }
+        #endregion
 
+        #region Public API
         public static TradeUI ResolveInstance(bool activateIfInactive = true)
         {
             TradeUI resolved = Instance ?? UIStateOwnership.Resolve<TradeUI>(activateIfInactive);
@@ -103,7 +122,9 @@ namespace Sol.HUD
         {
             OpenInternal(playerInventory, npcInventory, lootMode, freeTrade);
         }
+        #endregion
 
+        #region Open/Close Flow
         private void OpenInternal(Inventory playerInventory, Inventory npcInventory, bool lootMode, bool freeTrade)
         {
             if (IsOpen || playerInventory == null || npcInventory == null) return;
@@ -123,6 +144,7 @@ namespace Sol.HUD
             _isLootMode = lootMode;
             _isFreeTrade = !_isLootMode && freeTrade;
             ContextMenuUI.Instance?.Hide();
+            // In paid trade mode we hide items that the player should never be able to trade.
             bool hideNonTradeableItems = !_isLootMode && !_isFreeTrade;
 
             ClearCart();
@@ -143,6 +165,29 @@ namespace Sol.HUD
             IsOpen = true;
             if (_tradePanel != null) _tradePanel.SetActive(true);
             UIStateOwnership.SetUiCapture(true);
+
+            InspectFirstAvailableSlot();
+        }
+
+        private void InspectFirstAvailableSlot()
+        {
+            InventorySlot firstSlot = FindFirstDisplayableSlot(_playerInventory)
+                ?? FindFirstDisplayableSlot(_npcInventory);
+            if (firstSlot != null) InspectSlot(firstSlot);
+        }
+
+        private InventorySlot FindFirstDisplayableSlot(Inventory inventory)
+        {
+            if (inventory == null) return null;
+            bool hideNonTradeable = !_isLootMode && !_isFreeTrade;
+            foreach (InventorySlot slot in inventory.Slots)
+            {
+                if (slot?.Item == null) continue;
+                if (slot.Item.Type == Sol.Grab.ItemType.Gold) continue;
+                if (hideNonTradeable && !slot.Item.IsTradeable) continue;
+                return slot;
+            }
+            return null;
         }
 
         public void Close()
@@ -161,7 +206,9 @@ namespace Sol.HUD
             ClearCart();
             ClearInspectedItem();
         }
+        #endregion
 
+        #region Selection & Cart
         private void OnPlayerSlotLeftClicked(InventorySlot slot) { if (_isLootMode) { if (CanDepositIntoLootTarget()) TransferLootFromPlayer(slot, false); return; } ChangeSelection(slot, _selectedPlayerQuantities, 1); InspectSlot(slot); }
         private void OnPlayerSlotRightClicked(InventorySlot slot) { if (_isLootMode) return; ChangeSelection(slot, _selectedPlayerQuantities, -1); InspectSlot(slot); }
         private void OnPlayerSlotShiftLeftClicked(InventorySlot slot) { if (_isLootMode) { if (CanDepositIntoLootTarget()) TransferLootFromPlayer(slot, true); return; } SelectWholeStack(slot, _selectedPlayerQuantities); InspectSlot(slot); }
@@ -205,6 +252,7 @@ namespace Sol.HUD
 
             if (_isFreeTrade)
             {
+                // Free-trade mode still respects selected quantities; it just skips gold math.
                 foreach (KeyValuePair<InventorySlot, int> entry in sales) ExecuteQuantity(entry.Key, entry.Value, () => Sol.TradeController.TransferItem(entry.Key, _playerInventory, _npcInventory));
                 foreach (KeyValuePair<InventorySlot, int> entry in purchases) ExecuteQuantity(entry.Key, entry.Value, () => Sol.TradeController.TransferItem(entry.Key, _npcInventory, _playerInventory));
             }
@@ -272,7 +320,9 @@ namespace Sol.HUD
             if (_confirmButton != null) _confirmButton.interactable = CanConfirmTrade(buying, selling);
             if (_cancelButtonText != null) _cancelButtonText.text = _defaultCancelLabel;
         }
+        #endregion
 
+        #region Loot Helpers
         private void CacheCancelButtonLabel()
         {
             if (_cancelButtonText == null && _cancelButton != null) _cancelButtonText = _cancelButton.GetComponentInChildren<TextMeshProUGUI>(true);
@@ -305,7 +355,9 @@ namespace Sol.HUD
             if (contextMenu == null || Mouse.current == null) return;
             contextMenu.ShowLoot(slot, _npcInventory, _playerInventory, Mouse.current.position.ReadValue());
         }
+        #endregion
 
+        #region Inspect Panel
         private static bool ContainsSlot(Inventory inventory, InventorySlot slot)
         {
             if (inventory == null || slot == null) return false;
@@ -338,8 +390,8 @@ namespace Sol.HUD
             if (_itemNameText != null) _itemNameText.text = BuildDisplayName(item);
             UpdateStolenIndicator(item);
             if (_itemTypeText != null) _itemTypeText.text = BuildTypeDisplayText(item);
-            if (_itemFlavourText != null) { _itemFlavourText.text = item.FlavourText; _itemFlavourText.gameObject.SetActive(!string.IsNullOrEmpty(item.FlavourText)); }
-            SetInfoText(_itemStatsText, BuildInspectStatsText(item));
+            if (_itemFlavourText != null) _itemFlavourText.text = item.FlavourText;
+            if (_itemStatsText != null) _itemStatsText.text = BuildInspectStatsText(item);
             if (_itemIdText != null)
             {
                 _itemIdText.text = GetItemIdCode(item);
@@ -349,17 +401,18 @@ namespace Sol.HUD
             {
                 _previewImage.texture = ItemPreviewRenderer.Instance.RenderTexture;
                 _previewImage.gameObject.SetActive(true);
+                // Re-rendering here guarantees the fixed panel always matches the currently hovered slot.
                 ItemPreviewRenderer.Instance.Show(item);
             }
         }
 
         private void ClearInspectedItem()
         {
-            SetInfoText(_itemNameText, string.Empty);
-            SetInfoText(_itemTypeText, string.Empty);
-            SetInfoText(_itemFlavourText, string.Empty);
-            SetInfoText(_itemStatsText, string.Empty);
-            if (_itemIdText != null) { _itemIdText.text = string.Empty; _itemIdText.gameObject.SetActive(false); }
+            if (_itemNameText != null) _itemNameText.text = string.Empty;
+            if (_itemTypeText != null) _itemTypeText.text = string.Empty;
+            if (_itemFlavourText != null) _itemFlavourText.text = string.Empty;
+            if (_itemStatsText != null) _itemStatsText.text = string.Empty;
+            if (_itemIdText != null) _itemIdText.text = string.Empty;
             UpdateStolenIndicator(null);
             if (_previewImage != null) { _previewImage.texture = null; _previewImage.gameObject.SetActive(false); }
             ItemPreviewRenderer.Instance?.Clear();
@@ -373,7 +426,9 @@ namespace Sol.HUD
             if (_npcInventory.Gold < selling) return false;
             return _playerInventory.Gold + selling >= buying;
         }
+        #endregion
 
+        #region UI Wiring Helpers
         private string BuildInspectStatsText(Sol.Grab.ItemComponent item)
         {
             List<string> stats = new(3);
@@ -515,5 +570,6 @@ namespace Sol.HUD
             if (displayName.EndsWith(CloneSuffix, StringComparison.Ordinal)) displayName = displayName.Substring(0, displayName.Length - CloneSuffix.Length).TrimEnd();
             return string.IsNullOrWhiteSpace(displayName) ? fallback : displayName;
         }
+        #endregion
     }
 }

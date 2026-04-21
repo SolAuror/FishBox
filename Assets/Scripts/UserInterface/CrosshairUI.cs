@@ -16,15 +16,21 @@ namespace Sol.HUD
         private static bool InteractionTraceEnabled => false;
 
         [Header("Crosshair")]
+        [Tooltip("Inspector: tunes crosshair rect.")]
         [SerializeField] private RectTransform _crosshairRect;
         [SerializeField] private Image _crosshairImage;
+        [Tooltip("Inspector: tunes fps crosshair.")]
         [SerializeField] private Sprite _fpsCrosshair;
+        [Tooltip("Inspector: tunes tps crosshair.")]
         [SerializeField] private Sprite _tpsCrosshair;
 
         [Header("Interaction")]
+        [Tooltip("Inspector: tunes interaction range.")]
         [SerializeField] private float _interactionRange = 3f;
         [SerializeField] private float _interactionRangeTP = 10f;
+        [Tooltip("Inspector: tunes raycast layers.")]
         [SerializeField] private LayerMask _raycastLayers = ~0;
+        [Tooltip("Inspector: tunes prompt text.")]
         [SerializeField] private TextMeshProUGUI _promptText;
 
         [Header("PhysGrab (Long Press)")]

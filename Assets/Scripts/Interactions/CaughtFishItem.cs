@@ -8,6 +8,7 @@ namespace Sol.Grab
     [RequireComponent(typeof(ItemComponent))]
     public class CaughtFishItem : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("Species")]
         [Tooltip("Set this on the catch item prefab to match its FishDefinition. Required for visual restore after save/load.")]
         [SerializeField] private FishDefinition _fishDefinition;
@@ -19,9 +20,12 @@ namespace Sol.Grab
         [SerializeField] private float _rarityPercent;
         [SerializeField] private float _size;
         [SerializeField] private float _weight;
+        [Tooltip("Inspector: tunes is predator.")]
         [SerializeField] private bool _isPredator;
         [SerializeField] private Transform _visualRoot;
+        [Tooltip("Inspector: tunes fish code.")]
         [SerializeField] private string _fishCode;
+        #endregion
 
         public string FishCode { get => _fishCode; set => _fishCode = value; }
         public string SpeciesName => _speciesName;
@@ -171,7 +175,7 @@ namespace Sol.Grab
             }
             else
             {
-                Debug.LogWarning($"[CaughtFishItem] '{gameObject.name}' could not resolve a FishDefinition for speciesAssetName '{data.speciesAssetName}' — visual will be missing after load.");
+                Debug.LogWarning($"[CaughtFishItem] '{gameObject.name}' could not resolve a FishDefinition for speciesAssetName '{data.speciesAssetName}' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â visual will be missing after load.");
             }
         }
 

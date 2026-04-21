@@ -138,8 +138,12 @@ MonoBehaviour:
   wave1Dir: {x: 1, y: 0}
   wave2Dir: {x: 0.496, y: 0.868}
   wave2Scale: 0.5
+  swellAmplitude: 0.15
+  swellSpeed: 0.2
+  swellDir: {x: 0.05, y: 0.03}
   swimDepthThreshold: 1
   swimExitHysteresis: 0.3
+  surfaceOffset: 0
   pushGlobalProperties: 1
 --- !u!1 &4238437680701623507
 GameObject:
@@ -152,7 +156,6 @@ GameObject:
   - component: {fileID: 7924351194109963431}
   - component: {fileID: 2674442383808292873}
   - component: {fileID: 679344922048494021}
-  - component: {fileID: 7341460361748207538}
   m_Layer: 4
   m_Name: WaterTile
   m_TagString: Untagged
@@ -234,18 +237,3 @@ MeshRenderer:
   m_SortingOrder: 0
   m_MaskInteraction: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!114 &7341460361748207538
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4238437680701623507}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7bf98d780a01d3d4197f0dc5b298bfce, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::WaterProfileApplier
-  profile: {fileID: 11400000, guid: 999b624986c670f44918a7df92728ea5, type: 2}
-  material: {fileID: 2100000, guid: 0bd8dbaf6a87ede45a19796667f27f81, type: 2}
-  continuousApply: 1

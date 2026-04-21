@@ -8,7 +8,9 @@ namespace Sol.Locomotion
     {
 #region Class Variables
         [field: SerializeField] public bool IsControlledByPlayer { get; set; } = true;
+        [Tooltip("Inspector: tunes hold to sprint.")]
         [SerializeField] private bool holdToSprint = true;
+        [Tooltip("Inspector: tunes is aim hold mode.")]
         [SerializeField] private bool isAimHoldMode = false;
 
         // Locomotion
@@ -16,6 +18,8 @@ namespace Sol.Locomotion
         public Vector2 LookInput { get; set; }
         public bool JumpPressed { get; set; }
         public bool CrouchToggle { get; set; }
+        public bool SwimUpHeld { get; set; }
+        public bool SwimDownHeld { get; set; }
         public bool SprintPressed { get; set; }
         public bool WalkToggle { get; set; }
 
@@ -104,7 +108,16 @@ namespace Sol.Locomotion
 
         public void OnSpace(InputAction.CallbackContext context)
         {
-            if (!IsControlledByPlayer || !context.performed) return;
+            if (!IsControlledByPlayer) return;
+
+            if (context.started || context.performed)
+                SwimUpHeld = true;
+            else if (context.canceled)
+                SwimUpHeld = false;
+
+            if (!context.performed) return;
+            if (_state != null && _state.CurrentMovementState == MovementState.Swimming) return;
+
             JumpPressed = true;
             CrouchToggle = false;
         }
@@ -120,7 +133,16 @@ namespace Sol.Locomotion
 
         public void OnLCntrl(InputAction.CallbackContext context)
         {
-            if (!IsControlledByPlayer || !context.performed) return;
+            if (!IsControlledByPlayer) return;
+
+            if (context.started || context.performed)
+                SwimDownHeld = true;
+            else if (context.canceled)
+                SwimDownHeld = false;
+
+            if (!context.performed) return;
+            if (_state != null && _state.CurrentMovementState == MovementState.Swimming) return;
+
             CrouchToggle = !CrouchToggle;
         }
 
@@ -192,8 +214,22 @@ namespace Sol.Locomotion
         public void On_9(InputAction.CallbackContext context) { }
         public void On_0(InputAction.CallbackContext context) { }
         public void OnLAlt(InputAction.CallbackContext context) { }
-        public void OnDown(InputAction.CallbackContext context) { }
-        public void OnUp(InputAction.CallbackContext context) { }
+        public void OnDown(InputAction.CallbackContext context)
+        {
+            if (!IsControlledByPlayer) return;
+            if (context.started || context.performed)
+                SwimDownHeld = true;
+            else if (context.canceled)
+                SwimDownHeld = false;
+        }
+        public void OnUp(InputAction.CallbackContext context)
+        {
+            if (!IsControlledByPlayer) return;
+            if (context.started || context.performed)
+                SwimUpHeld = true;
+            else if (context.canceled)
+                SwimUpHeld = false;
+        }
         public void OnRight(InputAction.CallbackContext context) { }
         public void OnLeft(InputAction.CallbackContext context) { }
         public void OnTilde(InputAction.CallbackContext context) { }

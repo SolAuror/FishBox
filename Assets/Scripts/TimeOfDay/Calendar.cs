@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UnityEngine;
 
 namespace Sol.ToD
@@ -14,6 +14,7 @@ namespace Sol.ToD
 public class Calendar : MonoBehaviour
 {
     // -- Configuration --------------------------------
+    #region Inspector Settings
     [Header("-- Calendar -----------------------")]
     [Tooltip("Number of days in each month. Length = number of months per year.")]
     [SerializeField] int[] daysPerMonth = { 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28 };
@@ -21,7 +22,7 @@ public class Calendar : MonoBehaviour
     [Tooltip("Display name for each month. Must match the length of daysPerMonth.")]
     [SerializeField] string[] monthNames = {
         "Aurion", "Solven", "Thalmer", "Verdane",
-        "Cælith", "Embera", "Lithane", "Duskara",
+        "CÃƒÂ¦lith", "Embera", "Lithane", "Duskara",
         "Falmere", "Nocturn", "Wrethis", "Glacium"
     };
 
@@ -48,6 +49,7 @@ public class Calendar : MonoBehaviour
 
     [Tooltip("Total in-game days elapsed since start.")]
     [SerializeField] int totalDaysElapsed;
+    #endregion
 
     // -- Events ---------------------------------------
 

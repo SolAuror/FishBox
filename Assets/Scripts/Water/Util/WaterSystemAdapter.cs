@@ -20,7 +20,9 @@ public class WaterSystemAdapter : MonoBehaviour, IWaterSystem
 
     public bool IsUnderwater(Vector3 position)
     {
-        var volume = WaterVolume.FindVolume(position);
+        // Use XZ lookup so local water bodies remain authoritative even when the
+        // query point is above/below the animated surface at this instant.
+        var volume = WaterVolume.FindVolumeXZ(position);
         if (volume != null)
             return volume.IsUnderwater(position);
         if (SolWaterManager.Instance != null)

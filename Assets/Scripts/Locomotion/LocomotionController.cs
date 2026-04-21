@@ -41,12 +41,17 @@ namespace Sol.Locomotion
 
 #region Class Variables
         [Header("Components")]
+        [Tooltip("Inspector: tunes character controller.")]
         [SerializeField] private CharacterController _characterController;
         [SerializeField] private Camera _playerCamera;
+        [Tooltip("Inspector: tunes cam transform.")]
         [SerializeField] private Transform _camTransform;
+        [Tooltip("Inspector: tunes head mesh renderer.")]
         [SerializeField] private Renderer _headMeshRenderer;
         [Header("Camera Modes")]
+        [Tooltip("Inspector: tunes default camera mode.")]
         [SerializeField] private CameraMode _defaultCameraMode = CameraMode.FirstPerson;
+        [Tooltip("Inspector: tunes camera modes.")]
         [SerializeField] private List<CameraModeBinding> _cameraModes = new();
         public Camera PlayerCamera { get => _playerCamera; set => _playerCamera = value; }
         public Transform CamTransform { get => _camTransform; set => _camTransform = value; }
@@ -93,8 +98,10 @@ namespace Sol.Locomotion
         public float crouchSpeed = 3f;
         private float _standingHeight;
         private Vector3 _standingCenter;
+        [Tooltip("Inspector: tunes crouch height.")]
         [SerializeField] private float crouchHeight = 1.2f;
         [SerializeField] private Vector3 crouchCenter = new Vector3(0, 0.595f, 0);
+        [Tooltip("Inspector: tunes crouch transition speed.")]
         [SerializeField] private float crouchTransitionSpeed = 5f;
 
         [Header("Jumping & In-Air")]
@@ -177,7 +184,9 @@ namespace Sol.Locomotion
         public bool IsMovementLocked => _landingRecoveryTimer > 0f || _externalMovementLockTimer > 0f;
 
         [Header("Slope/Wall handling")]
+        [Tooltip("Inspector: tunes steep check distance.")]
         [SerializeField] private float steepCheckDistance = 0.25f;
+        [Tooltip("Inspector: tunes steep check disable duration.")]
         [SerializeField] private float steepCheckDisableDuration = 0.12f;
         private float _steepWallDisableTimer = 0f;
         private bool _isNearWallCached = false;
@@ -869,11 +878,13 @@ namespace Sol.Locomotion
             if (input.y > 0.1f) // Only when pushing forward
                 cameraPitchVertical = camForward.y * input.y;
 
-            // Explicit controls: Jump = rise, Crouch = sink (override camera pitch).
-            // Uses LocomotionInput (driven by SolControls) so gamepad bindings work.
+            // Explicit controls: hold Up/Space = rise, hold Down/Ctrl = sink (override camera pitch).
             float vertical = cameraPitchVertical;
-            if (_locomotionInput.JumpPressed)   vertical =  1f;
-            if (_locomotionInput.CrouchToggle)  vertical = -1f;
+            float heldVertical = 0f;
+            if (_locomotionInput.SwimUpHeld) heldVertical += 1f;
+            if (_locomotionInput.SwimDownHeld) heldVertical -= 1f;
+            if (Mathf.Abs(heldVertical) > 0.01f)
+                vertical = Mathf.Clamp(heldVertical, -1f, 1f);
 
             float effectiveSwimMult = GetSwimSpeedMultiplier?.Invoke() ?? SwimSpeedMultiplier;
 

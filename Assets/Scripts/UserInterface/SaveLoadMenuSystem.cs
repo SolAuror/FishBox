@@ -12,15 +12,22 @@ namespace Sol.HUD
 
     public sealed class SaveLoadMenuSystem : MenuSystemBase<SaveLoadMenuSystem> 
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes title text.")]
         [SerializeField] private TextMeshProUGUI _TitleText;
         [SerializeField] private TextMeshProUGUI _hintText1;
+        [Tooltip("Inspector: tunes hint text2.")]
         [SerializeField] private TextMeshProUGUI _hintText2;
         [SerializeField] private ScrollRect _scrollRect;
+        [Tooltip("Inspector: tunes content parent.")]
         [SerializeField] private Transform _contentParent;
         [SerializeField] private Button _backButton;
+        [Tooltip("Inspector: tunes new save button.")]
         [SerializeField] private Button _newSaveButton;
         [SerializeField] private TMP_InputField _saveNameInput;
+        [Tooltip("Inspector: tunes slot entry template.")]
         [SerializeField] private GameObject _slotEntryTemplate;
+        #endregion
 
         public bool ReturnsToPause => _returnToPause;
         public SaveLoadMode Mode => _mode;

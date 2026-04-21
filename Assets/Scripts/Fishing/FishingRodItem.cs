@@ -7,16 +7,22 @@ namespace Sol.Fishing
     public class FishingRodItem : MonoBehaviour
     {
         private const string BaitPointName = "BaitPoint";
+#region Inspector Settings
 
         [Header("References")]
+        [Tooltip("Inspector: tunes tackle point.")]
         [SerializeField] private Transform _tacklePoint;
         [SerializeField] private Transform _lineOrigin;
+        [Tooltip("Inspector: tunes resting tackle visual.")]
         [SerializeField] private Transform _restingTackleVisual;
         [SerializeField] private GameObject _castTacklePrefab;
+        [Tooltip("Inspector: tunes line material.")]
         [SerializeField] private Material _lineMaterial;
         [SerializeField] private FishingBaitDefinition _defaultBait;
+        [Tooltip("Inspector: tunes loaded bait item.")]
         [SerializeField] private ItemComponent _loadedBaitItem;
         [SerializeField] private ItemComponent _loadedTackleItem;
+        [Tooltip("Inspector: tunes caught fish local euler angles.")]
         [SerializeField] private Vector3 _caughtFishLocalEulerAngles = new(-90f, 0f, 0f);
         [SerializeField, Min(0f)] private float _caughtFishHangPadding = 0.015f;
 
@@ -32,7 +38,9 @@ namespace Sol.Fishing
         [SerializeField, Min(0.05f)] private float _reelLiftDistance = 1.6f;
         [SerializeField, Min(0.05f)] private float _reelSurfacePullStrength = 8f;
         [SerializeField, Min(0f)] private float _movementLockDuration = 0.32f;
+        [Tooltip("Inspector: tunes surface offset.")]
         [SerializeField] private float _surfaceOffset = 0.04f;
+#endregion
         [SerializeField, Min(0f)] private float _floatBobAmplitude = 0.035f;
         [SerializeField, Min(0f)] private float _floatBobFrequency = 2.1f;
         [SerializeField, Min(0f)] private float _floatDriftDistance = 0.18f;

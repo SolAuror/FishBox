@@ -1,17 +1,10 @@
-﻿// Sol.Water - Stylised water shader for URP (Unity 6 / URP 17)
+// Sol.Water - Stylised water shader for URP (Unity 6 / URP 17)
 //
 // Visual target: Witcher 3 / Fable 2 style - clean, customisable.
-//
-// Water Types (modular feature gating):
-//   Ocean  — full: shaped waves, swell, foam, SSS, caustics, sun streak
-//   Lake   — waves, foam, SSS, caustics, sun streak (no swell, no flow)
-//   River  — waves, flow map, foam, caustics (no SSS, no swell, no sun streak)
-//   Puddle — reflections + refraction only (no waves, foam, SSS, caustics)
 //
 // Features:
 //   - Non-linear shaped sine waves + low-frequency ocean swell
 //   - Dual scrolling normal maps + micro-detail normal
-//   - Flow map support (rivers) with dual-phase UV warping
 //   - Specular highlight with noise masking + directional sun streak
 //   - Environment cubemap reflections with Fresnel (+ dark-probe fallback)
 //   - Fake refraction with depth-aware distortion
@@ -22,7 +15,7 @@
 //   - Distance-based normal detail fade + mid-distance relaxation
 //
 // Architecture:
-//   - Water type keyword selects which features compile (4 variants, not 16).
+//   - Ocean-focused single path (no water-type feature variants).
 //   - Material properties still control the visual look per water body.
 //   - Global shader properties are set by TimeOfDay or external systems.
 //
@@ -34,13 +27,6 @@ Shader "Sol/Water"
 {
     Properties
     {
-        // ================================================
-        //  WATER TYPE
-        // ================================================
-        [Header(Water Type)]
-        [KeywordEnum(Ocean, Lake, River, Puddle)]
-        _WaterType ("Water Type", Float) = 0
-
         // ================================================
         //  SURFACE COLOURS
         // ================================================
@@ -91,21 +77,14 @@ Shader "Sol/Water"
         _NormalDetailScrollDir ("Detail Scroll Dir (XY)", Vector)  = (0.02, -0.01, 0, 0)
 
         // ================================================
-        //  FLOW (Rivers)
-        // ================================================
-        [Header(Flow Rivers)]
-        [NoScaleOffset] _FlowMap ("Flow Map", 2D) = "black" {}
-        _FlowDirection ("Flow Fallback Dir (XY)", Vector)       = (1, 0, 0, 0)
-        _FlowSpeed     ("Flow Speed",         Range(0, 5))     = 0.5
-        _FlowStrength  ("Flow Normal Warp",   Range(0, 1))     = 0.3
-
-        // ================================================
         //  REFRACTION
         // ================================================
         [Header(Refraction)]
         _RefractionStrength     ("Distortion",    Range(0, 0.5)) = 0.04
         _RefractionDepthFade    ("Depth Fade",    Range(0.1, 30)) = 3.0
         _RefractionDistanceFade ("Distance Fade", Range(1, 500)) = 80
+        _RefractionNearSurfaceFade ("Distortion Near Surface Fade", Range(0.01, 2)) = 0.25
+        _RefractionEdgeFadeDistance ("Distortion Edge Clamp", Range(0.02, 5)) = 0.5
 
         // ================================================
         //  SPECULAR
@@ -160,8 +139,13 @@ Shader "Sol/Water"
         [Header(Fresnel)]
         _FresnelPower  ("Fresnel Power",       Range(0.1, 10)) = 4
         _FresnelBias   ("Fresnel Bias",        Range(0, 0.5))  = 0.02
+        _FresnelSplitStrength ("Fresnel Split Strength", Range(0.5, 4)) = 1.7
         _ReflectionStr ("Reflection Strength", Range(0, 1))    = 1
         _HorizonSheenStr ("Horizon Sheen", Range(0, 1)) = 0.5
+
+        [Header(Shadowing)]
+        _UnderwaterShadowStrength ("Underwater Shadow Strength", Range(0, 1)) = 0.6
+        _UnderwaterShadowFadeDistance ("Underwater Shadow Fade Distance", Range(0.1, 30)) = 4.0
 
         // ================================================
         //  EDGE DAMPENING
@@ -200,13 +184,12 @@ Shader "Sol/Water"
 
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
-            Cull Back
+            Cull Off
 
             HLSLPROGRAM
             #pragma vertex   WaterVert
             #pragma fragment WaterFrag
 
-            #pragma shader_feature_local _WATERTYPE_OCEAN _WATERTYPE_LAKE _WATERTYPE_RIVER _WATERTYPE_PUDDLE
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile _ _ADDITIONAL_LIGHTS_VERTEX _ADDITIONAL_LIGHTS
@@ -216,43 +199,6 @@ Shader "Sol/Water"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareOpaqueTexture.hlsl"
-
-            // =====================================================
-            //  FEATURE GATING BY WATER TYPE
-            // =====================================================
-            #if defined(_WATERTYPE_RIVER)
-                #define FEATURE_WAVES     1
-                #define FEATURE_SWELL     0
-                #define FEATURE_FOAM      1
-                #define FEATURE_SSS       0
-                #define FEATURE_CAUSTICS  1
-                #define FEATURE_SUNSTREAK 0
-                #define FEATURE_FLOWMAP   1
-            #elif defined(_WATERTYPE_LAKE)
-                #define FEATURE_WAVES     1
-                #define FEATURE_SWELL     0
-                #define FEATURE_FOAM      1
-                #define FEATURE_SSS       1
-                #define FEATURE_CAUSTICS  1
-                #define FEATURE_SUNSTREAK 1
-                #define FEATURE_FLOWMAP   0
-            #elif defined(_WATERTYPE_PUDDLE)
-                #define FEATURE_WAVES     0
-                #define FEATURE_SWELL     0
-                #define FEATURE_FOAM      0
-                #define FEATURE_SSS       0
-                #define FEATURE_CAUSTICS  0
-                #define FEATURE_SUNSTREAK 0
-                #define FEATURE_FLOWMAP   0
-            #else // Ocean (default)
-                #define FEATURE_WAVES     1
-                #define FEATURE_SWELL     1
-                #define FEATURE_FOAM      1
-                #define FEATURE_SSS       1
-                #define FEATURE_CAUSTICS  1
-                #define FEATURE_SUNSTREAK 1
-                #define FEATURE_FLOWMAP   0
-            #endif
 
             // -----------------------------------------
             //  Globals (set by SolWaterManager)
@@ -308,13 +254,11 @@ Shader "Sol/Water"
                 float  _NormalScrollSpeed2;
                 float4 _NormalDetailScrollDir;
 
-                float4 _FlowDirection;
-                float  _FlowSpeed;
-                float  _FlowStrength;
-
                 float  _RefractionStrength;
                 float  _RefractionDepthFade;
                 float  _RefractionDistanceFade;
+                float  _RefractionNearSurfaceFade;
+                float  _RefractionEdgeFadeDistance;
 
                 float  _Roughness;
                 float  _SpecIntensity;
@@ -341,7 +285,10 @@ Shader "Sol/Water"
 
                 float  _FresnelPower;
                 float  _FresnelBias;
+                float  _FresnelSplitStrength;
                 float  _ReflectionStr;
+                float  _UnderwaterShadowStrength;
+                float  _UnderwaterShadowFadeDistance;
 
                 float  _DampeningFactor;
 
@@ -369,7 +316,6 @@ Shader "Sol/Water"
             TEXTURE2D(_NoiseMap);         SAMPLER(sampler_NoiseMap);
             TEXTURE2D(_FoamMap);          SAMPLER(sampler_FoamMap);
             TEXTURE2D(_CausticsMap);      SAMPLER(sampler_CausticsMap);
-            TEXTURE2D(_FlowMap);          SAMPLER(sampler_FlowMap);
 
             // =========================================
             //  STRUCTS
@@ -378,7 +324,6 @@ Shader "Sol/Water"
             {
                 float4 positionOS : POSITION;
                 float2 uv         : TEXCOORD0;
-                float4 color      : COLOR;
             };
 
             struct Varyings
@@ -391,7 +336,6 @@ Shader "Sol/Water"
                 float3 binormalWS : TEXCOORD4;
                 float4 screenPos  : TEXCOORD5;
                 float2 fogAndDist : TEXCOORD6; // x = fogFactor, y = camDist
-                float  flowMask   : TEXCOORD7;
                 float  waveHeight : TEXCOORD8; // world-space Y displacement from waves
             };
 
@@ -404,7 +348,6 @@ Shader "Sol/Water"
 
                 float3 posWS = TransformObjectToWorld(IN.positionOS.xyz);
 
-                #if FEATURE_WAVES
                 // -- Edge dampening (fade waves near mesh borders) --
                 float dampening  = 1.0 - pow(saturate(abs(IN.uv.x - 0.5) * 2.0), _DampeningFactor);
                 dampening       *= 1.0 - pow(saturate(abs(IN.uv.y - 0.5) * 2.0), _DampeningFactor);
@@ -429,12 +372,8 @@ Shader "Sol/Water"
                 float raw2 = sin(phase2);
                 float wave2 = (pow(raw2 * 0.5 + 0.5, 2.0) * 2.0 - 1.0) * amp * _Wave2Scale;
 
-                #if FEATURE_SWELL
                 float swellPhase = dot(posWS.xz, _SwellDirection.xz) + _Time.y * _SwellSpeed;
                 float swell = sin(swellPhase) * _SwellAmplitude;
-                #else
-                float swell = 0.0;
-                #endif
 
                 float totalWave = (wave1 + wave2) * dampening + swell;
                 posWS.y += totalWave;
@@ -444,11 +383,7 @@ Shader "Sol/Water"
                 float dWave1  = dShape1 * amp * _WaveFrequency * dampening;
                 float dShape2 = 2.0 * (raw2 * 0.5 + 0.5) * cos(phase2);
                 float dWave2  = dShape2 * amp * _Wave2Scale * _WaveFrequency * 1.3 * dampening;
-                #if FEATURE_SWELL
                 float dSwell = cos(swellPhase) * _SwellAmplitude;
-                #else
-                float dSwell = 0.0;
-                #endif
 
                 float dX = dWave1 * dir1.x + dWave2 * dir2.x + dSwell * _SwellDirection.x;
                 float dZ = dWave1 * dir1.z + dWave2 * dir2.z + dSwell * _SwellDirection.z;
@@ -456,16 +391,6 @@ Shader "Sol/Water"
                 float3 waveNormal  = normalize(float3(-dX, 1.0, -dZ));
                 float3 waveTangent = normalize(float3(1.0, dX, 0.0));
                 float3 waveBinorm  = normalize(cross(waveNormal, waveTangent));
-                #else // Puddle — flat surface
-                float totalWave    = 0.0;
-                float3 waveNormal  = float3(0, 1, 0);
-                float3 waveTangent = float3(1, 0, 0);
-                float3 waveBinorm  = float3(0, 0, 1);
-                #endif
-
-                // -- Flow mask from vertex colour R --
-                // No vertex paint = 1.0 (no flow masking).
-                OUT.flowMask = IN.color.r;
 
                 OUT.positionWS   = posWS;
                 OUT.positionCS   = TransformWorldToHClip(posWS);
@@ -527,24 +452,6 @@ Shader "Sol/Water"
                 float2 worldUV = IN.uv.zw;
                 float2 baseUV  = worldUV * _NormalTiling;
 
-                // -- Flow (rivers via flow map) --
-                float2 flowUV1  = baseUV;
-                float2 flowUV2  = baseUV;
-                float  flowBlend = 0.0;
-
-                #if FEATURE_FLOWMAP
-                {
-                    float2 flowMapDir = SAMPLE_TEXTURE2D(_FlowMap, sampler_FlowMap, IN.uv.xy).rg * 2.0 - 1.0;
-                    float  flowMapLen = length(flowMapDir);
-                    float2 flowDir = normalize(
-                        lerp(_FlowDirection.xy, flowMapDir, saturate(flowMapLen * 5.0)) + 0.001);
-                    float  flowPhase = frac(_Time.y * _FlowSpeed * 0.1) * IN.flowMask;
-                    flowUV1   = baseUV - flowDir * flowPhase * _FlowStrength;
-                    flowUV2   = baseUV - flowDir * frac(flowPhase + 0.5) * _FlowStrength;
-                    flowBlend = abs(flowPhase * 2.0 - 1.0);
-                }
-                #endif
-
                 // -- Scrolling normal maps (rain boosts detail) --
                 float rainNormalBoost = 1.0 + _Sol_RainIntensity * 0.8;
                 float scrollSpd  = _NormalScrollSpeed;
@@ -552,23 +459,10 @@ Shader "Sol/Water"
                 float2 nmUV1 = baseUV + _Time.y * _NormalScrollDir1.xy * scrollSpd;
                 float2 nmUV2 = baseUV + _Time.y * _NormalScrollDir2.xy * scrollSpd2;
 
-                #if FEATURE_FLOWMAP
-                    nmUV1 = flowUV1;
-                    nmUV2 = flowUV2;
-                #endif
-
                 float3 nTS1 = UnpackNormalScale(
                     SAMPLE_TEXTURE2D(_NormalMap1, sampler_NormalMap1, nmUV1), _NormalStrength);
                 float3 nTS2 = UnpackNormalScale(
                     SAMPLE_TEXTURE2D(_NormalMap2, sampler_NormalMap2, nmUV2), _NormalStrength);
-
-                #if FEATURE_FLOWMAP
-                {
-                    float3 nTS1b = UnpackNormalScale(
-                        SAMPLE_TEXTURE2D(_NormalMap1, sampler_NormalMap1, flowUV2), _NormalStrength);
-                    nTS1 = lerp(nTS1, nTS1b, flowBlend);
-                }
-                #endif
 
                 // -- Micro-detail normal (fades with distance) --
                 float detailFade = 1.0 - saturate(IN.fogAndDist.y / _NormalDetailDistanceFade);
@@ -612,7 +506,7 @@ Shader "Sol/Water"
                         ageFade *= ageFade; // quadratic for a natural tail-off
                         float distAtten = 1.0 / (1.0 + dist * 0.4);
 
-                        // cos = slope of the sin wave → correct normal direction
+                        // cos = slope of the sin wave  correct normal direction
                         float slope = cos(ringDist * _Sol_RippleFrequency)
                                     * ageFade * distAtten * _Sol_Ripples[r].w;
 
@@ -630,7 +524,7 @@ Shader "Sol/Water"
                 float4 shadowCoord = TransformWorldToShadowCoord(IN.positionWS);
                 Light  mainLight   = GetMainLight(shadowCoord);
                 float3 lightDir    = normalize(mainLight.direction);
-                float  lightAtten  = mainLight.distanceAttenuation * mainLight.shadowAttenuation;
+                float  lightAtten  = mainLight.distanceAttenuation;
                 float3 lightColor  = mainLight.color * lightAtten;
 
                 float3 todSunColor = lerp(float3(1,1,1), _Sol_SunColor.rgb, _ToDSpecInfluence);
@@ -642,6 +536,14 @@ Shader "Sol/Water"
                 float depthDiff    = sceneEyeZ - surfaceEyeZ;
 
                 float depthSoftenAlpha = smoothstep(0.0, _DepthSofteningDistance, depthDiff);
+
+                // Soften shadow contrast with depth through the water body.
+                // Deeper bottoms get less hard shadow imprint for more natural attenuation.
+                float underwaterShadowDepthFade = exp(-max(depthDiff, 0.0) / max(_UnderwaterShadowFadeDistance, 0.001));
+                float underwaterShadowInfluence = saturate(_UnderwaterShadowStrength * underwaterShadowDepthFade * depthSoftenAlpha);
+                float softenedShadowAtten = lerp(1.0, mainLight.shadowAttenuation, underwaterShadowInfluence);
+                lightAtten *= softenedShadowAtten;
+                lightColor = mainLight.color * lightAtten;
 
                 // Precompute roughness terms once - used by main specular and additional lights.
                 // Rain increases roughness, reducing specular sharpness.
@@ -688,17 +590,24 @@ Shader "Sol/Water"
                 // =====================================
                 //  REFRACTION
                 // =====================================
-                float2 distortUV = screenUV
-                    + finalNormal.xz * _RefractionStrength;
+                // Anti-smear: reduce distortion near the surface intersection and at depth discontinuities.
+                float nearSurfaceFade = saturate(depthDiff / max(_RefractionNearSurfaceFade, 0.001));
+                float2 distortUV = screenUV + finalNormal.xz * (_RefractionStrength * nearSurfaceFade);
 
-                float distortedEyeZ = LinearEyeDepth(
-                    SampleSceneDepth(distortUV), _ZBufferParams);
+                float distortedEyeZ = LinearEyeDepth(SampleSceneDepth(distortUV), _ZBufferParams);
+                float depthMismatch = abs(distortedEyeZ - sceneEyeZ);
+                float edgeFade = 1.0 - saturate(depthMismatch / max(_RefractionEdgeFadeDistance, 0.001));
+                float distortionAccept = nearSurfaceFade * edgeFade;
+                float2 candidateUV = lerp(screenUV, distortUV, distortionAccept);
+
+                float candidateEyeZ = LinearEyeDepth(SampleSceneDepth(candidateUV), _ZBufferParams);
                 // Reject distorted UV when it samples sky (depth at or beyond the far plane).
-                float2 refractionUV = (distortedEyeZ > surfaceEyeZ + 0.01 && distortedEyeZ < _ProjectionParams.z * 0.99)
-                    ? distortUV : screenUV;
-
+                bool useDistortedRefraction = (candidateEyeZ > surfaceEyeZ + 0.01 && candidateEyeZ < _ProjectionParams.z * 0.99);
+                float2 refractionUV = useDistortedRefraction ? candidateUV : screenUV;
+                // Reuse already-sampled depth when distortion is accepted, else reuse screen depth.
+                float refractionEyeZ = useDistortedRefraction ? candidateEyeZ : sceneEyeZ;
                 half3 sceneColor      = SampleSceneColor(refractionUV);
-                float refractionDepth = max(0, distortedEyeZ - surfaceEyeZ);
+                float refractionDepth = max(0, refractionEyeZ - surfaceEyeZ);
                 float refrDepthT      = saturate(refractionDepth / _RefractionDepthFade);
                 half3 refractionColor = lerp(sceneColor * shallowCol, deepCol, refrDepthT);
 
@@ -710,7 +619,6 @@ Shader "Sol/Water"
                 // =====================================
                 //  CAUSTICS
                 // =====================================
-                #if FEATURE_CAUSTICS
                 {
                     float causticsK    = 3.0 / max(_CausticsDepth, 0.01);
                     float causticsAtten = exp(-depthDiff * causticsK);
@@ -724,10 +632,13 @@ Shader "Sol/Water"
                     half c2 = SAMPLE_TEXTURE2D(_CausticsMap, sampler_CausticsMap, causticsUV2).r;
                     half caustics = min(c1, c2);
 
+                    // Keep water-surface caustics very subtle and only when
+                    // the camera is below the water plane. Primary caustics
+                    // for underwater readability are handled by the overlay.
+                    float camUnderMask = step(GetCameraPositionWS().y, IN.positionWS.y);
                     refractionColor += caustics * _CausticsIntensity
-                        * causticsAtten * lightColor * dayFactor;
+                        * causticsAtten * lightColor * dayFactor * camUnderMask * 0.15;
                 }
-                #endif
 
                 // =====================================
                 //  DEPTH ABSORPTION (shallow - deep - horizon)
@@ -767,10 +678,11 @@ Shader "Sol/Water"
                 float NdotV_smooth = saturate(dot(N, viewDirWS));
                 float NdotV_detail = saturate(dot(finalNormal, viewDirWS));
                 float fresnel = SchlickFresnel(NdotV_smooth, _FresnelBias, _FresnelPower);
+                float fresnelSplit = pow(saturate(fresnel), _FresnelSplitStrength);
 
                 float distanceFade = saturate(IN.fogAndDist.y / _RefractionDistanceFade);
 
-                float reflectionAmount = saturate(lerp(fresnel, 1.0, distanceFade));
+                float reflectionAmount = saturate(lerp(fresnelSplit, 1.0, distanceFade));
                 half3 waterColor = lerp(refractionColor, envColor, reflectionAmount);
 
                 // Attenuate specular at grazing angles where Fresnel reflection already dominates.
@@ -780,13 +692,11 @@ Shader "Sol/Water"
                 // =====================================
                 //  SUN STREAK (directional highlight toward camera)
                 // =====================================
-                #if FEATURE_SUNSTREAK
                 float3 sunReflect = reflect(-lightDir, finalNormal);
                 float  sunAlign   = saturate(dot(sunReflect, viewDirWS));
                 half3  sunStreak  = pow(sunAlign, _SunStreakPower) * _Sol_SunColor.rgb
                                   * _SunStreakIntensity * lightAtten * dayFactor;
                 waterColor += sunStreak;
-                #endif
 
                 // =====================================
                 //  HORIZON SHEEN (soft glow at grazing angles)
@@ -797,7 +707,6 @@ Shader "Sol/Water"
                 // =====================================
                 //  SHORE FOAM
                 // =====================================
-                #if FEATURE_FOAM
                 {
                     float2 foamUV   = worldUV * _FoamTiling + _Time.y * float2(0.01, -0.01) * _FoamTiling;
                     half3  foamTex  = SAMPLE_TEXTURE2D(_FoamMap, sampler_FoamMap, foamUV).rgb
@@ -824,13 +733,11 @@ Shader "Sol/Water"
                                     * foamNoise;
                     waterColor = lerp(waterColor, foamTex * _FoamBrightness * foamToD, crestFoam);
                 }
-                #endif
 
                 // =====================================
                 //  SUBSURFACE SCATTERING
                 //  Backscatter: max when viewer looks toward the sun (light transmits through).
                 // =====================================
-                #if FEATURE_SSS
                 {
                     float sssWrap  = saturate(dot(lightDir, viewDirWS));
                     half3 sssColor = pow(sssWrap, _SSSPower) * _SSSColor.rgb
@@ -838,7 +745,6 @@ Shader "Sol/Water"
                                    * lightColor * dayFactor;
                     waterColor += sssColor;
                 }
-                #endif
 
                 // =====================================
                 //  ADDITIONAL LIGHTS
@@ -888,26 +794,12 @@ Shader "Sol/Water"
             #pragma vertex   DepthVert
             #pragma fragment DepthFrag
 
-            #pragma shader_feature_local _WATERTYPE_OCEAN _WATERTYPE_LAKE _WATERTYPE_RIVER _WATERTYPE_PUDDLE
-
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             // Global motion (must match forward pass)
             float4 _Sol_WindDirection;
             float  _Sol_WindStrength;
             float  _Sol_GlobalWaveSpeedMul;
-
-            // Feature gating (depth pass needs wave/swell control)
-            #if defined(_WATERTYPE_PUDDLE)
-                #define FEATURE_WAVES 0
-                #define FEATURE_SWELL 0
-            #elif defined(_WATERTYPE_LAKE) || defined(_WATERTYPE_RIVER)
-                #define FEATURE_WAVES 1
-                #define FEATURE_SWELL 0
-            #else
-                #define FEATURE_WAVES 1
-                #define FEATURE_SWELL 1
-            #endif
 
             CBUFFER_START(UnityPerMaterial)
                 half4  _ShallowColor;
@@ -936,13 +828,11 @@ Shader "Sol/Water"
                 float  _NormalScrollSpeed2;
                 float4 _NormalDetailScrollDir;
 
-                float4 _FlowDirection;
-                float  _FlowSpeed;
-                float  _FlowStrength;
-
                 float  _RefractionStrength;
                 float  _RefractionDepthFade;
                 float  _RefractionDistanceFade;
+                float  _RefractionNearSurfaceFade;
+                float  _RefractionEdgeFadeDistance;
 
                 float  _Roughness;
                 float  _SpecIntensity;
@@ -969,7 +859,10 @@ Shader "Sol/Water"
 
                 float  _FresnelPower;
                 float  _FresnelBias;
+                float  _FresnelSplitStrength;
                 float  _ReflectionStr;
+                float  _UnderwaterShadowStrength;
+                float  _UnderwaterShadowFadeDistance;
 
                 float  _DampeningFactor;
 
@@ -1007,7 +900,6 @@ Shader "Sol/Water"
                 Varyings OUT;
                 float3 posWS = TransformObjectToWorld(IN.positionOS.xyz);
 
-                #if FEATURE_WAVES
                 float windStr = _Sol_WindStrength;
                 float3 windDir = float3(_Sol_WindDirection.x, 0, _Sol_WindDirection.z);
                 float3 dir1   = normalize(float3(_Wave1Direction.x, 0, _Wave1Direction.z) + windDir * windStr * 0.3);
@@ -1020,11 +912,8 @@ Shader "Sol/Water"
                 float raw2 = sin(phase2);
                 posWS.y += sign(raw1) * pow(abs(raw1), 1.5) * amp
                          + (pow(raw2 * 0.5 + 0.5, 2.0) * 2.0 - 1.0) * amp * _Wave2Scale;
-                #if FEATURE_SWELL
                 posWS.y += sin(dot(posWS.xz, _SwellDirection.xz) + _Time.y * _SwellSpeed)
                          * _SwellAmplitude;
-                #endif
-                #endif
 
                 OUT.positionCS = TransformWorldToHClip(posWS);
                 return OUT;

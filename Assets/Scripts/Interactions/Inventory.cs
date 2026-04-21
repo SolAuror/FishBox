@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
@@ -40,16 +40,22 @@ namespace Sol
     {
         private const string SkeletonKeyItemId = "ITM00006";
         private const string LockpickItemId = "ITM00007";
+#region Inspector Settings
 
         [Header("Inventory")]
+        [Tooltip("Inspector: tunes capacity.")]
         [SerializeField] private int _capacity = 30;
         [SerializeField] private int _gold = 0;
+        [Tooltip("Inspector: tunes container type.")]
         [SerializeField] private InventoryContainerType _containerType = InventoryContainerType.Inventory;
+        [Tooltip("Inspector: tunes inspector contents.")]
         [SerializeField] private List<InventorySeedEntry> _inspectorContents = new();
 
         [Header("World Container Security")]
+        [Tooltip("Inspector: tunes owner.")]
         [SerializeField] private GameObject _owner;
         [SerializeField] private string _ownerId = string.Empty;
+        [Tooltip("Inspector: tunes is locked.")]
         [SerializeField] private bool _isLocked = false;
         [SerializeField] private bool _isLockpickable = true;
         [Tooltip("Required lock skill level when opening without a key.")]
@@ -58,6 +64,7 @@ namespace Sol
         [SerializeField] private string _requiredKeyItemName = string.Empty;
         [Tooltip("Optional key item id in the interactor inventory that can open this while locked.")]
         [SerializeField] private string _requiredKeyItemId = string.Empty;
+#endregion
 
         private readonly List<InventorySlot> _slots = new();
         private int _deferChangedDepth;
@@ -448,7 +455,7 @@ namespace Sol
                 // (drop to world, trade to another inventory) as well as destruction.
                 // Deregistration must be tied to the fish actually being destroyed/consumed
                 // (see Inventory.Use for the consumable path), otherwise the registry entry
-                // vanishes while the world object still carries its FishCode — after a
+                // vanishes while the world object still carries its FishCode Ã¢â‚¬â€ after a
                 // save/load round-trip the fish's stats (size, weight, etc.) would be lost.
             }
             NotifyChanged();

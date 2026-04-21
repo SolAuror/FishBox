@@ -10,6 +10,7 @@ namespace Sol.Outline
     /// Place one instance of this in the scene to enable hover-based outlining.
     public class OutlineManager : MonoBehaviour
     {
+        #region Inspector Settings
         [Tooltip("Max raycast distance for hover detection")]
         [SerializeField] private float raycastDistance = 100f;
 
@@ -18,6 +19,7 @@ namespace Sol.Outline
 
         [Tooltip("Player root for CanInteract checks (auto-detected if null)")]
         [SerializeField] private GameObject player;
+        #endregion
 
         private OutlineComponent _currentOutlinedObject;
         private Interactor _playerInteractor;

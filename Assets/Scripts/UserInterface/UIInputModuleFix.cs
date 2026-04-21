@@ -21,8 +21,10 @@ namespace Sol.HUD
     [RequireComponent(typeof(InputSystemUIInputModule))]
     public class UIInputModuleFix : MonoBehaviour
     {
+        #region Inspector Settings
         [Tooltip("Drag the SolControls.InputActions asset here.")]
         [SerializeField] private InputActionAsset _solControls;
+        #endregion
 
         private void Awake()
         {

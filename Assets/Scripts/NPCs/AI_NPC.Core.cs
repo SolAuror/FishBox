@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,12 +12,16 @@ namespace Sol.AI
 {
     public partial class AI_NPC : MonoBehaviour, Shared.AI.ILocomotionIntentProvider
     {
+        #region Inspector Settings
         [Header("Configuration")]
+        [Tooltip("Inspector: tunes config.")]
         [SerializeField] private AIConfig config;
 
         [Header("References")]
+        [Tooltip("Inspector: tunes soul.")]
         [SerializeField] private NPCSoul soul;
         [SerializeField] private Animator animator;
+        [Tooltip("Inspector: tunes fake cam.")]
         [SerializeField] private Transform fakeCam;
 
         [Header("Death")]
@@ -31,6 +35,7 @@ namespace Sol.AI
         [SerializeField] private float deathHoldNormalizedTime = 0.82f;
         [Tooltip("If child ragdoll rigidbodies are already authored on the prefab, switch to ragdoll after the death pose is reached.")]
         [SerializeField] private bool ragdollAfterDeath = false;
+        #endregion
 
         public event Action<State, State> OnStateChanged;
 

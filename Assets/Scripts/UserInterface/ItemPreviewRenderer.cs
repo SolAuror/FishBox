@@ -16,17 +16,25 @@ namespace Sol.HUD
     /// </summary>
     public class ItemPreviewRenderer : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("Setup")]
+        [Tooltip("Inspector: tunes preview camera.")]
         [SerializeField] private Camera _previewCamera;
         [SerializeField] private Transform _anchor;
+        [Tooltip("Inspector: tunes pivot.")]
         [SerializeField] private Transform _pivot;
+        [Tooltip("Inspector: tunes preview layer.")]
         [SerializeField] private int _previewLayer = 31;
 
         [Header("Rendering")]
+        [Tooltip("Inspector: tunes texture size.")]
         [SerializeField] private int _textureSize = 256;
         [SerializeField] private float _rotationSpeed = 20f;
+        [Tooltip("Inspector: tunes camera distance.")]
         [SerializeField] private float _cameraDistance = 2f;
+        [Tooltip("Inspector: tunes preview light intensity.")]
         [SerializeField] private float _previewLightIntensity = 1.15f;
+        #endregion
 
         private static readonly Color ClearColor = new(0f, 0f, 0f, 0f);
 
@@ -214,14 +222,14 @@ namespace Sol.HUD
             if (!hasBounds)
                 return false;
 
-            // Center the object on the pivot. Do NOT rescale the clone — previews must
+            // Center the object on the pivot. Do NOT rescale the clone ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â previews must
             // preserve real-world item scale so that a small fish looks smaller than a large
             // fish in the tooltip, matching how they appear in the world and inventory.
             Vector3 centerOffset = _pivot.position - bounds.center;
             go.transform.position += centerOffset;
 
             // Position the camera at a fixed authoring distance. A large item will fill more
-            // of the preview frame, a small item will fill less — that's the consistency we
+            // of the preview frame, a small item will fill less ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â that's the consistency we
             // want across every tooltip.
             float distance = Mathf.Max(0.1f, _cameraDistance);
             _previewCamera.transform.position = _anchor.position + _anchor.forward * -distance;

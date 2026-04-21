@@ -39,6 +39,9 @@ public class WaterVolume : MonoBehaviour
     [HideInInspector] public Vector2 wave1Dir = new Vector2(1f, 0f);
     [HideInInspector] public Vector2 wave2Dir = new Vector2(0.496f, 0.868f);
     [HideInInspector] public float wave2Scale = 0.5f;
+    [HideInInspector] public float swellAmplitude = 0.15f;
+    [HideInInspector] public float swellSpeed = 0.2f;
+    [HideInInspector] public Vector2 swellDir = new Vector2(0.05f, 0.03f);
 
     [Header("Swimming")]
     [Tooltip("How far above the player's feet the water surface must be before LocomotionController.IsSwimming is set to true.")]
@@ -190,15 +193,33 @@ public class WaterVolume : MonoBehaviour
 
     public float GetSurfaceHeight(Vector3 worldPos)
     {
-        float time = SolWaterManager.Instance != null ? SolWaterManager.Instance.WaveTime : Time.time;
-        float d1 = wave1Dir.x * worldPos.x + wave1Dir.y * worldPos.z;
-        float d2 = wave2Dir.x * worldPos.x + wave2Dir.y * worldPos.z;
-        float phase1 = d1 * waveFrequency + time * waveSpeed;
-        float phase2 = d2 * waveFrequency * 1.3f + time * waveSpeed * 0.8f;
-        float wave1 = Mathf.Sin(phase1) * waveAmplitude;
-        float wave2 = Mathf.Sin(phase2) * waveAmplitude * wave2Scale;
+        SolWaterManager manager = SolWaterManager.Instance;
+        float time = manager != null ? manager.WaveTime : Time.time;
+        float windStrength = manager != null ? manager.windStrength : 0f;
+        Vector3 windDirection = manager != null ? manager.WindDirectionNormalized : Vector3.right;
+        float globalSpeed = manager != null ? Mathf.Max(manager.globalWaveSpeedMultiplier, 0.001f) : 1f;
 
-        return SurfaceY + wave1 + wave2;
+        Vector2 windXZ = new Vector2(windDirection.x, windDirection.z);
+        Vector2 dir1 = (wave1Dir + windXZ * windStrength * 0.3f).normalized;
+        Vector2 dir2 = (wave2Dir + windXZ * windStrength * 0.15f).normalized;
+        if (dir1.sqrMagnitude <= 0f) dir1 = Vector2.right;
+        if (dir2.sqrMagnitude <= 0f) dir2 = new Vector2(0.496f, 0.868f);
+
+        float d1 = dir1.x * worldPos.x + dir1.y * worldPos.z;
+        float d2 = dir2.x * worldPos.x + dir2.y * worldPos.z;
+        float phase1 = d1 * waveFrequency + time * waveSpeed * globalSpeed;
+        float phase2 = d2 * waveFrequency * 1.3f + time * waveSpeed * 0.8f * globalSpeed;
+
+        float amp = waveAmplitude * (1f + windStrength * 0.2f);
+        float raw1 = Mathf.Sin(phase1);
+        float raw2 = Mathf.Sin(phase2);
+        float wave1 = Mathf.Sign(raw1) * Mathf.Pow(Mathf.Abs(raw1), 1.5f) * amp;
+        float wave2 = (Mathf.Pow(raw2 * 0.5f + 0.5f, 2f) * 2f - 1f) * amp * wave2Scale;
+
+        float swellPhase = (swellDir.x * worldPos.x + swellDir.y * worldPos.z) + time * swellSpeed;
+        float swell = Mathf.Sin(swellPhase) * swellAmplitude;
+
+        return SurfaceY + wave1 + wave2 + swell;
     }
 
     public bool ContainsPoint(Vector3 worldPos)
@@ -229,6 +250,17 @@ public class WaterVolume : MonoBehaviour
         wave2Dir = dir2.sqrMagnitude > 0f ? dir2.normalized : new Vector2(0.496f, 0.868f);
 
         wave2Scale = waterMaterial.GetFloat("_Wave2Scale");
+
+        if (waterMaterial.HasProperty("_SwellAmplitude"))
+            swellAmplitude = waterMaterial.GetFloat("_SwellAmplitude");
+        if (waterMaterial.HasProperty("_SwellSpeed"))
+            swellSpeed = waterMaterial.GetFloat("_SwellSpeed");
+        if (waterMaterial.HasProperty("_SwellDirection"))
+        {
+            Vector4 swell = waterMaterial.GetVector("_SwellDirection");
+            Vector2 dir = new Vector2(swell.x, swell.z);
+            swellDir = dir.sqrMagnitude > 0f ? dir.normalized : new Vector2(0.05f, 0.03f);
+        }
     }
 
 #if UNITY_EDITOR

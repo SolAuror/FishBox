@@ -6,7 +6,7 @@ using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// ---------------------------------------------------------------------------
-/// UNDERWATER RENDERER FEATURE  (URP 17 / Unity 6 — Render Graph)
+/// UNDERWATER RENDERER FEATURE  (URP 17 / Unity 6, Render Graph)
 /// ---------------------------------------------------------------------------
 ///
 /// Performs the fullscreen blit that applies Sol.UnderwaterOverlay to the
@@ -16,8 +16,8 @@ using UnityEngine.Rendering.Universal;
 /// FullScreenPassRendererFeature (proven RG-safe approach).
 ///
 /// SETUP:
-///   1.  Open your URP Renderer Asset (Project ? Assets ? Settings ? ...).
-///   2.  Add Renderer Feature ? "Underwater Renderer Feature" from the list.
+///   1.  Open your URP Renderer Asset (Project > Assets > Settings > ...).
+///   2.  Add Renderer Feature > "Underwater Renderer Feature" from the list.
 ///   3.  Create a new Material using Sol/UnderwaterOverlay shader and assign
 ///       it to the "Overlay Material" field.
 ///   4.  Add UnderwaterVolumeController to your camera/player prefab.
@@ -65,7 +65,7 @@ public class UnderwaterRendererFeature : ScriptableRendererFeature
     }
 
     // -----------------------------------------------------------------------
-    //  Inner render pass — mirrors FullScreenPassRendererFeature's pattern
+    //  Inner render pass - mirrors FullScreenPassRendererFeature's pattern
     // -----------------------------------------------------------------------
 
     class UnderwaterBlitPass : ScriptableRenderPass
@@ -87,7 +87,7 @@ public class UnderwaterRendererFeature : ScriptableRendererFeature
 
             float factor = Shader.GetGlobalFloat(_SID_UnderwaterFactor);
 
-            // Skip the blit entirely when above water — zero GPU cost.
+            // Skip the blit entirely when above water for zero GPU cost.
             if (factor < 0.002f)
             {
                 if (_debugLog) Debug.Log($"[UnderwaterFeature] Skipping blit: _UnderwaterFactor={factor:F4}");
@@ -98,7 +98,7 @@ public class UnderwaterRendererFeature : ScriptableRendererFeature
 
             if (resourceData.isActiveTargetBackBuffer)
             {
-                Debug.LogWarning("[UnderwaterFeature] Cannot blit — active target is back buffer.");
+                Debug.LogWarning("[UnderwaterFeature] Cannot blit: active target is back buffer.");
                 return;
             }
 
@@ -112,7 +112,7 @@ public class UnderwaterRendererFeature : ScriptableRendererFeature
             renderGraph.AddBlitPass(activeColor, copiedColor, Vector2.one, Vector2.zero,
                 passName: "Underwater Copy Color");
 
-            // ---- Step 2: Blit from copy ? back into active colour with overlay material ----
+            // ---- Step 2: Blit from copy back into active colour with overlay material ----
             var blitParams = new RenderGraphUtils.BlitMaterialParameters(
                 copiedColor, activeColor, _material, 0);
             renderGraph.AddBlitPass(blitParams, passName: "Underwater Overlay Blit");

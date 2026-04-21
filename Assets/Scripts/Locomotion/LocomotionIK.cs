@@ -5,9 +5,12 @@ namespace Sol.Locomotion
     [DefaultExecutionOrder(1)]
     public class LocomotionIK : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("Components")]
+        [Tooltip("Inspector: tunes animator.")]
         [SerializeField] private Animator _animator;
         [SerializeField] private LocomotionState _state;
+        [Tooltip("Inspector: tunes controller.")]
         [SerializeField] private LocomotionController _controller;
 
         [Header("Foot IK Settings")]
@@ -121,7 +124,7 @@ namespace Sol.Locomotion
         [Range(0f, 1f)]
         [SerializeField] private float lookEyesWeight = 1f;
         
-        [Tooltip("Clamp weight � 0 = no limit, 1 = completely clamped. Controls how far the look can deviate from forward.")]
+        [Tooltip("Clamp weight ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â 0 = no limit, 1 = completely clamped. Controls how far the look can deviate from forward.")]
         [Range(0f, 1f)]
         [SerializeField] private float lookClampWeight = 0.3f;
         
@@ -163,6 +166,7 @@ namespace Sol.Locomotion
         [SerializeField] private bool showDebugRays = false;
         [SerializeField] private bool showDebugInfo = false;
         [SerializeField] private bool showDebugSpheres = false;
+        #endregion
 
         // IK weights
         private float _leftFootWeight = 0f;
@@ -211,7 +215,7 @@ namespace Sol.Locomotion
         private float _currentLookWeight = 0f;
         private Vector3 _smoothLookTarget;
 
-        // Hand IK � inactive by default, driven by external grab/interaction systems
+        // Hand IK ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â inactive by default, driven by external grab/interaction systems
         private float _leftHandTargetWeight = 0f;
         private float _rightHandTargetWeight = 0f;
         private float _leftHandTargetRotationWeight = 1f;
@@ -289,7 +293,7 @@ namespace Sol.Locomotion
         {
             if (_animator == null) return;
             
-            // Only process IK on the base layer � additional layers with IK Pass enabled
+            // Only process IK on the base layer ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â additional layers with IK Pass enabled
             // would double-process foot positions each frame, causing pelvis oscillation and sliding.
             if (layerIndex != 0) return;
 
@@ -317,7 +321,7 @@ namespace Sol.Locomotion
             // Base target: 1 when grounded, 0 when airborne
             float targetWeight = isGrounded ? 1f : 0f;
             
-            // Fade foot IK out at higher speeds � fast animations (sprint) are designed
+            // Fade foot IK out at higher speeds ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â fast animations (sprint) are designed
             // to look correct without IK. Forcing IK at speed causes the solver's knee-bend
             // to shift foot XZ, producing visible sliding.
             if (targetWeight > 0f && _controller != null)
@@ -335,7 +339,7 @@ namespace Sol.Locomotion
             {
                 // Only read the curve value when the parameter actually exists in the
                 // Animator Controller. Clips without the curve return 0 from GetFloat,
-                // which would disable IK entirely � we default to 1 (full IK) instead.
+                // which would disable IK entirely ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â we default to 1 (full IK) instead.
                 if (_hasLeftFootCurve)
                     leftCurveWeight = _animator.GetFloat(leftFootCurveParam);
                 if (_hasRightFootCurve)
@@ -372,7 +376,7 @@ namespace Sol.Locomotion
                 _rightFootLocked = false;
             }
             
-            // Suppress foot locking during lateral movement � strafe animations need feet to cycle freely
+            // Suppress foot locking during lateral movement ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â strafe animations need feet to cycle freely
             if (allowFootLocking && _controller != null)
             {
                 float lateralSpeed = Mathf.Abs(Vector3.Dot(_controller.CurrentVelocity, transform.right));
@@ -398,7 +402,7 @@ namespace Sol.Locomotion
                     ref _rightFootLockedRotation, ref _lastRightFootAnimPos, ref _smoothRightFootRot, allowFootLocking);
             }
 
-            // Prevent leg crossing � only when feet are locked (IK overrides XZ).
+            // Prevent leg crossing ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â only when feet are locked (IK overrides XZ).
             // During animation-driven movement (especially strafes), trust the animation's foot placement.
             if (_leftFootLocked || _rightFootLocked)
                 EnforceFootSeparation();
@@ -407,12 +411,12 @@ namespace Sol.Locomotion
             if (adjustPelvis && isGrounded)
             {
                 // Scale each foot's offset by its current IK weight so the swing foot
-                // (curve weight � 0) doesn't inflate the pelvis dip and push feet underground
+                // (curve weight ÃƒÆ’Ã¢â‚¬Â¹Ãƒâ€¦Ã¢â‚¬Å“ 0) doesn't inflate the pelvis dip and push feet underground
                 float weightedLeftOffset  = _leftFootOffset  * _leftFootWeight;
                 float weightedRightOffset = _rightFootOffset * _rightFootWeight;
                 float pelvisInput = Mathf.Max(weightedLeftOffset, weightedRightOffset);
                 
-                // Reduce pelvis compensation at speed � animation handles stride height,
+                // Reduce pelvis compensation at speed ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â animation handles stride height,
                 // pelvis adjustment is mainly for idle/slow poses on uneven terrain
                 float speed = _controller != null ? _controller.CurrentSpeed : 0f;
                 float speedRange = pelvisMinAdjustSpeed - pelvisFullAdjustSpeed;
@@ -423,7 +427,7 @@ namespace Sol.Locomotion
                 float rawPelvisOffset = pelvisInput * pelvisAdjustmentAmount * speedFactor;
                 float targetPelvisOffset = pelvisInput > 0.01f ? -Mathf.Min(rawPelvisOffset, maxPelvisDip) : 0f;
 
-                // Smooth pelvis movement � use asymmetric speed: slow to dip (filters noise), fast to recover
+                // Smooth pelvis movement ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â use asymmetric speed: slow to dip (filters noise), fast to recover
                 float smoothFactor = targetPelvisOffset < _pelvisOffset ? pelvisSmoothSpeed : pelvisSmoothSpeed * 2f;
                 _pelvisOffset = Mathf.Lerp(_pelvisOffset, targetPelvisOffset, Time.deltaTime * smoothFactor);
 
@@ -545,7 +549,7 @@ namespace Sol.Locomotion
                 // Store offset for pelvis adjustment (positive = foot needs to move down to reach ground)
                 footHeightOffset = clampedDistance;
 
-                // Smoothed foot rotation � either two-point sole sampling or single-normal fallback
+                // Smoothed foot rotation ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â either two-point sole sampling or single-normal fallback
                 Quaternion targetRot = ComputeFootRotation(foot, hit.normal, hit.point);
                 if (!_rotationsInitialized)
                 {
@@ -588,7 +592,7 @@ namespace Sol.Locomotion
                     Debug.DrawRay(rayOrigin, Vector3.down * rayLength, Color.red);
             }
 
-            // Apply foot IK � rotation weight fades separately for smoother blend-out
+            // Apply foot IK ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â rotation weight fades separately for smoother blend-out
             float rotWeight = foot == AvatarIKGoal.LeftFoot ? _leftFootRotWeight : _rightFootRotWeight;
             _animator.SetIKPositionWeight(foot, weight);
             _animator.SetIKRotationWeight(foot, rotWeight);
@@ -720,7 +724,7 @@ namespace Sol.Locomotion
         }
 
         /// <summary>
-        /// Deactivate hand IK � weight blends out smoothly.
+        /// Deactivate hand IK ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â weight blends out smoothly.
         /// </summary>
         public void ClearHandIKTarget(bool leftHand)
         {
@@ -787,7 +791,7 @@ namespace Sol.Locomotion
             Vector3 lookDirXZ = new Vector3(lookDir.x, 0f, lookDir.z).normalized;
             float lookAngle = Vector3.Angle(bodyForwardXZ, lookDirXZ);
 
-            // Fade weight based on angle � full weight within limit, fades to zero past max
+            // Fade weight based on angle ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â full weight within limit, fades to zero past max
             float angleFactor = lookAngle <= lookMaxAngle ? 1f : Mathf.Clamp01(1f - (lookAngle - lookMaxAngle) / 30f);
 
             // Determine if look IK should be active
@@ -911,7 +915,7 @@ namespace Sol.Locomotion
             Vector3 localLeft = transform.InverseTransformPoint(_leftFootPosition);
             Vector3 localRight = transform.InverseTransformPoint(_rightFootPosition);
 
-            // Check lateral (X) separation � left foot should be on the left, right on the right
+            // Check lateral (X) separation ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â left foot should be on the left, right on the right
             float separation = localLeft.x - localRight.x;
 
             // If feet have crossed (left foot is to the right of right foot, or too close)

@@ -11,12 +11,12 @@ Material:
   m_Shader: {fileID: 4800000, guid: 6911ae9eb680673478d5f9d501d79a09, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
-  - _WATERTYPE_OCEAN
+  m_ValidKeywords: []
   m_InvalidKeywords:
   - _CAUSTICS_ON
   - _FOAM_ON
   - _SSS_ON
+  - _WATERTYPE_OCEAN
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -57,10 +57,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
-    - _CausticsDepth: 2.52
-    - _CausticsIntensity: 1.12
+    - _CausticsDepth: 8
+    - _CausticsIntensity: 1.94
     - _CausticsSpeed: 0.094
-    - _CausticsTiling: 0.18
+    - _CausticsTiling: 1.4
     - _CausticsToggle: 1
     - _CrestFoamSharpness: 0.41
     - _CrestFoamThreshold: 1.07
@@ -79,6 +79,7 @@ Material:
     - _FoamToggle: 1
     - _FresnelBias: 0.069
     - _FresnelPower: 4.64
+    - _FresnelSplitStrength: 1.7
     - _HorizonFalloff: 3.34
     - _HorizonSheenStr: 0.133
     - _NormalDetailDistanceFade: 99.8
@@ -89,9 +90,11 @@ Material:
     - _NormalStrength: 1.39
     - _NormalTiling: 0.2
     - _ReflectionStr: 0.388
-    - _RefractionDepthFade: 4.1
-    - _RefractionDistanceFade: 23
-    - _RefractionStrength: 0.049
+    - _RefractionDepthFade: 6.4
+    - _RefractionDistanceFade: 13
+    - _RefractionEdgeFadeDistance: 1.04
+    - _RefractionNearSurfaceFade: 0.25
+    - _RefractionStrength: 0.042
     - _Roughness: 0.037
     - _SSS: 1
     - _SSSIntensity: 0.39
@@ -107,6 +110,8 @@ Material:
     - _ToDColorInfluence: 0.769
     - _ToDReflectionInfluence: 0.729
     - _ToDSpecInfluence: 0.455
+    - _UnderwaterShadowFadeDistance: 4
+    - _UnderwaterShadowStrength: 0.6
     - _WaterType: 0
     - _Wave2Scale: 0.271
     - _WaveAmplitude: 0.353
@@ -114,7 +119,7 @@ Material:
     - _WaveFrequency: 1.5
     - _WaveSpeed: 0.14
     m_Colors:
-    - _DeepColor: {r: 0, g: 0.048047658, b: 0.764151, a: 0.95}
+    - _DeepColor: {r: 0, g: 0.012772084, b: 0.20754719, a: 0.95}
     - _FlowDirection: {r: 1, g: 0, b: 0, a: 0}
     - _FoamColor: {r: 1, g: 1, b: 1, a: 1}
     - _FresnelColor: {r: 0.4666667, g: 0.6845316, b: 0.99215686, a: 1}
@@ -125,7 +130,7 @@ Material:
     - _NormalDetailScrollDir: {r: 0.02, g: -0.01, b: 0, a: 0}
     - _NormalScrollDir1: {r: 0.7, g: 0.5, b: 0, a: 0}
     - _NormalScrollDir2: {r: -0.4, g: 0.8, b: 0, a: 0}
-    - _SSSColor: {r: 0, g: 0.1038272, b: 0.8490566, a: 1}
+    - _SSSColor: {r: 0, g: 0.5936564, b: 0.8509804, a: 1}
     - _ShallowColor: {r: 0.32549018, g: 0.41831756, b: 0.972549, a: 0.725}
     - _SwellDirection: {r: 0.05, g: 0, b: 0.03, a: 0}
     - _Wave1Direction: {r: 0.8, g: 0, b: 0.6, a: 0}

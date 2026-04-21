@@ -17,12 +17,14 @@ namespace Sol.Locomotion
             public PhysicsMaterial material;
             public FootstepSurface surface;
         }
+#region Inspector Settings
 
         [Tooltip("Default surface used when no material match is found.")]
         [SerializeField] private FootstepSurface _defaultSurface;
 
         [Tooltip("Material ? Surface mappings. First match wins.")]
         [SerializeField] private SurfaceMapping[] _mappings;
+#endregion
 
         public FootstepSurface DefaultSurface => _defaultSurface;
 

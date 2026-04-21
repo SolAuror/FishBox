@@ -25,27 +25,38 @@ namespace Sol.Grab
     [RequireComponent(typeof(Collider))]
     public class ItemComponent : MonoBehaviour, IInteractable
     {
+        #region Inspector Settings
         [Header("Item Info")]
+        [Tooltip("Inspector: tunes item id.")]
         [SerializeField] private string _itemId = string.Empty;
         [SerializeField] private string _itemName = "Item";
+        [Tooltip("Inspector: tunes item type.")]
         [SerializeField] private ItemType _itemType = ItemType.Material;
         [SerializeField] private int _value;
+        [Tooltip("Inspector: tunes item owner.")]
         [SerializeField] [HideInInspector] private GameObject _itemOwner;
         [SerializeField] private string _itemOwnerId = string.Empty;
+        [Tooltip("Inspector: tunes is stolen.")]
         [SerializeField] private bool _isStolen;
         [SerializeField] [TextArea] private string _flavourText = string.Empty;
+        [Tooltip("Inspector: tunes icon.")]
         [SerializeField] private Sprite _icon;
 
         [Header("Properties")]
+        [Tooltip("Inspector: tunes is stackable.")]
         [SerializeField] private bool _isStackable;
         [SerializeField] private bool _isConsumable;
+        [Tooltip("Inspector: tunes is tradeable.")]
         [SerializeField] private bool _isTradeable = true;
+        [Tooltip("Inspector: tunes max stack size.")]
         [SerializeField] private int _maxStackSize = 1;
 
         [Header("Weapon Stats")]
+        [Tooltip("Inspector: tunes damage.")]
         [SerializeField] private float _damage;
 
         [Header("Armor Stats")]
+        [Tooltip("Inspector: tunes defense.")]
         [SerializeField] private float _defense;
 
         [Header("Equipment")]
@@ -57,6 +68,7 @@ namespace Sol.Grab
         [Header("Pickup")]
         [Tooltip("Optional hand target used by the pickup reach. If unassigned, the system falls back to the item's collider or transform.")]
         [SerializeField] private Transform _pickupGrip;
+        #endregion
 
         private GameObject _lastInteractorOwner;
 

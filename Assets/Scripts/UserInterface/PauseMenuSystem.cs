@@ -9,13 +9,19 @@ namespace Sol.HUD
 {
     public sealed class PauseMenuSystem : MenuSystemBase<PauseMenuSystem>
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes panel rect.")]
         [SerializeField] private RectTransform _panelRect;
         [SerializeField] private Button _resumeButton;
+        [Tooltip("Inspector: tunes settings button.")]
         [SerializeField] private Button _settingsButton;
         [SerializeField] private Button _saveGameButton;
+        [Tooltip("Inspector: tunes load game button.")]
         [SerializeField] private Button _loadGameButton;
         [SerializeField] private Button _quitButton;
+        [Tooltip("Inspector: tunes pause time on show.")]
         [SerializeField] private bool _pauseTimeOnShow = true;
+        #endregion
 
         public event Action OnResume;
         public event Action OnSettings;

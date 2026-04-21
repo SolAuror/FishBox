@@ -7,11 +7,16 @@ namespace Sol.HUD
 {
     public sealed class DialoguePromptSystem : MenuSystemBase<DialoguePromptSystem>
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes icon.")]
         [SerializeField] private Image _icon;
         [SerializeField] private TMP_Text _titleText;
+        [Tooltip("Inspector: tunes description text.")]
         [SerializeField] private TMP_Text _descriptionText;
         [SerializeField] private Button _confirmButton;
+        [Tooltip("Inspector: tunes cancel button.")]
         [SerializeField] private Button _cancelButton;
+        #endregion
 
         private Action _confirmAction;
         private Action _cancelAction;

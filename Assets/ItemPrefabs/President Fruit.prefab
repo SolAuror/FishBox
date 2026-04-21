@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 8687716146010162166}
   - component: {fileID: 1426016632420302624}
   - component: {fileID: 2081887949572225366}
+  - component: {fileID: 2786434738301968853}
   m_Layer: 3
   m_Name: President Fruit
   m_TagString: Item
@@ -204,3 +205,18 @@ Rigidbody:
   m_Interpolate: 1
   m_Constraints: 0
   m_CollisionDetection: 1
+--- !u!114 &2786434738301968853
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6425090699038654580}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e208d84db43d4914aa2e5ab593975a6d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingBaitItem
+  _baitDefinition: {fileID: 11400000, guid: b94a13d71f6fe954daf3e45494646c7f, type: 2}
+  _interestMultiplier: 2
+  _radiusMultiplier: 1.35

@@ -1,7 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
-/// Attach to any object (player, NPC, boat, barrel�) that should create
+/// Attach to any object (player, NPC, boat, barrel…) that should create
 /// ripples when it touches or moves through water.
 ///
 /// Periodically emits ripples via WaterRippleManager while the object is
@@ -69,22 +69,33 @@ public class WaterRippleSource : MonoBehaviour
 
         _wasInWater = inWater;
 
-        if (!inWater) { _prevPos = pos; return; }
+        if (!inWater)
+        {
+            _prevPos = pos;
+            return;
+        }
 
         // Velocity (XZ only)
-        Vector3 vel;
+        float speedSq;
         if (_rb != null)
-            vel = _rb.linearVelocity;
+        {
+            Vector3 vel = _rb.linearVelocity;
+            speedSq = vel.x * vel.x + vel.z * vel.z;
+        }
         else
-            vel = (pos - _prevPos) / Mathf.Max(Time.deltaTime, 0.0001f);
+        {
+            Vector3 delta = (pos - _prevPos) / Mathf.Max(Time.deltaTime, 0.0001f);
+            speedSq = delta.x * delta.x + delta.z * delta.z;
+        }
 
-        float speedXZ = new Vector2(vel.x, vel.z).magnitude;
         _prevPos = pos;
 
-        if (speedXZ < minSpeed) return;
+        float minSpeedSq = minSpeed * minSpeed;
+        if (speedSq < minSpeedSq) return;
         if (Time.time < _nextEmitTime) return;
 
         // Scale strength with speed (clamped)
+        float speedXZ = Mathf.Sqrt(speedSq);
         float st = Mathf.Min(strength * (speedXZ / Mathf.Max(minSpeed, 0.01f)), maxStrength);
         WaterRippleManager.Instance.Emit(pos, st);
         _nextEmitTime = Time.time + emitInterval;

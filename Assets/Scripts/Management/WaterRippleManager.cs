@@ -1,19 +1,12 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 
 /// <summary>
-/// Manages interactive water ripples — ring waves that expand outward from
+/// Manages interactive water ripples â€” ring waves that expand outward from
 /// objects moving through the water surface.
 ///
 /// Singleton. Maintains a fixed-size ring buffer of ripple events and uploads
-/// them to global shader properties every frame so the Sol.Water shader can
+/// them to global shader properties so the Sol.Water shader can
 /// render concentric ring normals.
-///
-/// SETUP:
-///   1. Add this component to any persistent GameObject (e.g. the same
-///      one as SolWaterManager).
-///   2. Attach WaterRippleSource to any objects that should create ripples
-///      (players, NPCs, boats, barrels, etc.).
-///   3. Tune rippleSpeed / rippleFrequency / rippleLifetime to taste.
 /// </summary>
 [ExecuteAlways]
 public class WaterRippleManager : MonoBehaviour
@@ -27,7 +20,7 @@ public class WaterRippleManager : MonoBehaviour
     [Range(0.5f, 20f)]
     public float rippleSpeed = 5f;
 
-    [Tooltip("Ring density — higher values produce tighter concentric rings.")]
+    [Tooltip("Ring density â€” higher values produce tighter concentric rings.")]
     [Range(1f, 60f)]
     public float rippleFrequency = 20f;
 
@@ -40,8 +33,14 @@ public class WaterRippleManager : MonoBehaviour
 
     // Ring buffer: each entry is (worldX, worldZ, birthTime, strength)
     readonly Vector4[] _ripples = new Vector4[MaxRipples];
+    readonly Vector4[] _gpuRipples = new Vector4[MaxRipples];
     int _writeIndex;
     int _activeCount;
+
+    bool _gpuDirty = true;
+    float _lastRippleSpeed = float.NaN;
+    float _lastRippleFrequency = float.NaN;
+    float _lastRippleLifetime = float.NaN;
 
     // Shader property IDs
     static readonly int _RipplesID         = Shader.PropertyToID("_Sol_Ripples");
@@ -61,6 +60,7 @@ public class WaterRippleManager : MonoBehaviour
             return;
         }
         Instance = this;
+        _gpuDirty = true;
     }
 
     void OnDisable()
@@ -73,7 +73,9 @@ public class WaterRippleManager : MonoBehaviour
 
     void Update()
     {
-        PurgeExpired();
+        if (_activeCount > 0)
+            PurgeExpired();
+
         PushToGPU();
     }
 
@@ -84,12 +86,13 @@ public class WaterRippleManager : MonoBehaviour
     /// Call from WaterRippleSource or any gameplay code.
     /// </summary>
     /// <param name="worldPos">World-space position (only XZ is used).</param>
-    /// <param name="strength">Normal perturbation strength (0.01–1 typical).</param>
+    /// <param name="strength">Normal perturbation strength (0.01â€“1 typical).</param>
     public void Emit(Vector3 worldPos, float strength = 0.15f)
     {
         _ripples[_writeIndex] = new Vector4(worldPos.x, worldPos.z, Time.time, strength);
         _writeIndex = (_writeIndex + 1) % MaxRipples;
         if (_activeCount < MaxRipples) _activeCount++;
+        _gpuDirty = true;
     }
 
     // --- Internals -------------------------------------------------------
@@ -104,16 +107,54 @@ public class WaterRippleManager : MonoBehaviour
             {
                 _ripples[i] = Vector4.zero;
                 _activeCount = Mathf.Max(0, _activeCount - 1);
+                _gpuDirty = true;
             }
         }
     }
 
     void PushToGPU()
     {
-        Shader.SetGlobalVectorArray(_RipplesID, _ripples);
-        Shader.SetGlobalInt(_RippleCountID, _activeCount);
-        Shader.SetGlobalFloat(_RippleSpeedID, rippleSpeed);
-        Shader.SetGlobalFloat(_RippleFrequencyID, rippleFrequency);
-        Shader.SetGlobalFloat(_RippleLifetimeID, rippleLifetime);
+        bool settingsDirty = !Mathf.Approximately(_lastRippleSpeed, rippleSpeed)
+            || !Mathf.Approximately(_lastRippleFrequency, rippleFrequency)
+            || !Mathf.Approximately(_lastRippleLifetime, rippleLifetime);
+
+        if (_gpuDirty)
+        {
+            int count = 0;
+            float now = Time.time;
+
+            for (int i = 0; i < MaxRipples; i++)
+            {
+                Vector4 ripple = _ripples[i];
+                if (ripple.w <= 0f)
+                    continue;
+
+                if (now - ripple.z > rippleLifetime)
+                {
+                    _ripples[i] = Vector4.zero;
+                    continue;
+                }
+
+                _gpuRipples[count++] = ripple;
+            }
+
+            for (int i = count; i < MaxRipples; i++)
+                _gpuRipples[i] = Vector4.zero;
+
+            _activeCount = count;
+            Shader.SetGlobalVectorArray(_RipplesID, _gpuRipples);
+            Shader.SetGlobalInt(_RippleCountID, _activeCount);
+            _gpuDirty = false;
+        }
+
+        if (settingsDirty)
+        {
+            Shader.SetGlobalFloat(_RippleSpeedID, rippleSpeed);
+            Shader.SetGlobalFloat(_RippleFrequencyID, rippleFrequency);
+            Shader.SetGlobalFloat(_RippleLifetimeID, rippleLifetime);
+            _lastRippleSpeed = rippleSpeed;
+            _lastRippleFrequency = rippleFrequency;
+            _lastRippleLifetime = rippleLifetime;
+        }
     }
 }

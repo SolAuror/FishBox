@@ -23,9 +23,12 @@ namespace Sol.SaveLoad
         public const int AutoSaveSlot = 0;
 
         private static string SaveDirectory => Path.Combine(Application.persistentDataPath, "saves");
+#region Inspector Settings
 
         [Header("Player Reference")]
+        [Tooltip("Inspector: tunes player root.")]
         [SerializeField] private GameObject _playerRoot;
+#endregion
 
         private float _sessionStartTime;
 
@@ -152,7 +155,7 @@ namespace Sol.SaveLoad
                 texture.wrapMode = TextureWrapMode.Clamp;
                 texture.filterMode = FilterMode.Bilinear;
 
-                return texture; // ALWAYS a new instance → caller must destroy
+                return texture; // ALWAYS a new instance Ã¢â€ â€™ caller must destroy
             }
             catch
             {
@@ -220,7 +223,10 @@ namespace Sol.SaveLoad
                 Containers = CollectContainerData(),
                 NPCs = CollectNpcData(),
                 CaughtFish = new List<CaughtFishData>(FishRegistry.Instance.GetAllFishData()),
-                WorldItems = CollectWorldItemData()
+                WorldItems = CollectWorldItemData(),
+                Quests = Sol.Quests.QuestManager.Instance != null
+                    ? Sol.Quests.QuestManager.Instance.CollectSaveData()
+                    : new Sol.Quests.QuestManager.QuestPersistBlob()
             };
         }
 
@@ -343,7 +349,7 @@ namespace Sol.SaveLoad
 
                     if (string.IsNullOrWhiteSpace(item.ItemId))
                     {
-                        Debug.LogWarning($"[SaveManager] Item '{item.ItemName}' in '{inventory.name}' has no ItemId — it will not be saved. Set an ItemId on the prefab.");
+                        Debug.LogWarning($"[SaveManager] Item '{item.ItemName}' in '{inventory.name}' has no ItemId Ã¢â‚¬â€ it will not be saved. Set an ItemId on the prefab.");
                         continue;
                     }
 
@@ -390,6 +396,7 @@ namespace Sol.SaveLoad
             ApplyContainerData(data.Containers);
             ApplyNpcData(data.NPCs);
             ApplyWorldItemData(data.WorldItems);
+            Sol.Quests.QuestManager.Instance?.ApplySaveData(data.Quests);
         }
 
         private void ApplyTimeData(TimeSaveData data) // Applies in-game time and date information from the provided TimeSaveData to the TimeOfDay and Calendar objects in the scene to restore the saved in-game time state during loading.
@@ -462,14 +469,21 @@ namespace Sol.SaveLoad
                     continue;
 
                 Rigidbody rb = interactable.GetComponent<Rigidbody>();
-                bool hadKinematic = rb != null && rb.isKinematic;
-                if (rb != null) rb.isKinematic = true;
-                interactable.transform.SetPositionAndRotation(saved.Position, saved.Rotation);
+
                 if (rb != null)
                 {
-                    rb.linearVelocity = Vector3.zero;
-                    rb.angularVelocity = Vector3.zero;
-                    rb.isKinematic = hadKinematic;
+                    if (!rb.isKinematic)
+                    {
+                        rb.linearVelocity = Vector3.zero;
+                        rb.angularVelocity = Vector3.zero;
+                    }
+                    rb.position = saved.Position;
+                    rb.rotation = saved.Rotation;
+                    Physics.SyncTransforms();
+                }
+                else
+                {
+                    interactable.transform.SetPositionAndRotation(saved.Position, saved.Rotation);
                 }
 
                 if (saved.IsLocked)
@@ -579,13 +593,13 @@ namespace Sol.SaveLoad
                     continue;
 
                 // Anything with an Inventory ancestor (player, NPC, container, equipment bone
-                // on an inventoried actor) is captured by Collect*InventoryItems — skip here.
+                // on an inventoried actor) is captured by Collect*InventoryItems Ã¢â‚¬â€ skip here.
                 if (IsOwnedByInventory(item))
                     continue;
 
                 if (string.IsNullOrWhiteSpace(item.ItemId))
                 {
-                    Debug.LogWarning($"[SaveManager] World item '{item.gameObject.name}' has no ItemId — skipped.");
+                    Debug.LogWarning($"[SaveManager] World item '{item.gameObject.name}' has no ItemId Ã¢â‚¬â€ skipped.");
                     continue;
                 }
 
@@ -1013,11 +1027,13 @@ namespace Sol.SaveLoad
             data.NPCs ??= new List<NPCSaveData>();
             data.CaughtFish ??= new List<CaughtFishData>();
             data.WorldItems ??= new List<WorldItemSaveData>();
+            data.Quests ??= new Sol.Quests.QuestManager.QuestPersistBlob();
 
             switch (data.SaveVersion)
             {
                 case 1:
-                    // Current version. Nothing to migrate yet.
+                case 2:
+                    // Pre-quest-system saves: quests already defaulted to empty above.
                     break;
             }
 

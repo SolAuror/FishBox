@@ -13,19 +13,28 @@ namespace Sol.HUD
 {
     public class ConversationWindowSystem : MonoBehaviour
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes backdrop image.")]
         [SerializeField] private Image _backdropImage;
         [SerializeField] private RectTransform _panelRoot;
+        [Tooltip("Inspector: tunes icon.")]
         [SerializeField] private Image _icon;
         [SerializeField] private TextMeshProUGUI _titleText;
+        [Tooltip("Inspector: tunes description text.")]
         [SerializeField] private TextMeshProUGUI _descriptionText;
         [SerializeField] private RectTransform _optionsRoot;
+        [Tooltip("Inspector: tunes option template button.")]
         [SerializeField] private Button _optionTemplateButton;
         [SerializeField] private Button _cancelButton;
+        [Tooltip("Inspector: tunes topic hint text.")]
         [SerializeField] private TextMeshProUGUI _topicHintText;
         [SerializeField] private TextMeshProUGUI _speakerRoleText;
+        [Tooltip("Inspector: tunes topic hint.")]
         [SerializeField] private string _topicHint = "Topics";
         [SerializeField] private int _maxVisibleOptions = 8;
+        [Tooltip("Inspector: tunes speaker role line.")]
         [SerializeField] private string _speakerRoleLine = "Conversation";
+        #endregion
 
         public static ConversationWindowSystem Instance { get; private set; }
         public bool IsVisible => gameObject.activeInHierarchy && _panelRoot != null && _panelRoot.gameObject.activeSelf;

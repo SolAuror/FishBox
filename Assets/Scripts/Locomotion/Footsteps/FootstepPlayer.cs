@@ -17,6 +17,7 @@ namespace Sol.Locomotion
     [RequireComponent(typeof(AudioSource))]
     public class FootstepPlayer : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("Data")]
         [Tooltip("Drag a FootstepLibrary asset here.")]
         [SerializeField] private FootstepLibrary _library;
@@ -32,6 +33,7 @@ namespace Sol.Locomotion
         [Header("Cooldown")]
         [Tooltip("Minimum seconds between footstep sounds to prevent spam.")]
         [SerializeField] private float _minInterval = 0.15f;
+        #endregion
 
         private AudioSource _audio;
         private LocomotionController _controller;
@@ -67,7 +69,7 @@ namespace Sol.Locomotion
             if (_library == null) return;
             if (Time.time - _lastStepTime < _minInterval) return;
 
-            // Only play when grounded (skipped if no CharacterController — e.g. NPC).
+            // Only play when grounded (skipped if no CharacterController â€” e.g. NPC).
             if (_cc != null && !_cc.isGrounded) return;
 
             PhysicsMaterial groundMat = _controller != null ? _controller.CurrentGroundMaterial : null;

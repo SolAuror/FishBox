@@ -20,6 +20,11 @@ namespace Sol.Outline
         }
 
         public OutlineSettings settings = new OutlineSettings();
+#region Inspector Settings
+
+        [SerializeField] private Shader _maskShader;
+        [SerializeField] private Shader _fullscreenShader;
+#endregion
 
         private Material _maskMaterial;
         private Material _fullscreenMaterial;
@@ -46,8 +51,14 @@ namespace Sol.Outline
         // -- Feature lifecycle --
         public override void Create()
         {
-            _maskMaterial = CoreUtils.CreateEngineMaterial(Shader.Find("Hidden/Sol/OutlineMask"));
-            _fullscreenMaterial = CoreUtils.CreateEngineMaterial(Shader.Find("Hidden/Sol/OutlineFullscreen"));
+            if (_maskShader == null || _fullscreenShader == null)
+            {
+                Debug.LogError("SolOutlineRendererFeature: Mask or Fullscreen shader is not assigned. Assign them on the renderer feature in the URP renderer asset.");
+                return;
+            }
+
+            _maskMaterial = CoreUtils.CreateEngineMaterial(_maskShader);
+            _fullscreenMaterial = CoreUtils.CreateEngineMaterial(_fullscreenShader);
 
             _maskPass = new OutlineMaskPass(_maskMaterial);
             _maskPass.renderPassEvent = RenderPassEvent.AfterRenderingOpaques;

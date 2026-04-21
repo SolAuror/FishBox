@@ -14,7 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Outline.SolOutlineRendererFeature
   m_Active: 1
   settings:
-    maxOutlineWidth: 20
+    maxOutlineWidth: 3
+  _maskShader: {fileID: 4800000, guid: c7f647ca754715141a5d92e8f61d8e23, type: 3}
+  _fullscreenShader: {fileID: 4800000, guid: 422066b1725925d4198b03a322ce96ff, type: 3}
 --- !u!114 &-4546881084337735045
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -30,6 +32,8 @@ MonoBehaviour:
   m_Active: 1
   settings:
     maxOutlineWidth: 20
+  _maskShader: {fileID: 0}
+  _fullscreenShader: {fileID: 0}
 --- !u!114 &-1168084923048926288
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -44,6 +48,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnderwaterRendererFeature
   m_Active: 1
   overlayMaterial: {fileID: 2100000, guid: 521639a91cdf8824d8ddefe6971fb597, type: 2}
+  debugLog: 0
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0

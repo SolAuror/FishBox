@@ -16,14 +16,14 @@ using UnityEngine;
 ///
 /// For third-person cameras that orbit above the water while the player is
 /// submerged, an optional playerTransform reference is provided. When assigned,
-/// the controller checks BOTH the camera position AND the player position —
+/// the controller checks BOTH the camera position AND the player position â€”
 /// whichever is deeper underwater drives the effect. This prevents the
 /// underwater overlay from disappearing just because the orbit camera is
 /// above the surface.
 ///
 /// SETUP:
 ///   1. Add to any GameObject that persists while playing.
-///   2. Optionally assign trackedCamera — if left null, Camera.main is used
+///   2. Optionally assign trackedCamera â€” if left null, Camera.main is used
 ///      each frame (which is the Cinemachine Brain output camera).
 ///   3. Optionally assign playerTransform for third-person support.
 ///   4. Add UnderwaterRendererFeature to your URP Renderer Asset.
@@ -43,8 +43,13 @@ public class UnderwaterVolumeController : MonoBehaviour
     public Transform playerTransform;
 
     [Header("Transition")]
-    [Tooltip("How fast _UnderwaterFactor blends when the camera crosses the surface.")]
+    [Tooltip("How fast _UnderwaterFactor blends when entering water.")]
+    [Range(0f, 40f)]
     public float blendSpeed = 10f;
+
+    [Tooltip("How fast _UnderwaterFactor blends out when leaving water. Keep higher than enter speed.")]
+    [Range(0f, 80f)]
+    public float exitBlendSpeed = 24f;
 
     [Tooltip("Depth below the surface (metres) at which _UnderwaterFactor reaches 1.")]
     public float fullSubmersionDepth = 0.4f;
@@ -52,7 +57,12 @@ public class UnderwaterVolumeController : MonoBehaviour
     [Tooltip("Extra depth offset added when computing how far the camera is below the surface. " +
              "A small positive value (e.g. 0.15) closes the visual gap between the water mesh " +
              "and where underwater FX begin to appear.")]
-    public float surfaceEnterBias = 0.15f;
+    public float surfaceEnterBias = 0.05f;
+
+    [Tooltip("How far above the local surface the camera may be while still allowing " +
+             "third-person player fallback to drive underwater FX.")]
+    [Range(0f, 1f)]
+    public float playerFallbackSurfaceGrace = 0.05f;
 
     [Header("Debug")]
     [Tooltip("Enable to print pipeline diagnostics every second to the Console.")]
@@ -94,13 +104,11 @@ public class UnderwaterVolumeController : MonoBehaviour
             if (vol != null)
             {
                 float surface   = vol.GetSurfaceHeight(camPos);
-                // surfaceEnterBias shifts the effective surface slightly upward so FX
-                // begin to appear just as the camera reaches the visual water surface,
-                // closing the perceptible gap between mesh and effect onset.
-                underwaterDepth = (surface + surfaceEnterBias) - camPos.y;
-
-                if (underwaterDepth > 0f)
+                float trueDepth = surface - camPos.y;
+                if (trueDepth > 0f)
                 {
+                    // Bias only after true submersion so above-water cameras never trigger.
+                    underwaterDepth = trueDepth + surfaceEnterBias;
                     targetFactor = Mathf.Clamp01(underwaterDepth / Mathf.Max(fullSubmersionDepth, 0.01f));
                     debugSource = $"camera (depth={underwaterDepth:F2})";
                 }
@@ -119,7 +127,8 @@ public class UnderwaterVolumeController : MonoBehaviour
             if (camXZVol != null)
             {
                 float camSurf = camXZVol.GetSurfaceHeight(camPos);
-                cameraIsNearSurface = (camPos.y - camSurf) < fullSubmersionDepth;
+                float cameraAboveSurface = camPos.y - camSurf;
+                cameraIsNearSurface = cameraAboveSurface <= playerFallbackSurfaceGrace;
             }
         }
 
@@ -145,8 +154,9 @@ public class UnderwaterVolumeController : MonoBehaviour
             }
         }
 
-        _underwaterFactor = Mathf.Lerp(_underwaterFactor, targetFactor, blendSpeed * Time.deltaTime);
-        if (_underwaterFactor < 0.002f) _underwaterFactor = 0f;
+        float blend = targetFactor > _underwaterFactor ? blendSpeed : exitBlendSpeed;
+        _underwaterFactor = Mathf.MoveTowards(_underwaterFactor, targetFactor, blend * Time.deltaTime);
+        if (_underwaterFactor < 0.001f) _underwaterFactor = 0f;
 
         Shader.SetGlobalFloat(_SID_UnderwaterFactor, _underwaterFactor);
         Shader.SetGlobalFloat(_SID_UnderwaterDepth,  Mathf.Max(underwaterDepth, 0f));

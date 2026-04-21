@@ -11,38 +11,57 @@ namespace Sol.HUD
 {
     public sealed class SettingsMenuSystem : MenuSystemBase<SettingsMenuSystem>
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes tab audio.")]
         [SerializeField] private Button _tabAudio;
         [SerializeField] private Button _tabGraphics;
+        [Tooltip("Inspector: tunes tab gameplay.")]
         [SerializeField] private Button _tabGameplay;
         [SerializeField] private Button _tabControls;
+        [Tooltip("Inspector: tunes tab accessibility.")]
         [SerializeField] private Button _tabAccessibility;
         [SerializeField] private UnityEngine.Object _panelAudio;
+        [Tooltip("Inspector: tunes panel graphics.")]
         [SerializeField] private UnityEngine.Object _panelGraphics;
         [SerializeField] private UnityEngine.Object _panelGameplay;
+        [Tooltip("Inspector: tunes panel controls.")]
         [SerializeField] private UnityEngine.Object _panelControls;
         [SerializeField] private UnityEngine.Object _panelAccessibility;
+        [Tooltip("Inspector: tunes slider master.")]
         [SerializeField] private UnityEngine.Object _sliderMaster;
         [SerializeField] private UnityEngine.Object _sliderMusic;
+        [Tooltip("Inspector: tunes slider sfx.")]
         [SerializeField] private UnityEngine.Object _sliderSFX;
         [SerializeField] private UnityEngine.Object _sliderAmbient;
+        [Tooltip("Inspector: tunes dropdown resolution.")]
         [SerializeField] private UnityEngine.Object _dropdownResolution;
         [SerializeField] private UnityEngine.Object _dropdownDisplayMode;
+        [Tooltip("Inspector: tunes dropdown quality.")]
         [SerializeField] private UnityEngine.Object _dropdownQuality;
         [SerializeField] private UnityEngine.Object _toggleVSync;
+        [Tooltip("Inspector: tunes dropdown shadows.")]
         [SerializeField] private UnityEngine.Object _dropdownShadows;
         [SerializeField] private UnityEngine.Object _dropdownAA;
+        [Tooltip("Inspector: tunes slider sensitivity.")]
         [SerializeField] private UnityEngine.Object _sliderSensitivity;
         [SerializeField] private UnityEngine.Object _toggleInvertY;
+        [Tooltip("Inspector: tunes slider fov.")]
         [SerializeField] private UnityEngine.Object _sliderFOV;
         [SerializeField] private UnityEngine.Object _toggleCrosshair;
+        [Tooltip("Inspector: tunes controls scroll rect.")]
         [SerializeField] private ScrollRect _controlsScrollRect;
         [SerializeField] private Transform _bindRowParent;
+        [Tooltip("Inspector: tunes slider uiscale.")]
         [SerializeField] private UnityEngine.Object _sliderUIScale;
         [SerializeField] private UnityEngine.Object _dropdownSubtitleSize;
+        [Tooltip("Inspector: tunes dropdown colorblind.")]
         [SerializeField] private UnityEngine.Object _dropdownColorblind;
         [SerializeField] private Button _applyButton;
+        [Tooltip("Inspector: tunes reset defaults button.")]
         [SerializeField] private Button _resetDefaultsButton;
+        [Tooltip("Inspector: tunes back button.")]
         [SerializeField] private Button _backButton;
+        #endregion
 
         public bool ReturnsToPause => _returnToPause;
 
@@ -54,6 +73,7 @@ namespace Sol.HUD
         private SettingsData _workingCopy;
         private bool _returnToPause;
 
+        #region Lifecycle
         protected override void Awake()
         {
             base.Awake();
@@ -77,12 +97,15 @@ namespace Sol.HUD
             CacheBindRowTemplate();
             WireUiEvents();
         }
+        #endregion
 
+        #region Public API
         public void Open(bool returnToPause = false)
         {
             _returnToPause = returnToPause;
             AutoWire();
             CacheBindRowTemplate();
+            // Force settings to be modal so we don't end up with stacked interactive menus.
             UIStateOwnership.CloseConflictingUi(nameof(SettingsMenuSystem));
             _workingCopy = new SettingsData(SettingsPersistence.Current);
             PopulateAllControls();
@@ -119,6 +142,7 @@ namespace Sol.HUD
                 PauseMenuSystem pauseMenu = PauseMenuSystem.ResolveInstance(activateIfInactive: false);
                 if (pauseMenu != null)
                 {
+                    // Keep pause flow consistent when settings was opened as a pause submenu.
                     pauseMenu.EndPauseSessionFromSubmenu();
                     return;
                 }
@@ -133,7 +157,9 @@ namespace Sol.HUD
             ApplyGameplaySettings(data);
             ApplyControlOverrides(data);
         }
+        #endregion
 
+        #region Static Apply Helpers
         public static void ApplyGameplaySettings(SettingsData data)
         {
             if (data == null) return;
@@ -190,7 +216,9 @@ namespace Sol.HUD
             try { controls.asset.LoadBindingOverridesFromJson(data.ControlOverridesJson); }
             catch (Exception ex) { Debug.LogWarning($"[SettingsMenuSystem] Failed to load binding overrides: {ex.Message}"); }
         }
+        #endregion
 
+        #region UI Population
         private void PopulateAllControls()
         {
             PopulateAudio();
@@ -228,6 +256,7 @@ namespace Sol.HUD
                 HashSet<string> seen = new();
                 foreach (Resolution res in _availableResolutions)
                 {
+                    // Collapse refresh-rate variants so the dropdown stays readable.
                     string key = $"{res.width}x{res.height}";
                     if (seen.Add(key)) _filteredResolutions.Add(res);
                 }
@@ -292,35 +321,29 @@ namespace Sol.HUD
 
         private void PopulateControls()
         {
-            if (_bindRowParent == null || LocomotionInputManager.Instance?.Controls == null) return;
+            if (_bindRowParent == null)
+            {
+                Debug.LogWarning("[SettingsMenuSystem] PopulateControls skipped: _bindRowParent is null.", this);
+                return;
+            }
+            if (_bindRowTemplate == null)
+            {
+                Debug.LogWarning("[SettingsMenuSystem] PopulateControls skipped: bind row template not cached.", this);
+                return;
+            }
+            if (LocomotionInputManager.Instance?.Controls == null)
+            {
+                Debug.LogWarning("[SettingsMenuSystem] PopulateControls skipped: LocomotionInputManager.Instance or Controls is null ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â is the player scene loaded?", this);
+                return;
+            }
+            // Re-apply in-memory overrides first so the binding list mirrors the current working copy.
             ApplyControlOverrides(_workingCopy);
             InputActionMap map = LocomotionInputManager.Instance.Controls.Default.Get();
             int rowIndex = 0;
-            foreach (InputAction action in map.actions)
-            {
-                for (int bindingIndex = 0; bindingIndex < action.bindings.Count; bindingIndex++)
-                {
-                    InputBinding binding = action.bindings[bindingIndex];
-                    if (binding.isComposite) continue;
-                    GameObject row = GetOrCreateBindRow(rowIndex++);
-                    if (row == null) continue;
-                    TMP_Text actionName = MenuUiUtility.FindTextByNames(row.transform, "ActionName");
-                    TMP_Text bindingLabel = MenuUiUtility.FindTextByNames(row.transform, "BindingLabel");
-                    Button rebindButton = MenuUiUtility.FindButtonByNames(row.transform, "RebindButton");
-                    if (actionName != null) actionName.text = binding.isPartOfComposite ? $"{action.name} ({binding.name})" : action.name;
-                    if (bindingLabel != null) bindingLabel.text = InputControlPath.ToHumanReadableString(action.bindings[bindingIndex].effectivePath, InputControlPath.HumanReadableStringOptions.OmitDevice);
-                    if (rebindButton != null)
-                    {
-                        rebindButton.onClick.RemoveAllListeners();
-                        int capturedIndex = bindingIndex;
-                        InputAction capturedAction = action;
-                        rebindButton.onClick.AddListener(() => StartRebind(capturedAction, capturedIndex, bindingLabel, rebindButton));
-                    }
-                    row.SetActive(true);
-                }
-            }
+            rowIndex = PopulateBindingSection(map, "MousenKeyboard", "Keyboard & Mouse", rowIndex);
+            rowIndex = PopulateBindingSection(map, "Controller", "Controller", rowIndex);
             for (int i = rowIndex; i < _spawnedBindRows.Count; i++) _spawnedBindRows[i].SetActive(false);
-            if (_controlsScrollRect != null) _controlsScrollRect.verticalNormalizedPosition = 1f;
+            if (_controlsScrollRect != null && _controlsScrollRect.content != null) _controlsScrollRect.verticalNormalizedPosition = 1f;
         }
 
         private void PopulateAccessibility()
@@ -351,7 +374,9 @@ namespace Sol.HUD
             SetPanelVisible(_panelControls, key == "controls");
             SetPanelVisible(_panelAccessibility, key == "accessibility");
         }
+        #endregion
 
+        #region Mutations & Rebinding
         private void ApplyCurrentSettings()
         {
             _workingCopy ??= new SettingsData(SettingsPersistence.Current);
@@ -443,6 +468,7 @@ namespace Sol.HUD
             if (label != null) label.text = "Press any key...";
             if (button != null) button.interactable = false;
             action.Disable();
+            // We ignore mouse here on purpose; this menu is meant for keyboard/gamepad rebinding.
             _activeRebind = action.PerformInteractiveRebinding(bindingIndex)
                 .WithControlsExcluding("Mouse")
                 .OnMatchWaitForAnother(0.1f)
@@ -464,14 +490,36 @@ namespace Sol.HUD
                 })
                 .Start();
         }
+        #endregion
 
+        #region Internal Wiring
         private void CacheBindRowTemplate()
         {
-            if (_bindRowParent != null && _bindRowTemplate == null && _bindRowParent.childCount > 0)
+            if (_bindRowTemplate != null) return;
+
+            if (_bindRowParent == null)
             {
-                _bindRowTemplate = _bindRowParent.GetChild(0).gameObject;
-                _bindRowTemplate.SetActive(false);
+                Transform fallbackParent = MenuUiUtility.FindDeep(transform, "BindRows");
+                if (fallbackParent != null) _bindRowParent = fallbackParent;
             }
+
+            if (_bindRowParent == null)
+            {
+                Debug.LogWarning("[SettingsMenuSystem] _bindRowParent is not wired and no 'BindRows' child found.", this);
+                return;
+            }
+
+            Transform template = _bindRowParent.childCount > 0 ? _bindRowParent.GetChild(0) : MenuUiUtility.FindDeep(transform, "BindRowTemplate");
+            if (template == null)
+            {
+                Debug.LogWarning($"[SettingsMenuSystem] No bind row template found under '{_bindRowParent.name}'.", this);
+                return;
+            }
+
+            _bindRowTemplate = template.gameObject;
+            if (_bindRowTemplate.transform.parent != _bindRowParent)
+                _bindRowTemplate.transform.SetParent(_bindRowParent, false);
+            _bindRowTemplate.SetActive(false);
         }
 
         private GameObject GetOrCreateBindRow(int index)
@@ -479,12 +527,102 @@ namespace Sol.HUD
             while (_spawnedBindRows.Count <= index)
             {
                 if (_bindRowTemplate == null) return null;
+                // Pool rows once and reuse them to avoid alloc spikes when reopening settings.
                 GameObject row = Instantiate(_bindRowTemplate, _bindRowParent);
                 row.SetActive(true);
                 _spawnedBindRows.Add(row);
             }
             _spawnedBindRows[index].SetActive(true);
             return _spawnedBindRows[index];
+        }
+
+        private int PopulateBindingSection(InputActionMap map, string group, string headerText, int rowIndex)
+        {
+            bool hasAny = false;
+            foreach (InputAction action in map.actions)
+            {
+                for (int i = 0; i < action.bindings.Count; i++)
+                {
+                    if (BindingMatchesGroup(action.bindings[i], group)) { hasAny = true; break; }
+                }
+                if (hasAny) break;
+            }
+            if (!hasAny) return rowIndex;
+
+            GameObject header = GetOrCreateBindRow(rowIndex++);
+            if (header != null) ConfigureHeaderRow(header, headerText);
+
+            foreach (InputAction action in map.actions)
+            {
+                for (int bindingIndex = 0; bindingIndex < action.bindings.Count; bindingIndex++)
+                {
+                    InputBinding binding = action.bindings[bindingIndex];
+                    if (binding.isComposite) continue;
+                    if (!BindingMatchesGroup(binding, group)) continue;
+
+                    GameObject row = GetOrCreateBindRow(rowIndex++);
+                    if (row == null) continue;
+                    ConfigureBindingRow(row, action, bindingIndex, binding);
+                }
+            }
+            return rowIndex;
+        }
+
+        private static bool BindingMatchesGroup(InputBinding binding, string group)
+        {
+            if (binding.isComposite) return false;
+            string groups = binding.groups;
+            if (string.IsNullOrEmpty(groups)) return false;
+            foreach (string g in groups.Split(InputBinding.Separator))
+            {
+                if (g == group) return true;
+            }
+            return false;
+        }
+
+        private static void ConfigureHeaderRow(GameObject row, string headerText)
+        {
+            TMP_Text actionName = MenuUiUtility.FindTextByNames(row.transform, "ActionName");
+            TMP_Text bindingLabel = MenuUiUtility.FindTextByNames(row.transform, "BindingLabel");
+            Button rebindButton = MenuUiUtility.FindButtonByNames(row.transform, "RebindButton");
+            if (actionName != null)
+            {
+                actionName.text = headerText;
+                actionName.fontStyle = FontStyles.Bold | FontStyles.UpperCase;
+            }
+            if (bindingLabel != null) bindingLabel.gameObject.SetActive(false);
+            if (rebindButton != null)
+            {
+                rebindButton.onClick.RemoveAllListeners();
+                rebindButton.gameObject.SetActive(false);
+            }
+            row.SetActive(true);
+        }
+
+        private void ConfigureBindingRow(GameObject row, InputAction action, int bindingIndex, InputBinding binding)
+        {
+            TMP_Text actionName = MenuUiUtility.FindTextByNames(row.transform, "ActionName");
+            TMP_Text bindingLabel = MenuUiUtility.FindTextByNames(row.transform, "BindingLabel");
+            Button rebindButton = MenuUiUtility.FindButtonByNames(row.transform, "RebindButton");
+            if (actionName != null)
+            {
+                actionName.text = binding.isPartOfComposite ? $"{action.name} ({binding.name})" : action.name;
+                actionName.fontStyle = FontStyles.Normal;
+            }
+            if (bindingLabel != null)
+            {
+                bindingLabel.gameObject.SetActive(true);
+                bindingLabel.text = InputControlPath.ToHumanReadableString(action.bindings[bindingIndex].effectivePath, InputControlPath.HumanReadableStringOptions.OmitDevice);
+            }
+            if (rebindButton != null)
+            {
+                rebindButton.gameObject.SetActive(true);
+                rebindButton.onClick.RemoveAllListeners();
+                int capturedIndex = bindingIndex;
+                InputAction capturedAction = action;
+                rebindButton.onClick.AddListener(() => StartRebind(capturedAction, capturedIndex, bindingLabel, rebindButton));
+            }
+            row.SetActive(true);
         }
 
         private void WireUiEvents()
@@ -502,7 +640,9 @@ namespace Sol.HUD
             WireSlider(SliderRef(ref _sliderSFX, "Slider_SFX"), PreviewAudio);
             WireSlider(SliderRef(ref _sliderAmbient, "Slider_Ambient"), PreviewAudio);
         }
+        #endregion
 
+        #region Utility Helpers
         private void PreviewAudio(float _)
         {
             _workingCopy ??= new SettingsData(SettingsPersistence.Current);
@@ -616,6 +756,7 @@ namespace Sol.HUD
             }
             return false;
         }
+        #endregion
     }
 }
 

@@ -9,10 +9,11 @@ namespace Sol.Locomotion
     [CreateAssetMenu(menuName = "Sol/Locomotion/Footstep Surface", fileName = "NewFootstepSurface")]
     public class FootstepSurface : ScriptableObject
     {
+        #region Inspector Settings
         [Tooltip("Clips played when walking or running on this surface.")]
         [SerializeField] private AudioClip[] _footsteps;
 
-        [Tooltip("Clips played on hard landing (optional � falls back to footsteps).")]
+        [Tooltip("Clips played on hard landing (optional Ã¢â‚¬â€ falls back to footsteps).")]
         [SerializeField] private AudioClip[] _landings;
 
         [Tooltip("Volume range for footsteps.")]
@@ -22,6 +23,7 @@ namespace Sol.Locomotion
         [Tooltip("Pitch variation range.")]
         [SerializeField] private float _pitchMin = 0.9f;
         [SerializeField] private float _pitchMax = 1.1f;
+        #endregion
 
         public AudioClip[] Footsteps => _footsteps;
         public AudioClip[] Landings => _landings;

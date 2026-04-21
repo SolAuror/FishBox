@@ -14,13 +14,19 @@ namespace Sol
     [RequireComponent(typeof(Inventory))]
     public class ContainerInteractable : MonoBehaviour, IInteractable
     {
+        #region Inspector Settings
         [Header("Identity")]
+        [Tooltip("Inspector: tunes container id.")]
         [SerializeField] private string _containerId = string.Empty;
 
+        [Tooltip("Inspector: tunes open prompt.")]
         [SerializeField] private string _openPrompt = "Open";
         [SerializeField] private string _lockedPrompt = "Locked";
+        [Tooltip("Inspector: tunes pick snap sound cue.")]
         [SerializeField] private AudioClip _pickSnapSoundCue;
+        [Tooltip("Inspector: tunes pick snap volume.")]
         [SerializeField] [Range(0f, 1f)] private float _pickSnapVolume = 0.85f;
+        #endregion
 
         private Inventory _inventory;
         private bool _lastInteractorHasKey;
@@ -63,7 +69,7 @@ namespace Sol
         {
             _containerId = EntityCodeUtility.NormalizeOrEmpty(_containerId, EntityCodeUtility.ContainerPrefix);
 #if UNITY_EDITOR
-            // Prefab assets must not carry a ContainerId — otherwise every scene instance
+            // Prefab assets must not carry a ContainerId ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â otherwise every scene instance
             // inherits the same code and collides on save/load. Instances get a unique
             // code; a collision with another instance is treated as "unassigned" and
             // reassigned to the next free code.

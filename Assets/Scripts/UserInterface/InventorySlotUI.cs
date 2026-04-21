@@ -23,16 +23,24 @@ namespace Sol.HUD
     /// </summary>
     public class InventorySlotUI : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes icon.")]
         [SerializeField] private Image _icon;
         [SerializeField] private TextMeshProUGUI _nameText;
+        [Tooltip("Inspector: tunes count text.")]
         [SerializeField] private TextMeshProUGUI _countText;
         [SerializeField] private TextMeshProUGUI _statText;
+        [Tooltip("Inspector: tunes stat text1.")]
         [SerializeField] private TextMeshProUGUI _statText1;
         [SerializeField] private TextMeshProUGUI _statText2;
+        [Tooltip("Inspector: tunes highlight.")]
         [SerializeField] private Image _highlight;
         [Header("Stolen Indicator")]
+        [Tooltip("Inspector: tunes stolen icon image.")]
         [SerializeField] private Image _stolenIconImage;
+        [Tooltip("Inspector: tunes stolen icon sprite.")]
         [SerializeField] private Sprite _stolenIconSprite;
+        #endregion
 
         private static readonly Color HighlightOff = new(1f, 1f, 1f, 0f);
         private static readonly Color HighlightOn = new(1f, 1f, 1f, 0.12f);

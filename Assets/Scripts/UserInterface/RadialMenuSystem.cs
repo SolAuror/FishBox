@@ -9,20 +9,30 @@ namespace Sol.HUD
 {
     public sealed class RadialMenuSystem : MenuSystemBase<RadialMenuSystem>
     {
+        #region Inspector Settings
+        [Tooltip("Inspector: tunes clock hand.")]
         [SerializeField] private RectTransform _clockHand;
         [SerializeField] private TMP_Text _timeDisplay;
+        [Tooltip("Inspector: tunes hours label.")]
         [SerializeField] private TMP_Text _hoursLabel;
         [SerializeField] private TMP_Text _staminaPreview;
+        [Tooltip("Inspector: tunes time preview.")]
         [SerializeField] private TMP_Text _timePreview;
         [SerializeField] private TMP_Text _currentTimeDisplay;
+        [Tooltip("Inspector: tunes current date display.")]
         [SerializeField] private TMP_Text _currentDateDisplay;
         [SerializeField] private Button _confirmButton;
+        [Tooltip("Inspector: tunes cancel button.")]
         [SerializeField] private Button _cancelButton;
         [SerializeField] private RectTransform _circleCenter;
+        [Tooltip("Inspector: tunes min hours.")]
         [SerializeField] private int _minHours = 1;
         [SerializeField] private int _maxHours = 24;
+        [Tooltip("Inspector: tunes stamina per hour.")]
         [SerializeField] private float _staminaPerHour = 12.5f;
+        [Tooltip("Inspector: tunes start hour.")]
         [SerializeField] private int _startHour = 6;
+        #endregion
 
         public int SelectedHours => _selectedHours;
 

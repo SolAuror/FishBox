@@ -24,80 +24,114 @@ namespace Sol.AI
     [DisallowMultipleComponent]
     public class AI_Fish : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("Definition")]
+        [Tooltip("Inspector: tunes definition.")]
         [SerializeField] private FishDefinition _definition;
 
         [Header("Fish Identity")]
+        [Tooltip("Inspector: tunes fish name.")]
         [SerializeField] private string _fishName = "Fish";
         [SerializeField] private FishRarity _rarity = FishRarity.Common;
+        [Tooltip("Inspector: tunes base value.")]
         [SerializeField] private int _baseValue = 10;
+        [Tooltip("Inspector: tunes catch item prefab.")]
         [SerializeField] private GameObject _catchItemPrefab;
 
         [Header("Fish Stats")]
+        [Tooltip("Inspector: tunes min size.")]
         [SerializeField] private float _minSize = 0.5f;
         [SerializeField] private float _maxSize = 1.5f;
+        [Tooltip("Inspector: tunes min weight.")]
         [SerializeField] private float _minWeight = 0.2f;
         [SerializeField] private float _maxWeight = 5f;
+        [Tooltip("Inspector: tunes catch difficulty.")]
         [SerializeField] private float _catchDifficulty = 1f;
 
         [Header("Visuals")]
+        [Tooltip("Inspector: tunes model root.")]
         [SerializeField] private Transform _modelRoot;
+        [Tooltip("Inspector: tunes possible models.")]
         [SerializeField] private GameObject[] _possibleModels;
         [SerializeField, Min(0.01f)] private float _modelImportScaleCompensation = 1f;
 
         [Header("Outline")]
+        [Tooltip("Inspector: tunes common outline color.")]
         [SerializeField] private Color _commonOutlineColor = new(0.7f, 0.95f, 0.95f, 1f);
         [SerializeField] private Color _uncommonOutlineColor = new(0.45f, 1f, 0.45f, 1f);
+        [Tooltip("Inspector: tunes rare outline color.")]
         [SerializeField] private Color _rareOutlineColor = new(0.35f, 0.7f, 1f, 1f);
         [SerializeField] private Color _legendaryOutlineColor = new(1f, 0.75f, 0.2f, 1f);
+        [Tooltip("Inspector: tunes mythical outline color.")]
         [SerializeField] private Color _mythicalOutlineColor = new(1f, 0.35f, 0.95f, 1f);
 
         [Header("Prefixes")]
         [SerializeField, Range(0.01f, 0.25f)] private float _sizeOutlierThreshold = 0.1f;
+        [Tooltip("Inspector: tunes small fish prefix.")]
         [SerializeField] private string _smallFishPrefix = "Teeny";
+        [Tooltip("Inspector: tunes large fish prefix.")]
         [SerializeField] private string _largeFishPrefix = "Lofty";
 
         [Header("Debug")]
+        [Tooltip("Inspector: tunes show debug label.")]
         [SerializeField] private bool _showDebugLabel;
 
         [Header("Tackle Interest")]
         [SerializeField, Range(0f, 1f)] private float _baseTackleInterestChance = 0.35f;
+        [Tooltip("Inspector: tunes interest depth offset.")]
         [SerializeField] private float _interestDepthOffset = 0.35f;
         [SerializeField] private float _interestResolveInterval = 0.35f;
+        [Tooltip("Inspector: tunes interest lose distance multiplier.")]
         [SerializeField] private float _interestLoseDistanceMultiplier = 1.5f;
         [SerializeField] private float _interestSwimSpeedMultiplier = 1.2f;
+        [Tooltip("Inspector: tunes interest retarget min time.")]
         [SerializeField] private float _interestRetargetMinTime = 0.25f;
+        [Tooltip("Inspector: tunes interest retarget max time.")]
         [SerializeField] private float _interestRetargetMaxTime = 0.65f;
         [SerializeField, Min(1f)] private float _maxInterestDuration = 60f;
+        [Tooltip("Inspector: tunes interest retry delay range.")]
         [SerializeField] private Vector2 _interestRetryDelayRange = new(4f, 7f);
         [SerializeField, Min(1f)] private float _maxCommitTravelDistance = 50f;
         [SerializeField, Range(0.05f, 1f)] private float _baseBiteChance = 0.9f;
+        [Tooltip("Inspector: tunes bite retry delay range.")]
         [SerializeField] private Vector2 _biteRetryDelayRange = new(3f, 5f);
 
         [Header("Movement")]
+        [Tooltip("Inspector: tunes swim speed.")]
         [SerializeField] private float _swimSpeed = 1.5f;
         [SerializeField] private float _fleeSpeed = 3f;
+        [Tooltip("Inspector: tunes turn speed.")]
         [SerializeField] private float _turnSpeed = 3f;
 
         [Header("Wander")]
+        [Tooltip("Inspector: tunes wander radius.")]
         [SerializeField] private float _wanderRadius = 5f;
         [SerializeField] private float _wanderRetargetMinTime = 2f;
+        [Tooltip("Inspector: tunes wander retarget max time.")]
         [SerializeField] private float _wanderRetargetMaxTime = 5f;
 
         [Header("Player Avoidance")]
+        [Tooltip("Inspector: tunes player.")]
         [SerializeField] private Transform _player;
         [SerializeField] private float _fleeRadius = 6f;
+        [Tooltip("Inspector: tunes flee distance.")]
         [SerializeField] private float _fleeDistance = 4f;
         [SerializeField] private float _playerMovementThreshold = 0.2f;
+        [Tooltip("Inspector: tunes player prediction time.")]
         [SerializeField] private float _playerPredictionTime = 0.35f;
         [SerializeField] private float _fleeRetargetMinTime = 0.35f;
+        [Tooltip("Inspector: tunes flee retarget max time.")]
         [SerializeField] private float _fleeRetargetMaxTime = 1f;
 
         [Header("Water Bounds")]
+        [Tooltip("Inspector: tunes water volume.")]
         [SerializeField] private WaterVolume _waterVolume;
         [SerializeField] private float _edgePadding = 0.75f;
+        [Tooltip("Inspector: tunes surface padding.")]
         [SerializeField] private float _surfacePadding = 0.6f;
+        [Tooltip("Inspector: tunes bottom padding.")]
         [SerializeField] private float _bottomPadding = 0.5f;
+        #endregion
 
         private Vector3 _origin;
         private Vector3 _target;

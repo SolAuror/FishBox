@@ -16,8 +16,11 @@ namespace Sol
     public class ItemRegistry : ScriptableObject
     {
         private const string ResourceName = "ItemRegistry";
+#region Inspector Settings
 
+        [Tooltip("Inspector: tunes entries.")]
         [SerializeField] private List<Entry> _entries = new();
+#endregion
 
         [System.Serializable]
         public class Entry

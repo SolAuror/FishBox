@@ -12,26 +12,38 @@ public class FishSpawnEntry
 [RequireComponent(typeof(BoxCollider))]
 public class FishVolume : MonoBehaviour
 {
+    #region Inspector Settings
     [Header("References")]
+    [Tooltip("Inspector: tunes water volume.")]
     [SerializeField] WaterVolume waterVolume;
+    [Tooltip("Inspector: tunes fish parent.")]
     [SerializeField] Transform fishParent;
 
     [Header("Fish")]
+    [Tooltip("Inspector: tunes fish prefabs.")]
     [SerializeField] GameObject[] fishPrefabs;
     [SerializeField] FishDefinition[] fishDefinitions;
+    [Tooltip("Inspector: tunes fish spawn entries.")]
     [SerializeField] FishSpawnEntry[] fishSpawnEntries;
     [SerializeField] int fishSpawnCount = 8;
+    [Tooltip("Inspector: tunes fish spawn attempts per fish.")]
     [SerializeField] int fishSpawnAttemptsPerFish = 12;
 
     [Header("Spawn Bounds")]
+    [Tooltip("Inspector: tunes edge padding.")]
     [SerializeField] float edgePadding = 1f;
     [SerializeField] float surfacePadding = 0.75f;
+    [Tooltip("Inspector: tunes bottom padding.")]
     [SerializeField] float bottomPadding = 0.5f;
+    [Tooltip("Inspector: tunes terrain clearance.")]
     [SerializeField] float terrainClearance = 0.4f;
 
     [Header("Follow Player")]
+    [Tooltip("Inspector: tunes follow player.")]
     [SerializeField] bool followPlayer = true;
+    [Tooltip("Inspector: tunes player.")]
     [SerializeField] Transform player;
+    #endregion
 
     BoxCollider _col;
     readonly List<GameObject> _spawnedFish = new();

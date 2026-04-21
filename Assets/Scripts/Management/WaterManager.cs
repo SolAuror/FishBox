@@ -1,10 +1,10 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Rendering;
 using Sol.ToD;
 
 /// <summary>
 /// ---------------------------------------------------------------------------
-/// SOL WATER MANAGER � GLOBAL WATER MANAGER
+/// SOL WATER MANAGER — GLOBAL WATER MANAGER
 /// ---------------------------------------------------------------------------
 ///
 /// The runtime brain of the Sol.Water framework. Single singleton that
@@ -124,6 +124,17 @@ public class SolWaterManager : MonoBehaviour
     static readonly int _SolRainIntensityID          = Shader.PropertyToID("_Sol_RainIntensity");
     static readonly int _SolGlobalWaterLevelID       = Shader.PropertyToID("_Sol_GlobalWaterLevel");
 
+    // Cached values to avoid redundant global property writes every frame.
+    Vector4 _lastWindDirection = new(float.NaN, float.NaN, float.NaN, float.NaN);
+    float _lastWindStrength = float.NaN;
+    float _lastGlobalWaveSpeedMultiplier = float.NaN;
+    float _lastWaterLevel = float.NaN;
+    float _lastRainIntensity = float.NaN;
+    Vector4 _lastLightDirection = new(float.NaN, float.NaN, float.NaN, float.NaN);
+    Color _lastSunColor = new(float.NaN, float.NaN, float.NaN, float.NaN);
+    float _lastDayFactor = float.NaN;
+    float _lastEclipseFactor = float.NaN;
+
     // --- Unity Lifecycle -------------------------------------------------
 
     void Awake()
@@ -176,17 +187,42 @@ public class SolWaterManager : MonoBehaviour
     void PushGlobalMotion()
     {
         Vector3 windNorm = WindDirectionNormalized;
-        Shader.SetGlobalVector(_SolWindDirectionID, windNorm);
-        Shader.SetGlobalFloat(_SolWindStrengthID, windStrength);
-        Shader.SetGlobalFloat(_SolGlobalWaveSpeedMulID, globalWaveSpeedMultiplier);
-        Shader.SetGlobalFloat(_SolGlobalWaterLevelID, waterLevel);
+        Vector4 windDirection4 = new(windNorm.x, windNorm.y, windNorm.z, 0f);
+
+        if (_lastWindDirection != windDirection4)
+        {
+            Shader.SetGlobalVector(_SolWindDirectionID, windDirection4);
+            _lastWindDirection = windDirection4;
+        }
+
+        if (!Mathf.Approximately(_lastWindStrength, windStrength))
+        {
+            Shader.SetGlobalFloat(_SolWindStrengthID, windStrength);
+            _lastWindStrength = windStrength;
+        }
+
+        if (!Mathf.Approximately(_lastGlobalWaveSpeedMultiplier, globalWaveSpeedMultiplier))
+        {
+            Shader.SetGlobalFloat(_SolGlobalWaveSpeedMulID, globalWaveSpeedMultiplier);
+            _lastGlobalWaveSpeedMultiplier = globalWaveSpeedMultiplier;
+        }
+
+        if (!Mathf.Approximately(_lastWaterLevel, waterLevel))
+        {
+            Shader.SetGlobalFloat(_SolGlobalWaterLevelID, waterLevel);
+            _lastWaterLevel = waterLevel;
+        }
     }
 
     // --- Weather Push ----------------------------------------------------
 
     void PushWeather()
     {
-        Shader.SetGlobalFloat(_SolRainIntensityID, rainIntensity);
+        if (!Mathf.Approximately(_lastRainIntensity, rainIntensity))
+        {
+            Shader.SetGlobalFloat(_SolRainIntensityID, rainIntensity);
+            _lastRainIntensity = rainIntensity;
+        }
     }
 
     // --- ToD ? Global Shader Push ----------------------------------------
@@ -200,11 +236,32 @@ public class SolWaterManager : MonoBehaviour
         Vector3 moonDir = todManager.MoonDirection;
         Vector3 lightDir = Vector3.Slerp(moonDir, sunDir, tod);
         Color sunColor = todManager.SunColor;
+        float eclipse = todManager.SolarEclipseStrength;
 
-        Shader.SetGlobalVector(_SolSunDirectionID, lightDir);
-        Shader.SetGlobalColor(_SolSunColorID, sunColor);
-        Shader.SetGlobalFloat(_SolDayFactorID, tod);
-        Shader.SetGlobalFloat(_SolEclipseFactorID, todManager.SolarEclipseStrength);
+        Vector4 lightDir4 = new(lightDir.x, lightDir.y, lightDir.z, 0f);
+        if (_lastLightDirection != lightDir4)
+        {
+            Shader.SetGlobalVector(_SolSunDirectionID, lightDir4);
+            _lastLightDirection = lightDir4;
+        }
+
+        if (_lastSunColor != sunColor)
+        {
+            Shader.SetGlobalColor(_SolSunColorID, sunColor);
+            _lastSunColor = sunColor;
+        }
+
+        if (!Mathf.Approximately(_lastDayFactor, tod))
+        {
+            Shader.SetGlobalFloat(_SolDayFactorID, tod);
+            _lastDayFactor = tod;
+        }
+
+        if (!Mathf.Approximately(_lastEclipseFactor, eclipse))
+        {
+            Shader.SetGlobalFloat(_SolEclipseFactorID, eclipse);
+            _lastEclipseFactor = eclipse;
+        }
     }
 
     // --- Reflection Probe Baking -----------------------------------------

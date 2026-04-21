@@ -36,4 +36,4 @@ MonoBehaviour:
   - ItemId: ITM00006
     Prefab: {fileID: 437761895070354558, guid: b03e150299b11514aa25553f4eb360c0, type: 3}
   - ItemId: ITM00021
-    Prefab: {fileID: 6017599477568961878, guid: 5f2a91e8d8328ce45807eb29de64eaf9, type: 3}
+    Prefab: {fileID: 634437170479503239, guid: 5b425e47d44519e4ca0b321c38c9706f, type: 3}

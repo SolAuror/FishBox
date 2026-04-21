@@ -11,19 +11,27 @@ namespace Sol.Player
     /// </summary>
     public class PlayerHudBarsBinder : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("Player")]
+        [Tooltip("Inspector: tunes player root.")]
         [SerializeField] private GameObject playerRoot;
+        [Tooltip("Inspector: tunes player soul.")]
         [SerializeField] private PlayerSoul playerSoul;
 
         [Header("UI")]
+        [Tooltip("Inspector: tunes health bar.")]
         [SerializeField] private Slider healthBar;
         [SerializeField] private Slider staminaBar;
+        [Tooltip("Inspector: tunes name text.")]
         [SerializeField] private TMP_Text nameText;
         [SerializeField] private TMP_Text healthText;
+        [Tooltip("Inspector: tunes stamina text.")]
         [SerializeField] private TMP_Text staminaText;
 
         [Header("Auto-Wire")]
+        [Tooltip("Inspector: tunes auto find by name.")]
         [SerializeField] private bool autoFindByName = true;
+        #endregion
 
         private NPCSoul _boundSoul;
         private NPCSoul _subscribedSoul;

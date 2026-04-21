@@ -12,14 +12,20 @@ namespace Sol.HUD
     /// </summary>
     public class InventoryUI : MonoBehaviour
     {
+        #region Inspector Settings
         [Header("References")]
+        [Tooltip("Inspector: tunes inventory.")]
         [SerializeField] private Inventory _inventory;
         [SerializeField] private Transform _slotContainer;
+        [Tooltip("Inspector: tunes slot prefab.")]
         [SerializeField] private InventorySlotUI _slotPrefab;
 
         [Header("Display")]
+        [Tooltip("Inspector: tunes capacity text.")]
         [SerializeField] private TextMeshProUGUI _capacityText;
+        [Tooltip("Inspector: tunes gold text.")]
         [SerializeField] private TextMeshProUGUI _goldText;
+        #endregion
 
         private Interactor _interactor;
         private Coroutine _pendingRebuild;
@@ -221,7 +227,7 @@ namespace Sol.HUD
             }
 
             // Deferred rebuild lets TMP auto-size settle before measuring layout.
-            // The immediate call is intentionally omitted — one rebuild per frame is enough.
+            // The immediate call is intentionally omitted ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â one rebuild per frame is enough.
             CancelPendingRebuild();
             _rebuildScheduled = true;
             _pendingRebuild = PersistentCoroutineRunner.Run(DeferredRebuildRoutine());
