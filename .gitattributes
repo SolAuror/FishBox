@@ -1,2 +1,47 @@
-# Auto detect text files and perform LF normalization
+# Auto detect text files and normalize to LF in-repo.
 * text=auto
+
+# Explicit LF policy for source, docs, and config text.
+*.cs text eol=lf
+*.shader text eol=lf
+*.hlsl text eol=lf
+*.cginc text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xml text eol=lf
+*.csproj text eol=lf
+*.slnx text eol=lf
+*.asmdef text eol=lf
+*.txt text eol=lf
+
+# Unity serialized text assets.
+*.meta text eol=lf
+*.asset text eol=lf
+*.anim text eol=lf
+*.mat text eol=lf
+*.unity text eol=lf
+*.prefab text eol=lf
+*.controller text eol=lf
+*.overrideController text eol=lf
+*.inputactions text eol=lf
+*.shadergraph text eol=lf
+
+# Common binary assets.
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.gif -text
+*.tga -text
+*.psd -text
+*.ttf -text
+*.otf -text
+*.wav -text
+*.mp3 -text
+*.ogg -text
+*.fbx -text
+*.blend -text
+*.dll -text
+*.exe -text
+*.zip -text

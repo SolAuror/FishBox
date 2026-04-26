@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -33,35 +33,26 @@ namespace Sol.HUD
 
         private float _previousTimeScale;
         private bool _pauseSessionActive;
+        private bool _isInitialized;
 
         protected override void Awake()
         {
             base.Awake();
             if (_instance != this) return;
-            EnsureUiEventSystem();
-            AutoWire();
-            WireButtons();
-            SetupNavigation();
+            EnsureInitialized();
             SetOpen(false);
+        }
+
+        protected override void PostResolve()
+        {
+            EnsureInitialized();
         }
 
         public new static PauseMenuSystem ResolveInstance(bool activateIfInactive = true)
         {
             PauseMenuSystem resolved = Instance ?? UIStateOwnership.Resolve<PauseMenuSystem>(activateIfInactive);
-            if (resolved == null)
-            {
-                PauseMenuSystem[] found = UnityEngine.Object.FindObjectsByType<PauseMenuSystem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-                if (found != null && found.Length > 0)
-                    resolved = found[0];
-            }
-
             if (resolved != null)
-            {
-                EnsureUiEventSystem();
-                resolved.AutoWire();
-                resolved.WireButtons();
-                resolved.SetupNavigation();
-            }
+                resolved.EnsureInitialized();
 
             return resolved;
         }
@@ -248,6 +239,18 @@ namespace Sol.HUD
             EnsureRootCanvasScale();
             HideTransientUiBlockers();
             EnsureButtonsInteractable();
+        }
+
+        private void EnsureInitialized()
+        {
+            if (_isInitialized)
+                return;
+
+            EnsureUiEventSystem();
+            AutoWire();
+            WireButtons();
+            SetupNavigation();
+            _isInitialized = true;
         }
 
         private void EnsureRootCanvasScale()

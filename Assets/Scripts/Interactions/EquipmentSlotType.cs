@@ -1,4 +1,4 @@
-namespace Sol
+﻿namespace Sol
 {
     public enum EquipmentSlotType
     {

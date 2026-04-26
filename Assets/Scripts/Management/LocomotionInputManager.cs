@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Unity.Cinemachine;
@@ -9,6 +9,7 @@ namespace Sol.Locomotion
     [DefaultExecutionOrder(-3)]
     public class LocomotionInputManager : MonoBehaviour, SolControls.IDefaultActions
     {
+        private static readonly Rect FullViewportRect = new Rect(0f, 0f, 1f, 1f);
         public static LocomotionInputManager Instance { get; private set; }
         public SolControls Controls { get; private set; }
         public event System.Action<CameraContext> CameraContextChanged;
@@ -404,8 +405,19 @@ namespace Sol.Locomotion
 
         private void NotifyCameraContextChanged()
         {
+            EnsurePlayerCameraViewport();
             if (TryGetCameraContext(out CameraContext context))
                 CameraContextChanged?.Invoke(context);
+        }
+
+        private void EnsurePlayerCameraViewport()
+        {
+            Camera gameplayCamera = _controller != null ? _controller.PlayerCamera : null;
+            if (gameplayCamera == null || gameplayCamera.targetTexture != null)
+                return;
+
+            if (gameplayCamera.rect != FullViewportRect)
+                gameplayCamera.rect = FullViewportRect;
         }
 
         private System.Collections.IEnumerator HandleTransitionEnd(CameraMode mode, int transitionToken)

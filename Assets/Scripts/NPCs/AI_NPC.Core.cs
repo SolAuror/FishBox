@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -116,23 +116,31 @@ namespace Sol.AI
                 return;
             }
 
-            // Safety: warp agent if it drifts too far from the transform.
-            // Compare BEFORE syncing nextPosition so the delta is meaningful.
-            if ((agent.transform.position - transform.position).sqrMagnitude > AgentWarpThreshold * AgentWarpThreshold)
-                agent.Warp(transform.position);
+            bool canUseNavAgent = agent != null && agent.enabled && agent.isOnNavMesh;
+            if (!canUseNavAgent && agent != null && agent.enabled)
+                canUseNavAgent = EnsureAgentOnNavMesh(logIfUnavailable: false);
 
-            agent.nextPosition = transform.position;
+            if (canUseNavAgent)
+            {
+                // Safety: warp agent if it drifts too far from the transform.
+                // Compare BEFORE syncing nextPosition so the delta is meaningful.
+                if ((agent.transform.position - transform.position).sqrMagnitude > AgentWarpThreshold * AgentWarpThreshold)
+                    agent.Warp(transform.position);
+
+                agent.nextPosition = transform.position;
+            }
 
             // Build per-frame context once so states don't recalculate.
             Context = new IntentContext(soul);
             ResolvePlayerTarget();
 
-            agent.speed = GetCurrentTargetSpeed();
+            if (canUseNavAgent)
+                agent.speed = GetCurrentTargetSpeed();
             UpdateFakeCam();
 
             // Detect a failed path and notify listeners so external systems can react.
             // Only check when the agent is actively trying to reach something.
-            if (agent.hasPath && agent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathInvalid)
+            if (canUseNavAgent && agent.hasPath && agent.pathStatus == UnityEngine.AI.NavMeshPathStatus.PathInvalid)
                 agent.ResetPath();
 
             State desired = activeState != null ? activeState.Tick() : State.Idle;

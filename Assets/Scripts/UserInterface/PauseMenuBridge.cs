@@ -1,10 +1,11 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 namespace Sol.HUD
 {
     public sealed class PauseMenuBridge : MonoBehaviour
     {
         private PauseMenuSystem _pauseMenu;
+        private bool _isBound;
 
         private void Start()
         {
@@ -23,15 +24,20 @@ namespace Sol.HUD
 
         private void TryBind()
         {
-            _pauseMenu = PauseMenuSystem.Instance;
-            if (_pauseMenu == null)
-                _pauseMenu = FindFirstObjectByType<PauseMenuSystem>(FindObjectsInactive.Include);
-
-            if (_pauseMenu == null)
+            PauseMenuSystem resolved = PauseMenuSystem.ResolveInstance(activateIfInactive: false);
+            if (resolved == null)
                 return;
 
+            if (_isBound && ReferenceEquals(_pauseMenu, resolved))
+                return;
+
+            if (_isBound && _pauseMenu != null)
+                _pauseMenu.OnQuit -= HandleQuit;
+
+            _pauseMenu = resolved;
             _pauseMenu.OnQuit -= HandleQuit;
             _pauseMenu.OnQuit += HandleQuit;
+            _isBound = true;
         }
 
         private void Unbind()
@@ -39,6 +45,7 @@ namespace Sol.HUD
             if (_pauseMenu == null)
                 return;
             _pauseMenu.OnQuit -= HandleQuit;
+            _isBound = false;
         }
 
         private void HandleQuit()

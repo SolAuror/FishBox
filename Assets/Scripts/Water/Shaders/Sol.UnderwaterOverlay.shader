@@ -177,8 +177,18 @@ Shader "Sol/UnderwaterOverlay"
             half3 ApplyVolumetricFog(half3 col, half2 uv, half factor, half cameraWaterDepth, half sceneDepth, float3 sceneWorldPos, half hasScene)
             {
                 float3 camPos = _WorldSpaceCameraPos;
-                float3 rayDir;
-                half rayLen;
+                // Build a deterministic fallback ray first so every backend sees initialized values.
+                real farRaw = UNITY_REVERSED_Z ? 0.0 : 1.0;
+                #if !UNITY_REVERSED_Z
+                    farRaw = lerp(UNITY_NEAR_CLIP_VALUE, 1.0, farRaw);
+                #endif
+                float3 farPos = ComputeWorldSpacePosition(uv, farRaw, UNITY_MATRIX_I_VP);
+                float3 fallbackRay = farPos - camPos;
+                half fallbackLen = (half)length(fallbackRay);
+                float3 rayDir = fallbackLen > 0.001h
+                    ? fallbackRay / fallbackLen
+                    : float3(0.0, 1.0, 0.0);
+                half rayLen = max(_FogFarDistance, max(fallbackLen, 8.0h));
 
                 if (hasScene > 0.5h && sceneDepth > 0.001h)
                 {
@@ -186,16 +196,6 @@ Shader "Sol/UnderwaterOverlay"
                     rayLen = (half)length(toScene);
                     if (rayLen <= 0.001h) return col;
                     rayDir = toScene / rayLen;
-                }
-                else
-                {
-                    real farRaw = UNITY_REVERSED_Z ? 0.0 : 1.0;
-                    #if !UNITY_REVERSED_Z
-                        farRaw = lerp(UNITY_NEAR_CLIP_VALUE, 1.0, farRaw);
-                    #endif
-                    float3 farPos = ComputeWorldSpacePosition(uv, farRaw, UNITY_MATRIX_I_VP);
-                    rayDir = normalize(farPos - camPos);
-                    rayLen = max(_FogFarDistance, 8.0h);
                 }
 
                 const int kSteps = 8;

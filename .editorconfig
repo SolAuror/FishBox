@@ -1,0 +1,15 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{png,jpg,jpeg,gif,tga,psd,ttf,otf,wav,mp3,ogg,fbx,blend,dll,exe,zip}]
+insert_final_newline = false
+end_of_line = unset
+trim_trailing_whitespace = false

@@ -11,10 +11,13 @@ namespace Sol.HUD
     public sealed class UIInputManager : MonoBehaviour
     {
         private const float DuplicateInputGuardWindow = 0.15f;
+        private const float PrewarmRetryInterval = 1f;
 
         public static UIInputManager Instance { get; private set; }
 
         private bool _callbacksRegistered;
+        private bool _uiPrewarmed;
+        private float _nextPrewarmAttemptTime;
         private InputAction _uiTab;
         private InputAction _uiEsc;
         private int _lastTabHandledFrame = -1;
@@ -52,28 +55,27 @@ namespace Sol.HUD
         private void Start()
         {
             TryRegisterCallbacks();
+            TryPrewarmMenus();
         }
 
         private void OnEnable()
         {
             _callbacksRegistered = false;
+            _nextPrewarmAttemptTime = float.NegativeInfinity;
             TryRegisterCallbacks();
+            TryPrewarmMenus();
         }
 
         private void Update()
         {
             if (!_callbacksRegistered)
+            {
                 TryRegisterCallbacks();
-
-            Keyboard keyboard = Keyboard.current;
-            if (keyboard == null)
+                HandleLegacyKeyboardFallback();
                 return;
+            }
 
-            if (keyboard.tabKey.wasPressedThisFrame && _lastTabHandledFrame != Time.frameCount)
-                HandleTabRequest();
-
-            if (keyboard.escapeKey.wasPressedThisFrame && _lastEscHandledFrame != Time.frameCount)
-                HandleEscRequest();
+            TryPrewarmMenus();
         }
 
         private void OnDisable()
@@ -110,6 +112,7 @@ namespace Sol.HUD
             _uiTab.performed += HandleTabPerformed;
             _uiEsc.performed += HandleEscPerformed;
             _callbacksRegistered = true;
+            TryPrewarmMenus();
         }
 
         private void UnregisterCallbacks()
@@ -284,6 +287,57 @@ namespace Sol.HUD
 
             RadialMenuSystem radialMenu = UIStateOwnership.Resolve<RadialMenuSystem>(activateIfInactive: false);
             return radialMenu != null && radialMenu.IsOpen;
+        }
+
+        private void HandleLegacyKeyboardFallback()
+        {
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null)
+                return;
+
+            if (keyboard.tabKey.wasPressedThisFrame && _lastTabHandledFrame != Time.frameCount)
+                HandleTabRequest();
+
+            if (keyboard.escapeKey.wasPressedThisFrame && _lastEscHandledFrame != Time.frameCount)
+                HandleEscRequest();
+        }
+
+        private void TryPrewarmMenus()
+        {
+            if (_uiPrewarmed)
+                return;
+
+            float now = Time.unscaledTime;
+            if (now < _nextPrewarmAttemptTime)
+                return;
+
+            _nextPrewarmAttemptTime = now + PrewarmRetryInterval;
+
+            LocomotionInputManager locomotionManager = LocomotionInputManager.Instance;
+            bool hadUiInputBlocked = locomotionManager != null && locomotionManager.UIInputBlocked;
+            CursorLockMode previousCursorLock = Cursor.lockState;
+            bool previousCursorVisible = Cursor.visible;
+            float previousTimeScale = Time.timeScale;
+
+            PauseMenuSystem pauseMenu = PauseMenuSystem.ResolveInstance(activateIfInactive: true);
+            SettingsMenuSystem settingsMenu = SettingsMenuSystem.ResolveInstance(activateIfInactive: true);
+            SaveLoadMenuSystem saveLoadMenu = SaveLoadMenuSystem.ResolveInstance(activateIfInactive: true);
+
+            if (pauseMenu != null && pauseMenu.IsOpen)
+                pauseMenu.Close();
+            if (settingsMenu != null && settingsMenu.IsOpen)
+                settingsMenu.Close(reopenPause: false);
+            if (saveLoadMenu != null && saveLoadMenu.IsOpen)
+                saveLoadMenu.Close(reopenPause: false);
+
+            if (!Mathf.Approximately(Time.timeScale, previousTimeScale))
+                Time.timeScale = previousTimeScale;
+            Cursor.lockState = previousCursorLock;
+            Cursor.visible = previousCursorVisible;
+            if (locomotionManager != null)
+                locomotionManager.UIInputBlocked = hadUiInputBlocked;
+
+            _uiPrewarmed = pauseMenu != null && settingsMenu != null && saveLoadMenu != null;
         }
     }
 }

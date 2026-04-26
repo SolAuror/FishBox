@@ -93,6 +93,7 @@ namespace Sol
 
         private static ItemComponent[] LoadAllKeyPrefabs()
         {
+#if UNITY_EDITOR
             List<ItemComponent> keys = new();
             string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab");
             for (int i = 0; i < prefabGuids.Length; i++)
@@ -110,6 +111,9 @@ namespace Sol
             }
 
             return keys.ToArray();
+#else
+            return Array.Empty<ItemComponent>();
+#endif
         }
     }
 }

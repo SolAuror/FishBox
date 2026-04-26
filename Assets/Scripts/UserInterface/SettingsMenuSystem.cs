@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -189,11 +189,35 @@ namespace Sol.HUD
         public static void ApplyGraphicsSettings(SettingsData data)
         {
             if (data == null) return;
-            Screen.SetResolution(
-                Mathf.Max(640, data.ResolutionWidth),
-                Mathf.Max(360, data.ResolutionHeight),
-                (FullScreenMode)data.FullscreenMode,
-                new RefreshRate { numerator = (uint)Mathf.Max(1, Mathf.RoundToInt((float)data.RefreshRate)), denominator = 1 });
+            FullScreenMode fullscreenMode = NormalizeFullscreenMode(data.FullscreenMode);
+            int width = Mathf.Max(640, data.ResolutionWidth);
+            int height = Mathf.Max(360, data.ResolutionHeight);
+            RefreshRate refreshRate = new RefreshRate
+            {
+                numerator = (uint)Mathf.Max(1, Mathf.RoundToInt((float)data.RefreshRate)),
+                denominator = 1
+            };
+
+            // In borderless fullscreen we should follow the desktop mode.
+            if (fullscreenMode == FullScreenMode.FullScreenWindow || fullscreenMode == FullScreenMode.MaximizedWindow)
+            {
+                fullscreenMode = FullScreenMode.FullScreenWindow;
+                Resolution native = Screen.currentResolution;
+                width = Mathf.Max(640, native.width);
+                height = Mathf.Max(360, native.height);
+                Screen.SetResolution(width, height, fullscreenMode);
+            }
+            else if (fullscreenMode == FullScreenMode.ExclusiveFullScreen)
+            {
+                // Only request exclusive fullscreen at explicit resolutions.
+                Screen.SetResolution(width, height, fullscreenMode, refreshRate);
+            }
+            else
+            {
+                // Windowed mode should use the selected size and avoid forcing a monitor refresh.
+                Screen.SetResolution(width, height, FullScreenMode.Windowed);
+            }
+
             if (data.QualityLevel >= 0)
                 QualitySettings.SetQualityLevel(data.QualityLevel, true);
             QualitySettings.vSyncCount = Mathf.Max(0, data.VSyncCount);
@@ -755,6 +779,18 @@ namespace Sol.HUD
                 return true;
             }
             return false;
+        }
+
+        private static FullScreenMode NormalizeFullscreenMode(int fullscreenMode)
+        {
+            return fullscreenMode switch
+            {
+                (int)FullScreenMode.ExclusiveFullScreen => FullScreenMode.ExclusiveFullScreen,
+                (int)FullScreenMode.FullScreenWindow => FullScreenMode.FullScreenWindow,
+                (int)FullScreenMode.MaximizedWindow => FullScreenMode.MaximizedWindow,
+                (int)FullScreenMode.Windowed => FullScreenMode.Windowed,
+                _ => FullScreenMode.FullScreenWindow
+            };
         }
         #endregion
     }

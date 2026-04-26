@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.AI;
 using Sol.Locomotion;
 
@@ -47,6 +47,29 @@ namespace Sol.AI
             agent.updatePosition = false;
             agent.updateRotation = false;
             agent.autoBraking    = true;
+            EnsureAgentOnNavMesh(logIfUnavailable: true);
+        }
+
+        private bool EnsureAgentOnNavMesh(float maxSnapDistance = 6f, bool logIfUnavailable = false)
+        {
+            if (agent == null || !agent.enabled)
+                return false;
+
+            if (agent.isOnNavMesh)
+                return true;
+
+            int areaMask = agent.areaMask == 0 ? NavMesh.AllAreas : agent.areaMask;
+            if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, Mathf.Max(0.1f, maxSnapDistance), areaMask))
+            {
+                agent.Warp(hit.position);
+                return agent.isOnNavMesh;
+            }
+
+            if (logIfUnavailable)
+                Debug.LogWarning($"[AI_NPC] '{name}' NavMeshAgent disabled: no valid NavMesh near spawn.", this);
+
+            agent.enabled = false;
+            return false;
         }
 
         /// <summary>Finds a random reachable NavMesh point within <paramref name="radius"/> of <paramref name="origin"/>.</summary>

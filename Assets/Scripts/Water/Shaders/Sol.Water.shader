@@ -1,4 +1,4 @@
-// Sol.Water - Stylised water shader for URP (Unity 6 / URP 17)
+﻿// Sol.Water - Stylised water shader for URP (Unity 6 / URP 17)
 //
 // Visual target: Witcher 3 / Fable 2 style - clean, customisable.
 //
@@ -561,7 +561,7 @@ Shader "Sol/Water"
 
                 float  noise = SAMPLE_TEXTURE2D(_NoiseMap, sampler_NoiseMap, nmUV1 * 0.5).r;
                 noise        *= SAMPLE_TEXTURE2D(_NoiseMap, sampler_NoiseMap, nmUV2 * 0.5).r;
-                noise          = pow(noise, _SparkleSharpness);
+                noise          = pow(saturate(noise), _SparkleSharpness);
                 noise          = saturate((noise - _SparkleThreshold) * _SparkleIntensity);
 
                 half3 specColor = specTerm * _SpecIntensity * noise * lightColor * todSunColor;
