@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(find \"B:\\\\Projects\\\\Unity\\\\Fishbox\\\\Assets\\\\Scripts\" -type f -name \"*.cs\" -exec grep -l \"Instantiate.*Crate\\\\|Crate.*Spawn\\\\|SpawnCrate\" {} \\\\;)",
-      "Bash(find \"B:\\\\Projects\\\\Unity\\\\Fishbox\\\\Assets\\\\Scripts\" -type f -name \"*.cs\" -exec grep -l \"WorldContainers\\\\|SpawnContainer\" {} \\\\;)",
-      "Bash(find Assets/Scripts -name \"*.cs\" -exec grep -l \"IsWorldContainer\" {} \\\\;)"
-    ]
-  }
-}
