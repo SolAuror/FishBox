@@ -204,7 +204,7 @@ namespace Sol.HUD
 
         private bool TryCloseTopModal()
         {
-            DialoguePromptSystem promptUi = UIStateOwnership.Resolve<DialoguePromptSystem>(activateIfInactive: false);
+            ConfirmationPromptSystem promptUi = UIStateOwnership.Resolve<ConfirmationPromptSystem>(activateIfInactive: false);
             if (promptUi != null && promptUi.IsOpen)
             {
                 promptUi.Close();
@@ -218,10 +218,10 @@ namespace Sol.HUD
                 return true;
             }
 
-            RadialMenuSystem radialMenu = UIStateOwnership.Resolve<RadialMenuSystem>(activateIfInactive: false);
-            if (radialMenu != null && radialMenu.IsOpen)
+            SleepMenuSystem sleepMenu = UIStateOwnership.Resolve<SleepMenuSystem>(activateIfInactive: false);
+            if (sleepMenu != null && sleepMenu.IsOpen)
             {
-                radialMenu.Close();
+                sleepMenu.Close();
                 return true;
             }
 
@@ -277,7 +277,7 @@ namespace Sol.HUD
             if (settingsMenu != null && settingsMenu.IsOpen)
                 return true;
 
-            DialoguePromptSystem promptUi = UIStateOwnership.Resolve<DialoguePromptSystem>(activateIfInactive: false);
+            ConfirmationPromptSystem promptUi = UIStateOwnership.Resolve<ConfirmationPromptSystem>(activateIfInactive: false);
             if (promptUi != null && promptUi.IsOpen)
                 return true;
 
@@ -285,8 +285,8 @@ namespace Sol.HUD
             if (conversationUi != null && conversationUi.IsVisible)
                 return true;
 
-            RadialMenuSystem radialMenu = UIStateOwnership.Resolve<RadialMenuSystem>(activateIfInactive: false);
-            return radialMenu != null && radialMenu.IsOpen;
+            SleepMenuSystem sleepMenu = UIStateOwnership.Resolve<SleepMenuSystem>(activateIfInactive: false);
+            return sleepMenu != null && sleepMenu.IsOpen;
         }
 
         private void HandleLegacyKeyboardFallback()

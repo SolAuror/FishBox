@@ -4,6 +4,7 @@ using Sol.AI;
 using Sol.Actions;
 using Sol.Grab;
 using Sol.Quests;
+
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -15,7 +16,7 @@ namespace Sol
     /// Requires <see cref="Inventory"/> on the same GameObject.
     /// </summary>
     [RequireComponent(typeof(Inventory))]
-    public class NpcTradeInteractable : MonoBehaviour, IInteractable
+    public class NpcTrader : MonoBehaviour, IInteractable
     {
         private const string DefaultGoldPrefabPath = "Assets/ItemPrefabs/Gold.prefab";
 
@@ -27,23 +28,30 @@ namespace Sol
             QuestDeliver,
             Goodbye
         }
+
 #region Inspector Settings
 
         [Tooltip("Inspector: tunes prompt.")]
         [SerializeField] private string _prompt = "Trade";
+
         [Tooltip("Inspector: tunes loot prompt.")]
         [SerializeField] private string _lootPrompt = "Loot";
+
         [Header("Conversation")]
         [Tooltip("Inspector: tunes use conversation window.")]
         [SerializeField] private bool _useConversationWindow = true;
         [SerializeField] private string _talkPrompt = "Talk";
+        
         [Tooltip("Inspector: tunes greeting line.")]
         [SerializeField] private string _greetingLine = "What can I do for you?";
         [SerializeField] private string _tradeOptionLabel = "Trade";
+        
         [Tooltip("Inspector: tunes goodbye option label.")]
         [SerializeField] private string _goodbyeOptionLabel = "Goodbye";
+        
         [Tooltip("Inspector: tunes speaker icon.")]
         [SerializeField] private Sprite _speakerIcon;
+        
         [Header("Corpse Loot")]
         [Tooltip("Gold item prefab used to convert numeric NPC gold into physical corpse loot.")]
         [SerializeField] private ItemComponent _goldLootItemTemplate;
@@ -127,14 +135,18 @@ namespace Sol
                 : speakerName;
 
  // Quest conversation options - order: turn-in, deliver, offer, then goodbye.
-            QuestManager qm = QuestManager.Instance;
-            if (qm != null)
+            QuestManager questManager = QuestManager.Instance;
+            if (questManager != null)
             {
-                if (HasQuestReadyToTurnIn(qm, speakerReference))
+                if (HasQuestReadyToTurnIn(questManager, speakerReference))
                     AddConversationOption(ConversationOptionId.QuestTurnIn, optionIds, optionLabels);
-                if (HasDeliverableForNpc(qm, speakerReference, interactor))
-                    AddConversationOption(ConversationOptionId.QuestDeliver, optionIds, optionLabels);
-                if (qm.GetOfferableQuests(speakerReference).Count > 0)
+                if (HasDeliverableForNpc(questManager, speakerReference, interactor))
+                    AddConversationOption(
+                        ConversationOptionId.QuestDeliver,
+                        optionIds,
+                        optionLabels,
+                        HasGoldPaymentForNpc(questManager, speakerReference, interactor) ? "Pay gold" : null);
+                if (questManager.GetOfferableQuests(speakerReference).Count > 0)
                     AddConversationOption(ConversationOptionId.Quest, optionIds, optionLabels);
             }
 
@@ -157,10 +169,13 @@ namespace Sol
         private void AddConversationOption(
             ConversationOptionId optionId,
             IList<ConversationOptionId> optionIds,
-            IList<string> optionLabels)
+            IList<string> optionLabels,
+            string labelOverride = null)
         {
             optionIds.Add(optionId);
-            optionLabels.Add(GetConversationOptionLabel(optionId));
+            optionLabels.Add(string.IsNullOrWhiteSpace(labelOverride)
+                ? GetConversationOptionLabel(optionId)
+                : labelOverride);
         }
 
         private string GetConversationOptionLabel(ConversationOptionId optionId)
@@ -209,44 +224,97 @@ namespace Sol
 
         // ----- Quest helpers -----
 
-        private static bool HasQuestReadyToTurnIn(QuestManager qm, string speakerName)
+        private static bool HasQuestReadyToTurnIn(QuestManager questManager, string speakerName)
         {
-            var active = qm.Active;
+            var active = questManager.Active;
             for (int i = 0; i < active.Count; i++)
             {
-                QuestSaveData q = active[i];
-                if (q.State != QuestState.ReadyToTurnIn) continue;
-                QuestDefinition def = QuestRegistry.Get()?.Find(q.QuestId);
-                if (def == null) continue;
-                if (string.IsNullOrWhiteSpace(def.GiverNpcName)) continue;
-                if (QuestManager.NpcReferenceMatches(def.GiverNpcName, speakerName))
-                    return true;
+                QuestSaveData quest = active[i];
+
+                    if (quest.State != QuestState.ReadyToTurnIn) continue;
+
+                QuestDefinition questDefinition = QuestRegistry.Get()?.Find(quest.QuestId);
+
+                    if (questDefinition == null) continue;
+
+                    if (string.IsNullOrWhiteSpace(questDefinition.GiverNpcName)) continue;
+
+                    if (QuestManager.NpcReferenceMatches(questDefinition.GiverNpcName, speakerName))
+
+                return true;
             }
             return false;
         }
 
-        private static bool HasDeliverableForNpc(QuestManager qm, string speakerName, Interactor interactor)
+        private static bool HasDeliverableForNpc(QuestManager questManager, string speakerName, Interactor interactor)
         {
             if (interactor?.Inventory == null) return false;
-            var active = qm.Active;
+            var active = questManager.Active;
             for (int i = 0; i < active.Count; i++)
             {
-                QuestSaveData q = active[i];
-                if (q.State != QuestState.Active) continue;
-                QuestDefinition def = QuestRegistry.Get()?.Find(q.QuestId);
-                if (def == null) continue;
-                if (q.CurrentObjectiveIndex < 0 || q.CurrentObjectiveIndex >= def.Objectives.Count) continue;
-                QuestObjective obj = def.Objectives[q.CurrentObjectiveIndex];
-                if (obj.Type != QuestObjectiveType.DeliverItem) continue;
-                if (!QuestManager.NpcReferenceMatches(obj.NpcName, speakerName)) continue;
-                if (PlayerHasAnyDeliverableItem(interactor.Inventory, obj)) return true;
+                QuestSaveData quest = active[i];
+
+                    if (quest.State != QuestState.Active) continue;
+
+                QuestDefinition questDefinition = QuestRegistry.Get()?.Find(quest.QuestId);
+
+                    if (questDefinition == null) continue;
+
+                    if (quest.CurrentObjectiveIndex < 0 || quest.CurrentObjectiveIndex >= questDefinition.Objectives.Count) continue;
+
+                QuestObjective obj = questDefinition.Objectives[quest.CurrentObjectiveIndex];
+
+                    if (obj.Type != QuestObjectiveType.DeliverItem) continue;
+
+                    if (!QuestManager.NpcReferenceMatches(obj.NpcName, speakerName)) continue;
+
+                    if (CanPayGoldObjective(interactor.Inventory, obj)) return true;
+
+                    if (PlayerHasAnyDeliverableItem(interactor.Inventory, obj)) return true;
             }
             return false;
+        }
+
+        private static bool HasGoldPaymentForNpc(QuestManager questManager, string speakerName, Interactor interactor)
+        {
+            if (interactor?.Inventory == null) return false;
+            var active = questManager.Active;
+            for (int i = 0; i < active.Count; i++)
+            {
+                QuestSaveData quest = active[i];
+                if (quest.State != QuestState.Active) continue;
+
+                QuestDefinition questDefinition = QuestRegistry.Get()?.Find(quest.QuestId);
+                if (questDefinition == null) continue;
+                if (quest.CurrentObjectiveIndex < 0 || quest.CurrentObjectiveIndex >= questDefinition.Objectives.Count) continue;
+
+                QuestObjective obj = questDefinition.Objectives[quest.CurrentObjectiveIndex];
+                if (obj.Type != QuestObjectiveType.DeliverItem) continue;
+                if (!QuestManager.NpcReferenceMatches(obj.NpcName, speakerName)) continue;
+
+                if (CanPayGoldObjective(interactor.Inventory, obj))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool CanPayGoldObjective(Inventory inv, QuestObjective objective)
+        {
+            if (inv == null || objective == null)
+                return false;
+
+            int goldAmount = objective.GetRequiredGoldPaymentAmount();
+            return goldAmount > 0 && inv.Gold >= goldAmount;
         }
 
         private static bool PlayerHasAnyDeliverableItem(Inventory inv, QuestObjective objective)
         {
             if (inv == null || objective == null) return false;
+
+            if (objective.IsGoldPaymentObjective())
+                return false;
+
             var slots = inv.Slots;
             for (int i = 0; i < slots.Count; i++)
             {
@@ -260,17 +328,26 @@ namespace Sol
 
         private void OfferNextQuest(string speakerName)
         {
-            QuestManager qm = QuestManager.Instance;
-            if (qm == null) return;
-            var offerable = qm.GetOfferableQuests(speakerName);
+            QuestManager questManager = QuestManager.Instance;
+
+            if (questManager == null) return;
+
+            var offerable = questManager.GetOfferableQuests(speakerName);
+
             if (offerable.Count == 0) return;
-            QuestDefinition def = offerable[0];
-            Sol.HUD.DialoguePromptSystem dlg = Sol.HUD.DialoguePromptSystem.Instance;
-            if (dlg == null) { qm.TryAccept(def.QuestId, speakerName); return; }
-            dlg.Show(
-                def.Title,
-                def.Summary,
-                confirmAction: () => qm.TryAccept(def.QuestId, speakerName),
+
+            QuestDefinition questDefinition = offerable[0];
+            Sol.HUD.ConfirmationPromptSystem confirmationPrompt = Sol.HUD.ConfirmationPromptSystem.Instance;
+
+            if (confirmationPrompt == null) 
+            { 
+                questManager.TryAccept(questDefinition.QuestId, speakerName); return; 
+            }
+
+            confirmationPrompt.Show(
+                questDefinition.Title,
+                questDefinition.Summary,
+                confirmAction: () => questManager.TryAccept(questDefinition.QuestId, speakerName),
                 cancelAction: null,
                 confirmLabel: "Accept",
                 cancelLabel: "Decline",
@@ -279,30 +356,39 @@ namespace Sol
 
         private void TurnInReadyQuest(string speakerName)
         {
-            QuestManager qm = QuestManager.Instance;
-            if (qm == null) return;
-            var active = qm.Active;
+            QuestManager questManager = QuestManager.Instance;
+
+            if (questManager == null) return;
+
+            var active = questManager.Active;
             QuestSaveData target = null;
             QuestDefinition targetDef = null;
+
             for (int i = 0; i < active.Count; i++)
             {
-                QuestSaveData q = active[i];
-                if (q.State != QuestState.ReadyToTurnIn) continue;
-                QuestDefinition def = QuestRegistry.Get()?.Find(q.QuestId);
-                if (def == null) continue;
-                if (!QuestManager.NpcReferenceMatches(def.GiverNpcName, speakerName)) continue;
-                target = q; targetDef = def; break;
+                QuestSaveData quest = active[i];
+                if (quest.State != QuestState.ReadyToTurnIn) continue;
+                QuestDefinition questDefinition = QuestRegistry.Get()?.Find(quest.QuestId);
+                if (questDefinition == null) continue;
+                if (!QuestManager.NpcReferenceMatches(questDefinition.GiverNpcName, speakerName)) continue;
+                target = quest; targetDef = questDefinition; break;
             }
+
             if (target == null || targetDef == null) return;
-            Sol.HUD.DialoguePromptSystem dlg = Sol.HUD.DialoguePromptSystem.Instance;
+
+            Sol.HUD.ConfirmationPromptSystem confirmationPrompt = Sol.HUD.ConfirmationPromptSystem.Instance;
+
             string desc = $"Turn in \"{targetDef.Title}\"?";
+
             if (targetDef.Reward != null && (targetDef.Reward.Gold > 0 || (targetDef.Reward.Items != null && targetDef.Reward.Items.Count > 0)))
                 desc += $"\nReward: {targetDef.Reward.Gold} gold" + (targetDef.Reward.Items.Count > 0 ? " + items" : string.Empty);
-            if (dlg == null) { qm.TryTurnIn(target.QuestId, speakerName); return; }
-            dlg.Show(
+
+            if (confirmationPrompt == null) { questManager.TryTurnIn(target.QuestId, speakerName); return; }
+
+            confirmationPrompt.Show(
                 targetDef.Title,
                 desc,
-                confirmAction: () => qm.TryTurnIn(target.QuestId, speakerName),
+                confirmAction: () => questManager.TryTurnIn(target.QuestId, speakerName),
                 cancelAction: null,
                 confirmLabel: "Turn in",
                 cancelLabel: "Not yet",
@@ -311,20 +397,32 @@ namespace Sol
 
         private void DeliverItemToNpc(string speakerName, Interactor interactor)
         {
-            QuestManager qm = QuestManager.Instance;
-            if (qm == null || interactor?.Inventory == null || _inventory == null) return;
+            QuestManager questManager = QuestManager.Instance;
+            if (questManager == null || interactor?.Inventory == null || _inventory == null) return;
 
-            var active = qm.Active;
+            var active = questManager.Active;
             for (int i = 0; i < active.Count; i++)
             {
-                QuestSaveData q = active[i];
-                if (q.State != QuestState.Active) continue;
-                QuestDefinition def = QuestRegistry.Get()?.Find(q.QuestId);
-                if (def == null) continue;
-                if (q.CurrentObjectiveIndex < 0 || q.CurrentObjectiveIndex >= def.Objectives.Count) continue;
-                QuestObjective obj = def.Objectives[q.CurrentObjectiveIndex];
+                QuestSaveData quest = active[i];
+
+                if (quest.State != QuestState.Active) continue;
+                
+
+                QuestDefinition questDefinition = QuestRegistry.Get()?.Find(quest.QuestId);
+
+                if (questDefinition == null) continue;
+
+                if (quest.CurrentObjectiveIndex < 0 || quest.CurrentObjectiveIndex >= questDefinition.Objectives.Count) continue;
+
+
+                QuestObjective obj = questDefinition.Objectives[quest.CurrentObjectiveIndex];
+
                 if (obj.Type != QuestObjectiveType.DeliverItem) continue;
+
                 if (!QuestManager.NpcReferenceMatches(obj.NpcName, speakerName)) continue;
+
+                if (TryPayGoldObjective(questManager, speakerName, interactor, obj))
+                    return;
 
  // Transfer one matching item from player - this NPC.
                 var slots = interactor.Inventory.Slots;
@@ -337,10 +435,29 @@ namespace Sol
                     string deliveredItemId = item.ItemId;
                     interactor.Inventory.Remove(slot, 1);
                     _inventory.Add(item);
-                    qm.NotifyDeliveredItem(speakerName, deliveredItemId);
+                    questManager.NotifyDeliveredItem(speakerName, deliveredItemId);
                     return;
                 }
             }
+        }
+
+        private bool TryPayGoldObjective(
+            QuestManager questManager,
+            string speakerName,
+            Interactor interactor,
+            QuestObjective objective)
+        {
+            int goldAmount = objective.GetRequiredGoldPaymentAmount();
+            if (goldAmount <= 0 || interactor?.Inventory == null || interactor.Inventory.Gold < goldAmount)
+                return false;
+
+            interactor.Inventory.Gold -= goldAmount;
+            _inventory.Gold += goldAmount;
+            Sol.Audio.AudioService.Instance?.PlaySfx(
+                Sol.Audio.AudioEvent.GoldSpent,
+                interactor.Transform != null ? interactor.Transform.position : transform.position);
+            questManager.NotifyPaidGoldToNpc(speakerName, goldAmount);
+            return true;
         }
 
         private void OpenTradeFromConversation(Interactor interactor)

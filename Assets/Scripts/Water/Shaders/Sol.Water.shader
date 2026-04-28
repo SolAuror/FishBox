@@ -212,6 +212,7 @@ Shader "Sol/Water"
             float4 _Sol_WindDirection;         // normalised XZ wind dir
             float  _Sol_WindStrength;           // wind strength multiplier
             float  _Sol_GlobalWaveSpeedMul;     // global wave speed multiplier
+            float  _Sol_WaveTime;               // accumulated time scaled by global wave speed
             float  _Sol_RainIntensity;          // 0 = dry, 1 = heavy rain
             float  _Sol_GlobalWaterLevel;       // gameplay water level
 
@@ -348,20 +349,20 @@ Shader "Sol/Water"
 
                 float3 posWS = TransformObjectToWorld(IN.positionOS.xyz);
 
-                // -- Edge dampening (fade waves near mesh borders) --
-                float dampening  = 1.0 - pow(saturate(abs(IN.uv.x - 0.5) * 2.0), _DampeningFactor);
-                dampening       *= 1.0 - pow(saturate(abs(IN.uv.y - 0.5) * 2.0), _DampeningFactor);
+                // Tiled gameplay water must keep full geometric waves at tile borders so
+                // shader displacement and C# surface sampling agree across edges.
+                float dampening = 1.0;
 
                 // Apply global wind influence: bias wave directions toward wind
                 float windStr = _Sol_WindStrength;
                 float3 windDir = float3(_Sol_WindDirection.x, 0, _Sol_WindDirection.z);
-                float3 dir1 = normalize(float3(_Wave1Direction.x, 0, _Wave1Direction.z) + windDir * windStr * 0.3);
-                float3 dir2 = normalize(float3(_Wave2Direction.x, 0, _Wave2Direction.z) + windDir * windStr * 0.15);
+                float3 dir1Raw = float3(_Wave1Direction.x, 0, _Wave1Direction.z) + windDir * windStr * 0.3;
+                float3 dir2Raw = float3(_Wave2Direction.x, 0, _Wave2Direction.z) + windDir * windStr * 0.15;
+                float3 dir1 = dot(dir1Raw.xz, dir1Raw.xz) > 1e-6 ? normalize(dir1Raw) : float3(1, 0, 0);
+                float3 dir2 = dot(dir2Raw.xz, dir2Raw.xz) > 1e-6 ? normalize(dir2Raw) : float3(0.496, 0, 0.868);
 
-                // Global wave speed multiplier
-                float globalSpd = max(_Sol_GlobalWaveSpeedMul, 0.001);
-                float phase1 = dot(dir1.xz, posWS.xz) * _WaveFrequency + _Time.y * _WaveSpeed * globalSpd;
-                float phase2 = dot(dir2.xz, posWS.xz) * _WaveFrequency * 1.3 + _Time.y * _WaveSpeed * 0.8 * globalSpd;
+                float phase1 = dot(dir1.xz, posWS.xz) * _WaveFrequency + _Sol_WaveTime * _WaveSpeed;
+                float phase2 = dot(dir2.xz, posWS.xz) * _WaveFrequency * 1.3 + _Sol_WaveTime * _WaveSpeed * 0.8;
 
                 // Wind boosts wave amplitude
                 float amp = _WaveAmplitude * (1.0 + windStr * 0.2);
@@ -372,7 +373,7 @@ Shader "Sol/Water"
                 float raw2 = sin(phase2);
                 float wave2 = (pow(raw2 * 0.5 + 0.5, 2.0) * 2.0 - 1.0) * amp * _Wave2Scale;
 
-                float swellPhase = dot(posWS.xz, _SwellDirection.xz) + _Time.y * _SwellSpeed;
+                float swellPhase = dot(posWS.xz, _SwellDirection.xz) + _Sol_WaveTime * _SwellSpeed;
                 float swell = sin(swellPhase) * _SwellAmplitude;
 
                 float totalWave = (wave1 + wave2) * dampening + swell;
@@ -800,6 +801,7 @@ Shader "Sol/Water"
             float4 _Sol_WindDirection;
             float  _Sol_WindStrength;
             float  _Sol_GlobalWaveSpeedMul;
+            float  _Sol_WaveTime;
 
             CBUFFER_START(UnityPerMaterial)
                 half4  _ShallowColor;
@@ -902,17 +904,18 @@ Shader "Sol/Water"
 
                 float windStr = _Sol_WindStrength;
                 float3 windDir = float3(_Sol_WindDirection.x, 0, _Sol_WindDirection.z);
-                float3 dir1   = normalize(float3(_Wave1Direction.x, 0, _Wave1Direction.z) + windDir * windStr * 0.3);
-                float3 dir2   = normalize(float3(_Wave2Direction.x, 0, _Wave2Direction.z) + windDir * windStr * 0.15);
-                float  globalSpd = max(_Sol_GlobalWaveSpeedMul, 0.001);
-                float  phase1 = dot(dir1.xz, posWS.xz) * _WaveFrequency + _Time.y * _WaveSpeed * globalSpd;
-                float  phase2 = dot(dir2.xz, posWS.xz) * _WaveFrequency * 1.3 + _Time.y * _WaveSpeed * 0.8 * globalSpd;
+                float3 dir1Raw = float3(_Wave1Direction.x, 0, _Wave1Direction.z) + windDir * windStr * 0.3;
+                float3 dir2Raw = float3(_Wave2Direction.x, 0, _Wave2Direction.z) + windDir * windStr * 0.15;
+                float3 dir1 = dot(dir1Raw.xz, dir1Raw.xz) > 1e-6 ? normalize(dir1Raw) : float3(1, 0, 0);
+                float3 dir2 = dot(dir2Raw.xz, dir2Raw.xz) > 1e-6 ? normalize(dir2Raw) : float3(0.496, 0, 0.868);
+                float  phase1 = dot(dir1.xz, posWS.xz) * _WaveFrequency + _Sol_WaveTime * _WaveSpeed;
+                float  phase2 = dot(dir2.xz, posWS.xz) * _WaveFrequency * 1.3 + _Sol_WaveTime * _WaveSpeed * 0.8;
                 float amp = _WaveAmplitude * (1.0 + windStr * 0.2);
                 float raw1 = sin(phase1);
                 float raw2 = sin(phase2);
                 posWS.y += sign(raw1) * pow(abs(raw1), 1.5) * amp
                          + (pow(raw2 * 0.5 + 0.5, 2.0) * 2.0 - 1.0) * amp * _Wave2Scale;
-                posWS.y += sin(dot(posWS.xz, _SwellDirection.xz) + _Time.y * _SwellSpeed)
+                posWS.y += sin(dot(posWS.xz, _SwellDirection.xz) + _Sol_WaveTime * _SwellSpeed)
                          * _SwellAmplitude;
 
                 OUT.positionCS = TransformWorldToHClip(posWS);

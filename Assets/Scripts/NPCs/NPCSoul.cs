@@ -14,7 +14,6 @@ namespace Sol.AI
 
     /// <summary>
     /// Unified runtime stats for actors (player, NPC, enemy).
-    /// The simplified project keeps only health as live gameplay state.
     /// </summary>
     public class NPCSoul : MonoBehaviour
     {
@@ -50,28 +49,122 @@ namespace Sol.AI
         }
 
         [Header("Vitals")]
-        [Tooltip("Inspector: tunes health.")]
-        [SerializeField] private float _health = 100f; public float MaxHealth = 100f;
+        [SerializeField] private SoulStat _healthStat = new SoulStat(100f, 100f);
+        [SerializeField] private SoulStat _staminaStat = new SoulStat(100f, 100f);
+
+        [HideInInspector]
+        [SerializeField] private float _health = 100f;
+        [FormerlySerializedAs("MaxHealth")]
+        [HideInInspector]
+        [SerializeField] private float _maxHealth = 100f;
+        [HideInInspector]
+        [SerializeField] private float _stamina = 100f;
+        [FormerlySerializedAs("MaxStamina")]
+        [HideInInspector]
+        [SerializeField] private float _maxStamina = 100f;
+        [HideInInspector]
+        [SerializeField] private bool _soulStatsMigrated;
         #endregion
 
-        public float Health
+        public float MaxHealth
         {
-            get => _health;
+            get
+            {
+                EnsureSoulStatsMigrated();
+                return _healthStat.Max;
+            }
             set
             {
-                bool wasAlive = _health > 0f;
-                float clamped = Mathf.Clamp(value, 0f, MaxHealth);
-                if (Mathf.Approximately(_health, clamped)) return;
+                EnsureSoulStatsMigrated();
+                if (!_healthStat.SetMax(value))
+                    return;
 
-                _health = clamped;
+                SyncLegacyVitals();
                 NotifyVitalsChanged();
-                if (wasAlive && _health <= 0f) OnDeath?.Invoke();
             }
         }
 
-        public float HealthNorm => MaxHealth > 0f ? _health / MaxHealth : 0f;
+        public float Health
+        {
+            get
+            {
+                EnsureSoulStatsMigrated();
+                return _healthStat.Current;
+            }
+            set
+            {
+                EnsureSoulStatsMigrated();
+                bool wasAlive = IsAlive;
+                if (!_healthStat.SetCurrent(value)) return;
 
-        public bool IsAlive => _health > 0f;
+                SyncLegacyVitals();
+                NotifyVitalsChanged();
+                if (wasAlive && _healthStat.IsEmpty) OnDeath?.Invoke();
+            }
+        }
+
+        public float MaxStamina
+        {
+            get
+            {
+                EnsureSoulStatsMigrated();
+                return _staminaStat.Max;
+            }
+            set
+            {
+                EnsureSoulStatsMigrated();
+                if (!_staminaStat.SetMax(value))
+                    return;
+
+                SyncLegacyVitals();
+                NotifyVitalsChanged();
+            }
+        }
+
+        public float Stamina
+        {
+            get
+            {
+                EnsureSoulStatsMigrated();
+                return _staminaStat.Current;
+            }
+            set
+            {
+                EnsureSoulStatsMigrated();
+                if (!_staminaStat.SetCurrent(value))
+                    return;
+
+                SyncLegacyVitals();
+                NotifyVitalsChanged();
+            }
+        }
+
+        public float HealthNorm
+        {
+            get
+            {
+                EnsureSoulStatsMigrated();
+                return _healthStat.Normalized;
+            }
+        }
+
+        public float StaminaNorm
+        {
+            get
+            {
+                EnsureSoulStatsMigrated();
+                return _staminaStat.Normalized;
+            }
+        }
+
+        public bool IsAlive
+        {
+            get
+            {
+                EnsureSoulStatsMigrated();
+                return !_healthStat.IsEmpty;
+            }
+        }
 
         public event Action OnDeath;
         public event Action<NPCSoul> OnVitalsChanged;
@@ -99,8 +192,56 @@ namespace Sol.AI
             OwnerRegistry.Unregister(OwnerId, gameObject);
         }
 
-        public void TakeDamage(float amount) => Health -= Mathf.Abs(amount);
-        public void Heal(float amount) => Health += Mathf.Abs(amount);
+        public void TakeDamage(float amount)
+        {
+            EnsureSoulStatsMigrated();
+            bool wasAlive = IsAlive;
+            if (!_healthStat.Subtract(amount))
+                return;
+
+            SyncLegacyVitals();
+            NotifyVitalsChanged();
+            if (wasAlive && _healthStat.IsEmpty)
+                OnDeath?.Invoke();
+        }
+
+        public void Heal(float amount)
+        {
+            EnsureSoulStatsMigrated();
+            if (!_healthStat.Add(amount))
+                return;
+
+            SyncLegacyVitals();
+            NotifyVitalsChanged();
+        }
+
+        public bool SpendStamina(float amount)
+        {
+            EnsureSoulStatsMigrated();
+            float cost = Mathf.Abs(amount);
+            if (cost <= 0f)
+                return true;
+
+            if (_staminaStat.Current < cost)
+                return false;
+
+            if (!_staminaStat.Subtract(cost))
+                return true;
+
+            SyncLegacyVitals();
+            NotifyVitalsChanged();
+            return true;
+        }
+
+        public void RestoreStamina(float amount)
+        {
+            EnsureSoulStatsMigrated();
+            if (!_staminaStat.Add(amount))
+                return;
+
+            SyncLegacyVitals();
+            NotifyVitalsChanged();
+        }
 
         private void OnValidate()
         {
@@ -111,7 +252,12 @@ namespace Sol.AI
 
         private void ClampVitals()
         {
-            _health = Mathf.Clamp(_health, 0f, MaxHealth);
+            EnsureSoulStatsMigrated();
+            bool changed = false;
+            changed |= _healthStat.Clamp();
+            changed |= _staminaStat.Clamp();
+            if (changed)
+                SyncLegacyVitals();
         }
 
         private void NotifyVitalsChanged()
@@ -135,6 +281,28 @@ namespace Sol.AI
                 EntityCodeUtility.OwnerPrefix,
                 static soul => soul._ownerId);
 #endif
+        }
+
+        private void EnsureSoulStatsMigrated()
+        {
+            _healthStat ??= new SoulStat(_health, _maxHealth);
+            _staminaStat ??= new SoulStat(_stamina, _maxStamina);
+
+            if (_soulStatsMigrated)
+                return;
+
+            _healthStat.Set(_health, _maxHealth);
+            _staminaStat.Set(_stamina, _maxStamina);
+            _soulStatsMigrated = true;
+            SyncLegacyVitals();
+        }
+
+        private void SyncLegacyVitals()
+        {
+            _health = _healthStat.Current;
+            _maxHealth = _healthStat.Max;
+            _stamina = _staminaStat.Current;
+            _maxStamina = _staminaStat.Max;
         }
 
         private static string NormalizeOwnerId(string rawOwnerId)

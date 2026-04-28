@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Sol.Grab;
 
 namespace Sol.Fishing
@@ -10,12 +10,12 @@ namespace Sol.Fishing
 #region Inspector Settings
 
         [Header("References")]
-        [Tooltip("Inspector: tunes tackle point.")]
-        [SerializeField] private Transform _tacklePoint;
+        [Tooltip("Inspector: tunes lure point.")]
+        [SerializeField] private Transform _lurePoint;
         [SerializeField] private Transform _lineOrigin;
-        [Tooltip("Inspector: tunes resting tackle visual.")]
-        [SerializeField] private Transform _restingTackleVisual;
-        [SerializeField] private GameObject _castTacklePrefab;
+        [Tooltip("Inspector: tunes resting lure visual.")]
+        [SerializeField] private Transform _restingLureVisual;
+        [SerializeField] private GameObject _castLurePrefab;
         [Tooltip("Inspector: tunes line material.")]
         [SerializeField] private Material _lineMaterial;
         [SerializeField] private FishingBaitDefinition _defaultBait;
@@ -23,7 +23,7 @@ namespace Sol.Fishing
         [ItemIdDropdown]
         [SerializeField] private string _loadedBaitItemId = string.Empty;
         [ItemIdDropdown]
-        [SerializeField] private string _loadedTackleItemId = string.Empty;
+        [SerializeField] private string _loadedLureItemId = string.Empty;
         [Tooltip("Inspector: tunes caught fish local euler angles.")]
         [SerializeField] private Vector3 _caughtFishLocalEulerAngles = new(-90f, 0f, 0f);
         [SerializeField, Min(0f)] private float _caughtFishHangPadding = 0.015f;
@@ -47,36 +47,37 @@ namespace Sol.Fishing
         [SerializeField, Min(0f)] private float _floatBobFrequency = 2.1f;
         [SerializeField, Min(0f)] private float _floatDriftDistance = 0.18f;
         [SerializeField, Min(0f)] private float _floatDriftFrequency = 0.75f;
-        [SerializeField, Min(0.05f)] private float _floatLineSlackDistance = 1.1f;
+        [SerializeField, Min(0f)] private float _floatLineSlackDistance = 0.5f;
+        [SerializeField, Min(0.01f)] private float _lineSlackRecoverSpeed = 0.35f;
         [SerializeField, Min(0.05f)] private float _floatSettleSpeed = 4.5f;
         [SerializeField, Min(0f)] private float _floatTensionStrength = 8f;
         [SerializeField, Min(0.25f)] private float _baitlessInterestMultiplier = 0.35f;
-        [SerializeField, Min(0.5f)] private float _tackleInterestRadius = 6f;
+        [SerializeField, Min(0.5f)] private float _lureInterestRadius = 6f;
 
         [Header("Line")]
         [SerializeField, Min(2)] private int _lineSegments = 12;
         [SerializeField, Min(0.001f)] private float _lineWidth = 0.015f;
         [SerializeField, Min(0f)] private float _lineSlack = 0.2f;
         private ItemComponent _loadedBaitItem;
-        private ItemComponent _loadedTackleItem;
+        private ItemComponent _loadedLureItem;
         private ItemComponent _displayedCatchItem;
 
-        public Transform TacklePoint => _tacklePoint != null ? _tacklePoint : transform;
-        public Transform LineOrigin => _lineOrigin != null ? _lineOrigin : TacklePoint;
-        public Transform RestingTackleVisual => _restingTackleVisual;
-        public GameObject CastTacklePrefab => _castTacklePrefab;
+        public Transform LurePoint => _lurePoint != null ? _lurePoint : transform;
+        public Transform LineOrigin => _lineOrigin != null ? _lineOrigin : LurePoint;
+        public Transform RestingLureVisual => _restingLureVisual;
+        public GameObject CastLurePrefab => _castLurePrefab;
         public Material LineMaterial => _lineMaterial;
         public FishingBaitDefinition DefaultBait => _defaultBait;
         public string LoadedBaitItemId => _loadedBaitItemId;
-        public string LoadedTackleItemId => _loadedTackleItemId;
+        public string LoadedLureItemId => _loadedLureItemId;
         public ItemComponent LoadedBaitItem => _loadedBaitItem;
         public FishingBaitItem LoadedBait => _loadedBaitItem != null ? _loadedBaitItem.GetComponent<FishingBaitItem>() : null;
-        public ItemComponent LoadedTackleItem => _loadedTackleItem;
-        public FishingTackleItem LoadedTackle => _loadedTackleItem != null ? _loadedTackleItem.GetComponent<FishingTackleItem>() : null;
+        public ItemComponent LoadedLureItem => _loadedLureItem;
+        public FishingLureItem LoadedLure => _loadedLureItem != null ? _loadedLureItem.GetComponent<FishingLureItem>() : null;
         public ItemComponent DisplayedCatchItem => _displayedCatchItem;
-        public GameObject ActiveCastTacklePrefab => LoadedTackle != null && LoadedTackle.CastPrefabOverride != null
-            ? LoadedTackle.CastPrefabOverride
-            : _castTacklePrefab;
+        public GameObject ActiveCastLurePrefab => LoadedLure != null && LoadedLure.CastPrefabOverride != null
+            ? LoadedLure.CastPrefabOverride
+            : _castLurePrefab;
         public float MaxCastDistance => _maxCastDistance;
         public float CastFlightDuration => _castFlightDuration;
         public float CastArcHeight => _castArcHeight;
@@ -94,11 +95,12 @@ namespace Sol.Fishing
         public float FloatDriftDistance => _floatDriftDistance;
         public float FloatDriftFrequency => _floatDriftFrequency;
         public float FloatLineSlackDistance => _floatLineSlackDistance;
+        public float LineSlackRecoverSpeed => _lineSlackRecoverSpeed;
         public float FloatSettleSpeed => _floatSettleSpeed;
         public float FloatTensionStrength => _floatTensionStrength;
         public float BaitlessInterestMultiplier => _baitlessInterestMultiplier;
-        public float TackleInterestRadius => _tackleInterestRadius;
-        public float CurrentLureRange => LoadedTackle != null ? LoadedTackle.LureRange : _tackleInterestRadius;
+        public float LureInterestRadius => _lureInterestRadius;
+        public float CurrentLureRange => LoadedLure != null ? LoadedLure.LureRange : _lureInterestRadius;
         public int LineSegments => _lineSegments;
         public float LineWidth => _lineWidth;
         public float LineSlack => _lineSlack;
@@ -111,7 +113,7 @@ namespace Sol.Fishing
                 return;
 
             AttachItemToPointPreservingWorldScale(_loadedBaitItem, GetBaitAttachmentPoint(), Quaternion.identity);
-            SetAttachedTackleState(_loadedBaitItem.transform, false);
+            SetAttachedLureState(_loadedBaitItem.transform, false);
             _loadedBaitItem.gameObject.SetActive(true);
         }
 
@@ -121,7 +123,7 @@ namespace Sol.Fishing
                 return;
 
             AttachItemToPointPreservingWorldScale(_loadedBaitItem, attachPoint, Quaternion.identity);
-            SetAttachedTackleState(_loadedBaitItem.transform, false);
+            SetAttachedLureState(_loadedBaitItem.transform, false);
             _loadedBaitItem.gameObject.SetActive(true);
         }
 
@@ -135,7 +137,7 @@ namespace Sol.Fishing
                 return;
 
             AttachItemToPointPreservingWorldScale(_loadedBaitItem, point, Quaternion.identity);
-            SetAttachedTackleState(_loadedBaitItem.transform, false);
+            SetAttachedLureState(_loadedBaitItem.transform, false);
         }
 
         public Transform FindBaitPoint(Transform root)
@@ -155,36 +157,36 @@ namespace Sol.Fishing
                 return null;
 
             item.transform.SetParent(null, true);
-            SetAttachedTackleState(item.transform, false);
+            SetAttachedLureState(item.transform, false);
             item.gameObject.SetActive(false);
             return item;
         }
 
-        public void SetLoadedTackleItem(ItemComponent item)
+        public void SetLoadedLureItem(ItemComponent item)
         {
-            _loadedTackleItem = item;
-            _loadedTackleItemId = NormalizeItemIdOrEmpty(item != null ? item.ItemId : string.Empty);
-            if (_loadedTackleItem == null)
+            _loadedLureItem = item;
+            _loadedLureItemId = NormalizeItemIdOrEmpty(item != null ? item.ItemId : string.Empty);
+            if (_loadedLureItem == null)
                 return;
 
-            AttachItemToPoint(_loadedTackleItem, TacklePoint);
-            SetAttachedTackleState(_loadedTackleItem.transform, false);
-            _loadedTackleItem.gameObject.SetActive(true);
+            AttachItemToPoint(_loadedLureItem, LurePoint);
+            SetAttachedLureState(_loadedLureItem.transform, false);
+            _loadedLureItem.gameObject.SetActive(true);
 
             if (_loadedBaitItem != null)
                 SetLoadedBaitItem(_loadedBaitItem);
         }
 
-        public ItemComponent UnloadTackleItem()
+        public ItemComponent UnloadLureItem()
         {
-            ItemComponent item = _loadedTackleItem;
-            _loadedTackleItem = null;
-            _loadedTackleItemId = string.Empty;
+            ItemComponent item = _loadedLureItem;
+            _loadedLureItem = null;
+            _loadedLureItemId = string.Empty;
             if (item == null)
                 return null;
 
             item.transform.SetParent(null, true);
-            SetAttachedTackleState(item.transform, false);
+            SetAttachedLureState(item.transform, false);
             item.gameObject.SetActive(false);
             return item;
         }
@@ -195,8 +197,8 @@ namespace Sol.Fishing
             if (_displayedCatchItem == null)
                 return;
 
-            AttachItemToPointPreservingWorldScale(_displayedCatchItem, TacklePoint, Quaternion.Euler(_caughtFishLocalEulerAngles));
-            PositionDisplayedCatchBelowPoint(_displayedCatchItem.transform, TacklePoint);
+            AttachItemToPointPreservingWorldScale(_displayedCatchItem, LurePoint, Quaternion.Euler(_caughtFishLocalEulerAngles));
+            PositionDisplayedCatchBelowPoint(_displayedCatchItem.transform, LurePoint);
             SetDisplayedCatchState(_displayedCatchItem.transform, attachedToRod: true);
             _displayedCatchItem.gameObject.SetActive(true);
         }
@@ -224,34 +226,34 @@ namespace Sol.Fishing
         {
             ResolveReferences();
             ResolveLoadedItemsFromIds();
-            SanitizeAttachedTackle();
+            SanitizeAttachedLure();
         }
 
         private void OnValidate()
         {
             ResolveReferences();
             _loadedBaitItemId = NormalizeItemIdOrEmpty(_loadedBaitItemId);
-            _loadedTackleItemId = NormalizeItemIdOrEmpty(_loadedTackleItemId);
+            _loadedLureItemId = NormalizeItemIdOrEmpty(_loadedLureItemId);
         }
 
         private void OnEnable()
         {
-            SanitizeAttachedTackle();
+            SanitizeAttachedLure();
         }
 
         private void ResolveReferences()
         {
-            if (_tacklePoint == null)
-                _tacklePoint = FindChildByName("TacklePoint");
+            if (_lurePoint == null)
+                _lurePoint = FindChildByName("LurePoint");
 
             if (_lineOrigin == null)
                 _lineOrigin = FindChildByName("LineOrigin");
 
-            if (_lineOrigin == null && _tacklePoint != null)
-                _lineOrigin = _tacklePoint;
+            if (_lineOrigin == null && _lurePoint != null)
+                _lineOrigin = _lurePoint;
 
-            if (_lineOrigin == null && _restingTackleVisual != null)
-                _lineOrigin = _restingTackleVisual;
+            if (_lineOrigin == null && _restingLureVisual != null)
+                _lineOrigin = _restingLureVisual;
         }
 
         private Transform FindChildByName(string childName)
@@ -259,20 +261,20 @@ namespace Sol.Fishing
             return FindChildByName(transform, childName);
         }
 
-        private void SanitizeAttachedTackle()
+        private void SanitizeAttachedLure()
         {
             if (!Application.isPlaying || !gameObject.scene.IsValid())
                 return;
 
-            if (_restingTackleVisual != null)
-                _restingTackleVisual.gameObject.SetActive(false);
+            if (_restingLureVisual != null)
+                _restingLureVisual.gameObject.SetActive(false);
 
             if (_loadedBaitItem != null)
             {
                 if (CanAttachRuntimeItem(_loadedBaitItem, GetBaitAttachmentPoint()))
                 {
                     AttachItemToPointPreservingWorldScale(_loadedBaitItem, GetBaitAttachmentPoint(), Quaternion.identity);
-                    SetAttachedTackleState(_loadedBaitItem.transform, false);
+                    SetAttachedLureState(_loadedBaitItem.transform, false);
                 }
                 else
                 {
@@ -281,26 +283,26 @@ namespace Sol.Fishing
                 }
             }
 
-            if (_loadedTackleItem != null)
+            if (_loadedLureItem != null)
             {
-                if (CanAttachRuntimeItem(_loadedTackleItem, TacklePoint))
+                if (CanAttachRuntimeItem(_loadedLureItem, LurePoint))
                 {
-                    AttachItemToPoint(_loadedTackleItem, TacklePoint);
-                    SetAttachedTackleState(_loadedTackleItem.transform, false);
+                    AttachItemToPoint(_loadedLureItem, LurePoint);
+                    SetAttachedLureState(_loadedLureItem.transform, false);
                 }
                 else
                 {
-                    _loadedTackleItem = null;
-                    _loadedTackleItemId = string.Empty;
+                    _loadedLureItem = null;
+                    _loadedLureItemId = string.Empty;
                 }
             }
 
             if (_displayedCatchItem != null)
             {
-                if (CanAttachRuntimeItem(_displayedCatchItem, TacklePoint))
+                if (CanAttachRuntimeItem(_displayedCatchItem, LurePoint))
                 {
-                    AttachItemToPointPreservingWorldScale(_displayedCatchItem, TacklePoint, Quaternion.Euler(_caughtFishLocalEulerAngles));
-                    PositionDisplayedCatchBelowPoint(_displayedCatchItem.transform, TacklePoint);
+                    AttachItemToPointPreservingWorldScale(_displayedCatchItem, LurePoint, Quaternion.Euler(_caughtFishLocalEulerAngles));
+                    PositionDisplayedCatchBelowPoint(_displayedCatchItem.transform, LurePoint);
                     SetDisplayedCatchState(_displayedCatchItem.transform, attachedToRod: true);
                 }
                 else
@@ -312,11 +314,11 @@ namespace Sol.Fishing
 
         private Transform GetBaitAttachmentPoint()
         {
-            if (_loadedTackleItem == null)
-                return TacklePoint;
+            if (_loadedLureItem == null)
+                return LurePoint;
 
-            Transform baitPoint = FindChildByName(_loadedTackleItem.transform, BaitPointName);
-            return baitPoint != null ? baitPoint : _loadedTackleItem.transform;
+            Transform baitPoint = FindChildByName(_loadedLureItem.transform, BaitPointName);
+            return baitPoint != null ? baitPoint : _loadedLureItem.transform;
         }
 
         private void ResolveLoadedItemsFromIds()
@@ -328,14 +330,14 @@ namespace Sol.Fishing
             if (registry == null)
                 return;
 
-            if (_loadedTackleItem == null && !string.IsNullOrWhiteSpace(_loadedTackleItemId))
+            if (_loadedLureItem == null && !string.IsNullOrWhiteSpace(_loadedLureItemId))
             {
-                ItemComponent tacklePrefab = registry.GetPrefab(_loadedTackleItemId);
-                if (tacklePrefab != null)
+                ItemComponent lurePrefab = registry.GetPrefab(_loadedLureItemId);
+                if (lurePrefab != null)
                 {
-                    ItemComponent tackleInstance = Instantiate(tacklePrefab, transform);
-                    tackleInstance.gameObject.SetActive(false);
-                    SetLoadedTackleItem(tackleInstance);
+                    ItemComponent lureInstance = Instantiate(lurePrefab, transform);
+                    lureInstance.gameObject.SetActive(false);
+                    SetLoadedLureItem(lureInstance);
                 }
             }
 
@@ -418,7 +420,7 @@ namespace Sol.Fishing
             itemTransform.position += Vector3.down * (topOffset + _caughtFishHangPadding);
         }
 
-        private static void SetAttachedTackleState(Transform root, bool enabled)
+        private static void SetAttachedLureState(Transform root, bool enabled)
         {
             if (root == null)
                 return;
@@ -434,7 +436,7 @@ namespace Sol.Fishing
                 body.detectCollisions = enabled;
                 body.useGravity = enabled;
                 // Kinematic rigidbodies with Interpolate/Extrapolate lag behind a moving parent
-                // transform, causing attached bait/tackle to visibly drift while the rod moves.
+                // transform, causing attached bait/lure to visibly drift while the rod moves.
                 // Disable interpolation while attached so the body follows its parent exactly.
                 body.interpolation = enabled ? RigidbodyInterpolation.Interpolate : RigidbodyInterpolation.None;
             }

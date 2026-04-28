@@ -627,6 +627,9 @@ namespace Sol.HUD
             if (_playerFishingState != null && _playerFishingState.HasDisplayedCatch)
                 return _playerFishingState.DisplayedCatchPrompt;
 
+            if (_playerFishingState != null && _playerFishingState.HasFishingStatus)
+                return _playerFishingState.FishingStatusText;
+
             if (CurrentInteractable != null
                 && _playerInteractor != null
                 && CurrentInteractable.CanInteract(_playerInteractor))

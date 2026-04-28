@@ -102,7 +102,7 @@ MonoBehaviour:
   _smallFishPrefix: Teeny
   _largeFishPrefix: Lofty
   _showDebugLabel: 0
-  _baseTackleInterestChance: 0.45
+  _baseLureInterestChance: 0.45
   _interestDepthOffset: 0.35
   _interestResolveInterval: 0.35
   _interestLoseDistanceMultiplier: 1.5
@@ -114,6 +114,8 @@ MonoBehaviour:
   _maxCommitTravelDistance: 10
   _baseBiteChance: 0.85
   _biteRetryDelayRange: {x: 3, y: 5}
+  _hookSetWindowMax: 1.2
+  _hookSetWindowMin: 0.4
   _swimSpeed: 2
   _fleeSpeed: 5
   _turnSpeed: 1.5

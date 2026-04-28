@@ -57,11 +57,12 @@ namespace Sol.AI
         private void SelectNewPatrolPoint()
         {
             // Spline patrol if a spline is assigned.
-            if (config != null && config.patrolSpline != null && config.patrolSpline.Spline != null && config.patrolSpline.Spline.Count > 0)
+            SplineContainer patrolSpline = npc.PatrolSpline;
+            if (patrolSpline != null && patrolSpline.Spline != null && patrolSpline.Spline.Count > 0)
             {
-                int sampleCount = Mathf.Max(2, config.patrolSampleCount);
+                int sampleCount = Mathf.Max(2, npc.PatrolSampleCount);
                 float t = (sampleCount <= 1) ? 0f : (float)waypointIndex / (sampleCount - 1);
-                patrolTarget = config.patrolSpline.EvaluatePosition(Mathf.Clamp01(t));
+                patrolTarget = patrolSpline.EvaluatePosition(Mathf.Clamp01(t));
 
                 if (agent != null && agent.isOnNavMesh)
                 {
@@ -75,7 +76,7 @@ namespace Sol.AI
 
                 waypointIndex++;
                 if (waypointIndex >= sampleCount)
-                    waypointIndex = config.loop ? 0 : sampleCount - 1;
+                    waypointIndex = npc.LoopPatrol ? 0 : sampleCount - 1;
                 return;
             }
 

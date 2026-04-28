@@ -17,6 +17,10 @@ namespace Sol.AI
         [Tooltip("Inspector: tunes config.")]
         [SerializeField] private AIConfig config;
 
+        [Header("Scene Patrol")]
+        [Tooltip("Optional scene spline for this NPC to patrol. Assign scene SplineContainer objects here; AIConfig assets cannot reliably store scene references.")]
+        [SerializeField] private SplineContainer patrolSplineOverride;
+
         [Header("References")]
         [Tooltip("Inspector: tunes soul.")]
         [SerializeField] private NPCSoul soul;
@@ -40,6 +44,9 @@ namespace Sol.AI
         public event Action<State, State> OnStateChanged;
 
         public AIConfig Config => config;
+        public SplineContainer PatrolSpline => patrolSplineOverride != null ? patrolSplineOverride : config != null ? config.patrolSpline : null;
+        public int PatrolSampleCount => config != null ? config.patrolSampleCount : 8;
+        public bool LoopPatrol => config == null || config.loop;
         public NavMeshAgent Agent => agent;
         public NPCSoul Soul => soul;
         public Animator Animator => animator;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.AI;
@@ -34,7 +34,11 @@ namespace Sol.Quests
                 ? soul.CharacterName
                 : target.name;
 
-            NotifyTalkedToNpc(npcName);
+            string npcReference = soul != null && !string.IsNullOrWhiteSpace(soul.OwnerId)
+                ? soul.OwnerId
+                : npcName;
+
+            NotifyTalkedToNpc(npcReference);
         }
 
 
@@ -160,8 +164,16 @@ namespace Sol.Quests
                     return q.CurrentObjectiveProgress >= Mathf.Max(0, obj.GoldAmount);
 
                 case QuestObjectiveType.TalkToNpc:
+                    return q.CurrentObjectiveProgress >= 1;
+
                 case QuestObjectiveType.EquipItem:
                     return q.CurrentObjectiveProgress >= 1;
+
+                case QuestObjectiveType.DeliverItem:
+                    int requiredGold = obj.GetRequiredGoldPaymentAmount();
+                    return requiredGold > 0
+                        ? q.CurrentObjectiveProgress >= requiredGold
+                        : q.CurrentObjectiveProgress >= Mathf.Max(1, obj.Count);
 
                 default:
                     return q.CurrentObjectiveProgress >= Mathf.Max(1, obj.Count);
@@ -292,7 +304,7 @@ namespace Sol.Quests
             if (obj == null || rod == null)
                 return false;
 
-            return DoesObjectiveMatchItem(obj, rod.LoadedTackleItem)
+            return DoesObjectiveMatchItem(obj, rod.LoadedLureItem)
                 || DoesObjectiveMatchItem(obj, rod.LoadedBaitItem);
         }
 

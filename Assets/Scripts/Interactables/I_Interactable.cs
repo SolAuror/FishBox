@@ -9,6 +9,71 @@ using Sol.Grab;
 
 namespace Sol
 {
+    /// <summary>
+    /// Shared clamped current/max stat used by actor souls.
+    /// Keeps health, stamina, and future actor attributes on the same rules.
+    /// </summary>
+    [Serializable]
+    public sealed class SoulStat
+    {
+        [SerializeField] private float _current;
+        [SerializeField] private float _max;
+
+        public SoulStat() : this(100f, 100f)
+        {
+        }
+
+        public SoulStat(float current, float max)
+        {
+            Set(current, max);
+        }
+
+        public float Current => _current;
+        public float Max => _max;
+        public float Normalized => _max > 0f ? _current / _max : 0f;
+        public bool IsEmpty => _current <= 0f;
+
+        public bool Set(float current, float max)
+        {
+            float clampedMax = Mathf.Max(1f, max);
+            float clampedCurrent = Mathf.Clamp(current, 0f, clampedMax);
+            if (Mathf.Approximately(_max, clampedMax)
+                && Mathf.Approximately(_current, clampedCurrent))
+            {
+                return false;
+            }
+
+            _max = clampedMax;
+            _current = clampedCurrent;
+            return true;
+        }
+
+        public bool SetMax(float value)
+        {
+            return Set(_current, value);
+        }
+
+        public bool SetCurrent(float value)
+        {
+            return Set(value, _max);
+        }
+
+        public bool Add(float amount)
+        {
+            return SetCurrent(_current + Mathf.Abs(amount));
+        }
+
+        public bool Subtract(float amount)
+        {
+            return SetCurrent(_current - Mathf.Abs(amount));
+        }
+
+        public bool Clamp()
+        {
+            return Set(_current, _max);
+        }
+    }
+
     public static class EntityCodeUtility
     {
         public const string ItemPrefix = "ITM";
@@ -404,5 +469,4 @@ namespace Sol
         GameAction GetInteraction(Interactor interactor);
     }
 }
-
 

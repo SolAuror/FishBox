@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace Sol.HUD
 {
-    public sealed class DialoguePromptSystem : MenuSystemBase<DialoguePromptSystem>
+    public sealed class ConfirmationPromptSystem : MenuSystemBase<ConfirmationPromptSystem>
     {
         #region Inspector Settings
         [Tooltip("Inspector: tunes icon.")]
@@ -43,7 +43,7 @@ namespace Sol.HUD
         {
             AutoWire();
             if (closeConflictingUi)
-                UIStateOwnership.CloseConflictingUi(nameof(DialoguePromptSystem));
+                UIStateOwnership.CloseConflictingUi(nameof(ConfirmationPromptSystem));
 
             _confirmAction = confirmAction;
             _cancelAction = cancelAction;

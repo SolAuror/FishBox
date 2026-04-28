@@ -13,33 +13,45 @@ namespace Sol.HUD
     public class TooltipUI : MonoBehaviour
     {
         #region Inspector Settings
+        
         [Header("Layout")]
+        
         [Tooltip("Inspector: tunes panel.")]
         [SerializeField] private GameObject _panel;
+        
         [Tooltip("Inspector: tunes rect transform.")]
         [SerializeField] private RectTransform _rectTransform;
 
+        
         [Header("Text Fields")]
+        
         [Tooltip("Inspector: tunes name text.")]
         [SerializeField] private TextMeshProUGUI _nameText;
         [SerializeField] private TextMeshProUGUI _typeText;
+        
         [Tooltip("Inspector: tunes flavour text.")]
         [SerializeField] private TextMeshProUGUI _flavourText;
         [SerializeField] private TextMeshProUGUI _statsText;
+        
         [Tooltip("Inspector: tunes id text.")]
         [SerializeField] private TextMeshProUGUI _idText;
         [Header("Reference Codes")]
+        
         [Tooltip("Inspector: tunes show reference codes.")]
         [SerializeField] private bool _showReferenceCodes = true;
         [Header("Stolen Indicator")]
+        
         [Tooltip("Inspector: tunes name stolen icon.")]
         [SerializeField] private Image _nameStolenIcon;
+        
         [Tooltip("Inspector: tunes stolen icon sprite.")]
         [SerializeField] private Sprite _stolenIconSprite;
 
         [Header("Preview")]
+        
         [Tooltip("Inspector: tunes preview image.")]
         [SerializeField] private RawImage _previewImage;
+        
         #endregion
 
         public static TooltipUI Instance { get; private set; }

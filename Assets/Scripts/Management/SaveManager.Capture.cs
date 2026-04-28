@@ -64,6 +64,8 @@ namespace Sol.SaveLoad
             {
                 data.Health = soul.Health;
                 data.MaxHealth = soul.MaxHealth;
+                data.Stamina = soul.Stamina;
+                data.MaxStamina = soul.MaxStamina;
             }
 
             Inventory inventory = playerRoot.GetComponent<Inventory>();
@@ -189,14 +191,22 @@ namespace Sol.SaveLoad
             if (equipment == null)
                 return items;
 
+            HashSet<ItemComponent> capturedItems = new();
             foreach (KeyValuePair<EquipmentSlotType, ItemComponent> pair in equipment.Equipped)
             {
                 if (pair.Value == null || string.IsNullOrWhiteSpace(pair.Value.ItemId))
                     continue;
 
+                if (!capturedItems.Add(pair.Value))
+                    continue;
+
+                EquipmentSlotType slot = equipment.TryGetPrimarySlot(pair.Value, out EquipmentSlotType primarySlot)
+                    ? primarySlot
+                    : pair.Key;
+
                 items.Add(new EquippedItemSaveData
                 {
-                    SlotType = pair.Key.ToString(),
+                    SlotType = slot.ToString(),
                     Item = CaptureItemState(pair.Value)
                 });
             }
@@ -226,7 +236,9 @@ namespace Sol.SaveLoad
                     Position = npc.transform.position,
                     Rotation = npc.transform.rotation,
                     Health = soul != null ? soul.Health : 0f,
-                    MaxHealth = soul != null ? soul.MaxHealth : 0f
+                    MaxHealth = soul != null ? soul.MaxHealth : 0f,
+                    Stamina = soul != null ? soul.Stamina : 0f,
+                    MaxStamina = soul != null ? soul.MaxStamina : 0f
                 };
 
                 Inventory npcInventory = npc.Inventory;

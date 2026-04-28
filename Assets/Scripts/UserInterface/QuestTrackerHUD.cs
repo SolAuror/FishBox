@@ -203,6 +203,7 @@ namespace Sol.HUD
                 QuestObjectiveType.CatchTotalValue => $"{label}: {Mathf.Max(0, data.CurrentObjectiveProgress)}/{Mathf.Max(0, obj.GoldAmount)}",
                 QuestObjectiveType.CatchByPrefix => $"{label}: {BuildPrefixProgress(data, obj)}",
                 QuestObjectiveType.EquipItem or QuestObjectiveType.TalkToNpc => $"{label}: {(data.CurrentObjectiveProgress > 0 ? "Done" : "Pending")}",
+                QuestObjectiveType.DeliverItem when obj.GetRequiredGoldPaymentAmount() > 0 => $"{label}: {Mathf.Max(0, data.CurrentObjectiveProgress)}/{obj.GetRequiredGoldPaymentAmount()}",
                 _ => $"{label}: {Mathf.Max(0, data.CurrentObjectiveProgress)}/{Mathf.Max(1, obj.Count)}",
             };
         }

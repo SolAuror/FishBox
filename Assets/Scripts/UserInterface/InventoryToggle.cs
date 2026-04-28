@@ -232,8 +232,8 @@ namespace Sol.HUD
                 ConversationWindowSystem.Instance.Hide();
             }
 
-            if (owner != nameof(DialoguePromptSystem) && DialoguePromptSystem.Instance != null && DialoguePromptSystem.Instance.IsOpen)
-                DialoguePromptSystem.Instance.Close();
+            if (owner != nameof(ConfirmationPromptSystem) && ConfirmationPromptSystem.Instance != null && ConfirmationPromptSystem.Instance.IsOpen)
+                ConfirmationPromptSystem.Instance.Close();
 
             if (owner != nameof(SaveLoadMenuSystem) && SaveLoadMenuSystem.Instance != null && SaveLoadMenuSystem.Instance.IsOpen)
                 SaveLoadMenuSystem.Instance.Close(false);
@@ -241,8 +241,8 @@ namespace Sol.HUD
             if (owner != nameof(SettingsMenuSystem) && SettingsMenuSystem.Instance != null && SettingsMenuSystem.Instance.IsOpen)
                 SettingsMenuSystem.Instance.Close(false);
 
-            if (owner != nameof(RadialMenuSystem) && RadialMenuSystem.Instance != null && RadialMenuSystem.Instance.IsOpen)
-                RadialMenuSystem.Instance.Close();
+            if (owner != nameof(SleepMenuSystem) && SleepMenuSystem.Instance != null && SleepMenuSystem.Instance.IsOpen)
+                SleepMenuSystem.Instance.Close();
 
             if (owner != nameof(PauseMenuSystem) && PauseMenuSystem.Instance != null && PauseMenuSystem.Instance.IsOpen)
             {
@@ -283,8 +283,8 @@ namespace Sol.HUD
                 || (PauseMenuSystem.Instance != null && PauseMenuSystem.Instance.IsOpen)
                 || (SaveLoadMenuSystem.Instance != null && SaveLoadMenuSystem.Instance.IsOpen)
                 || (SettingsMenuSystem.Instance != null && SettingsMenuSystem.Instance.IsOpen)
-                || (DialoguePromptSystem.Instance != null && DialoguePromptSystem.Instance.IsOpen)
-                || (RadialMenuSystem.Instance != null && RadialMenuSystem.Instance.IsOpen);
+                || (ConfirmationPromptSystem.Instance != null && ConfirmationPromptSystem.Instance.IsOpen)
+                || (SleepMenuSystem.Instance != null && SleepMenuSystem.Instance.IsOpen);
         }
     }
 }

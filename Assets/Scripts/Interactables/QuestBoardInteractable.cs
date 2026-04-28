@@ -112,7 +112,7 @@ namespace Sol.Quests
                 return;
 
             QuestDefinition def = offerable[0];
-            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance();
+            ConfirmationPromptSystem prompt = ConfirmationPromptSystem.ResolveInstance();
             if (prompt == null)
             {
                 qm.TryAccept(def.QuestId, string.Empty);
@@ -156,7 +156,7 @@ namespace Sol.Quests
             if (target == null || targetDef == null)
                 return;
 
-            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance();
+            ConfirmationPromptSystem prompt = ConfirmationPromptSystem.ResolveInstance();
             if (prompt == null)
             {
                 qm.TryTurnIn(target.QuestId, string.Empty);

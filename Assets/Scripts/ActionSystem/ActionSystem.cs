@@ -68,12 +68,20 @@ namespace Sol.Actions
             Instance = this;
             if (transform.parent != null)
                 transform.SetParent(null);
-            DontDestroyOnLoad(gameObject);
+            EnsurePersistentRoot(gameObject);
         }
 
         private void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        private static void EnsurePersistentRoot(GameObject target)
+        {
+            if (target == null || target.scene.name == "DontDestroyOnLoad")
+                return;
+
+            DontDestroyOnLoad(target);
         }
 
         private void Update()

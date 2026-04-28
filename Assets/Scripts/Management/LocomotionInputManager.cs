@@ -6,6 +6,7 @@ using Sol.HUD;
 
 namespace Sol.Locomotion
 {
+    [DisallowMultipleComponent]
     [DefaultExecutionOrder(-3)]
     public class LocomotionInputManager : MonoBehaviour, SolControls.IDefaultActions
     {
@@ -15,26 +16,34 @@ namespace Sol.Locomotion
         public event System.Action<CameraContext> CameraContextChanged;
 
         [Header("Camera Setup")]
+        
         [Tooltip("Inspector: tunes cinemachine brain.")]
         [SerializeField] private CinemachineBrain _cinemachineBrain;
         [SerializeField] private CinemachineCamera _thirdPersonCamera;
+        
         [Tooltip("Inspector: tunes first person camera.")]
         [SerializeField] private CinemachineCamera _firstPersonCamera;
+        
         [Tooltip("Inspector: tunes perspective swap delay.")]
         [SerializeField] private float _perspectiveSwapDelay = -1f;
 
         [Header("Third Person Zoom")]
+        
         [Tooltip("Inspector: tunes zoom speed.")]
         [SerializeField] private float _zoomSpeed = 2f;
         [SerializeField] private float _zoomLerpSpeed = 10f;
+        
         [Tooltip("Inspector: tunes camera min zoom.")]
         [SerializeField] private float _cameraMinZoom = 1f;
+        
         [Tooltip("Inspector: tunes camera max zoom.")]
         [SerializeField] private float _cameraMaxZoom = 5f;
 
         [Header("Player Reference")]
+        
         [Tooltip("Inspector: tunes controller.")]
         [SerializeField] private LocomotionController _controller;
+        
         [Tooltip("Inspector: tunes head mesh renderer.")]
         [SerializeField] private Renderer _headMeshRenderer;
 
@@ -88,7 +97,9 @@ namespace Sol.Locomotion
             Instance = this;
             if (transform.parent != null)
                 transform.SetParent(null);
-            DontDestroyOnLoad(gameObject);
+
+            if (!HasCoHostedPersistenceOwner())
+                EnsurePersistentRoot(gameObject);
         }
 
         private void Start()
@@ -116,6 +127,20 @@ namespace Sol.Locomotion
             if (Instance == this) Instance = null;
             Controls?.Dispose();
             Controls = null;
+        }
+
+        private static void EnsurePersistentRoot(GameObject target)
+        {
+            if (target == null || target.scene.name == "DontDestroyOnLoad")
+                return;
+
+            DontDestroyOnLoad(target);
+        }
+
+        private bool HasCoHostedPersistenceOwner()
+        {
+            return GetComponent<Sol.Actions.ActionSystem>() != null
+                || GetComponent<Sol.Audio.AudioService>() != null;
         }
 
         private void Update()

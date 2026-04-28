@@ -3785,7 +3785,7 @@ MonoBehaviour:
   _locomotionInput: {fileID: 5894706381801823478}
   _locomotionController: {fileID: 1383637752041848490}
   _fallbackRodItemName: Fishing Rod
-  _fallbackTackleVisualName: Tackle
+  _fallbackLureVisualName: Lure
   _fallbackMaxCastDistance: 50
   _fallbackCastFlightDuration: 0.45
   _fallbackCastArcHeight: 1.15
@@ -3806,7 +3806,7 @@ MonoBehaviour:
   _fallbackFloatSettleSpeed: 4.5
   _fallbackFloatTensionStrength: 8
   _fallbackBaitlessInterestMultiplier: 0.35
-  _fallbackTackleInterestRadius: 6
+  _fallbackLureInterestRadius: 6
   _fallbackLineSegments: 12
   _fallbackLineWidth: 0.055
   _fallbackLineSlack: 0.2

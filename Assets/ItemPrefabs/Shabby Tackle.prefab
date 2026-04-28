@@ -12,7 +12,7 @@ GameObject:
   - component: {fileID: 1232260659225573813}
   - component: {fileID: 199805596062842316}
   m_Layer: 3
-  m_Name: Tackle
+  m_Name: Lure
   m_TagString: Item
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -218,7 +218,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 284c374d060ddd34aa2717663b4a3182, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingTackleItem
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingLureItem
   _lureRange: 5
   _castPrefabOverride: {fileID: 9075445031357625527, guid: 9e2204f85b278a44dbb7eb33424e8caa, type: 3}
 --- !u!114 &3572990517528342952

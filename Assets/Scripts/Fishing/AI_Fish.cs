@@ -3,6 +3,7 @@ using Sol.Player;
 using Sol.Outline;
 using Sol;
 using Sol.Grab;
+using Sol.Audio;
 using Sol.Fishing;
 using Sol.AI;
 
@@ -66,18 +67,70 @@ namespace Sol.AI
         [SerializeField] private Color _mythicalOutlineColor = new(1f, 0.35f, 0.95f, 1f);
 
         [Header("Prefixes")]
-        [SerializeField, Range(0.01f, 0.25f)] private float _sizeOutlierThreshold = 0.1f;
+        [SerializeField, Range(0.01f, 0.25f)]
+        private float _sizeOutlierThreshold = 0.1f;
+
         [Tooltip("Inspector: tunes small fish prefix.")]
-        [SerializeField] private string _smallFishPrefix = "Teeny";
+        [SerializeField] private string[] _smallFishPrefixes =
+        {
+            "Scrap",
+            "Fryling",
+            "Tidebit",
+            "Nibbler",
+            "Dockling"
+        };
+
         [Tooltip("Inspector: tunes large fish prefix.")]
-        [SerializeField] private string _largeFishPrefix = "Lofty";
+        [SerializeField] private string[] _largeFishPrefixes =
+        {
+            "Leviathan",
+            "Deepborn",
+            "Hullbreaker",
+            "Tidemaw",
+            "Old One"
+        };
+
+        [Tooltip("Inspector: tunes lightweight fish prefix.")]
+        [SerializeField] private string[] _lightFishPrefixes =
+        {
+            "Hollow",
+            "Drift",
+            "Bone-light",
+            "Windried",
+            "Thinwater"
+        };
+
+        [Tooltip("Inspector: tunes heavy fish prefix.")]
+        [SerializeField] private string[] _heavyFishPrefixes =
+        {
+            "Brinefat",
+            "Ironbelly",
+            "Anchorweight",
+            "Barnacle-back",
+            "Mudswollen"
+        };
+
+        [Tooltip("Inspector: prefixes for fish that are double outliers (size + weight mismatch).")]
+        [SerializeField] private string[] _outlierFishPrefixes =
+        {
+            "Odd",
+            "Offsize",
+            "Misfit",
+            "Wrongbuilt",
+            "Bent",
+            "Roughcut",
+            "Scrapgrown",
+            "Patchwork",
+            "Junk-bred",
+            "Outcast"
+        };
 
         [Header("Debug")]
         [Tooltip("Inspector: tunes show debug label.")]
         [SerializeField] private bool _showDebugLabel;
 
-        [Header("Tackle Interest")]
-        [SerializeField, Range(0f, 1f)] private float _baseTackleInterestChance = 0.35f;
+        [Header("Lure Interest")]
+        [SerializeField, Range(0f, 1f)] private float _baseLureInterestChance = 0.35f;
         [Tooltip("Inspector: tunes interest depth offset.")]
         [SerializeField] private float _interestDepthOffset = 0.35f;
         [SerializeField] private float _interestResolveInterval = 0.35f;
@@ -95,6 +148,10 @@ namespace Sol.AI
         [SerializeField, Range(0.05f, 1f)] private float _baseBiteChance = 0.9f;
         [Tooltip("Inspector: tunes bite retry delay range.")]
         [SerializeField] private Vector2 _biteRetryDelayRange = new(3f, 5f);
+        [Tooltip("Inspector: tunes max hook-set window (seconds) on the easiest fish.")]
+        [SerializeField, Min(0.25f)] private float _hookSetWindowMax = 1.2f;
+        [Tooltip("Inspector: tunes min hook-set window (seconds) on the hardest fish.")]
+        [SerializeField, Min(0.1f)] private float _hookSetWindowMin = 0.4f;
 
         [Header("Movement")]
         [Tooltip("Inspector: tunes swim speed.")]
@@ -159,8 +216,15 @@ namespace Sol.AI
         private float _rarityPercent;
         private bool _isCaught;
         private string _prefix = string.Empty;
-        private FishingTackleInstance _interestTackle;
-        private FishingTackleInstance _hookedTackle;
+        private FishingLureInstance _interestLure;
+        private FishingLureInstance _hookedLure;
+        private float _fightStamina = 1f;
+        private float _nextStruggleTime;
+        private float _struggleEndTime;
+        private bool _isStruggling;
+        private Vector3 _struggleDirection;
+        private float _currentStruggleIntensity;
+        private Vector3 _hookedPullDirection;
 
         // --- Public accessors ---
         public FishDefinition Definition => _definition;
@@ -177,7 +241,7 @@ namespace Sol.AI
         public int Value => Mathf.RoundToInt(_baseValue * Mathf.Max(_size, 0.1f) * GetRarityValueMultiplier());
         public float CatchDifficulty => (_catchDifficulty * (1f + _weight * 0.1f)) / GetFavoriteBaitCatchMultiplier();
         public bool IsCaught => _isCaught;
-        public bool IsHooked => _hookedTackle != null;
+        public bool IsHooked => _hookedLure != null;
         public GameObject CatchItemPrefab => _catchItemPrefab;
         public GameObject CatchVisualPrefab => _definition != null && _definition.modelPrefab != null
             ? _definition.modelPrefab
@@ -221,8 +285,11 @@ namespace Sol.AI
 
         private void Update()
         {
-            if (_hookedTackle != null)
+            if (_hookedLure != null)
+            {
+                UpdateHookedFight();
                 return;
+            }
 
             if (Time.time >= _nextContextResolveTime)
                 ResolveContext(force: false);
@@ -230,10 +297,10 @@ namespace Sol.AI
             UpdatePlayerVelocity();
 
             bool shouldFlee = ShouldFleeFromPlayer();
-            FishingTackleInstance interestTackle = shouldFlee ? null : ResolveInterestTackle();
+            FishingLureInstance interestLure = shouldFlee ? null : ResolveInterestLure();
             _retargetTimer -= Time.deltaTime;
 
-            if (interestTackle != null)
+            if (interestLure != null)
             {
                 if (HasInterestTimedOut())
                 {
@@ -244,22 +311,23 @@ namespace Sol.AI
                 }
 
                 _isFleeing = false;
-                _interestTackle = interestTackle;
+                _interestLure = interestLure;
 
-                Vector3 biteTarget = interestTackle.GetFishInterestPoint(_interestDepthOffset);
+                Vector3 biteTarget = interestLure.GetFishInterestPoint(_interestDepthOffset);
                 float biteDistance = Mathf.Max(0.3f, _size * 0.35f);
                 if ((biteTarget - transform.position).sqrMagnitude <= biteDistance * biteDistance)
                 {
+                    interestLure.NotifyFishAtBait();
                     HoldAtBitePoint(biteTarget);
-                    if (TryBiteTackle(interestTackle))
+                    if (TryBiteLure(interestLure))
                         return;
 
                     return;
                 }
 
-                if (_retargetTimer <= 0f || HasReachedTarget() || !IsCurrentInterestTackleValid(_interestTackle))
+                if (_retargetTimer <= 0f || HasReachedTarget() || !IsCurrentInterestLureValid(_interestLure))
                 {
-                    _target = GetInterestTarget(_interestTackle);
+                    _target = GetInterestTarget(_interestLure);
                     _retargetTimer = Random.Range(_interestRetargetMinTime, _interestRetargetMaxTime);
                 }
 
@@ -267,7 +335,7 @@ namespace Sol.AI
                 return;
             }
 
-            ClearInterestTackle();
+            ClearInterestLure();
             if (shouldFlee != _isFleeing || _retargetTimer <= 0f || HasReachedTarget())
                 PickNewTarget(shouldFlee);
 
@@ -305,7 +373,7 @@ namespace Sol.AI
                 $"{FishName}\n" +
                 $"{_rarity} {RarityPercent:0.##}% | Spawn {SpawnChancePercent:0.##}%\n" +
                 $"Value {Value}" +
-                (_interestTackle != null ? "\nInterested" : string.Empty);
+                (_interestLure != null ? "\nInterested" : string.Empty);
 
             GUI.Label(labelRect, label);
         }
@@ -442,19 +510,67 @@ namespace Sol.AI
             _modelRoot.localScale = baseScale * scaleMultiplier;
         }
 
+        private string GetRandomPrefix(string[] prefixes)
+        {
+            if (prefixes == null || prefixes.Length == 0)
+                return string.Empty;
+
+            return prefixes[UnityEngine.Random.Range(0, prefixes.Length)];
+        }
+
+        private static string CombineComboPrefixes(string firstPrefix, string secondPrefix)
+        {
+            firstPrefix = firstPrefix?.Trim() ?? string.Empty;
+            secondPrefix = secondPrefix?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(firstPrefix))
+                return secondPrefix;
+
+            if (string.IsNullOrWhiteSpace(secondPrefix))
+                return firstPrefix;
+
+            return $"{firstPrefix} {secondPrefix}";
+        }
+
         private string GetPrefixForCurrentRoll()
         {
-            if (_maxSize <= _minSize)
+            if (_maxSize <= _minSize || _maxWeight <= _minWeight)
                 return string.Empty;
 
             float sizePercent = Mathf.InverseLerp(_minSize, _maxSize, _size);
+            float weightPercent = Mathf.InverseLerp(_minWeight, _maxWeight, _weight);
+
             float upperThreshold = 1f - _sizeOutlierThreshold;
 
-            if (sizePercent <= _sizeOutlierThreshold)
-                return _smallFishPrefix;
+            bool isSizeOutlier = sizePercent <= _sizeOutlierThreshold || sizePercent >= upperThreshold;
+            bool isWeightOutlier = weightPercent <= _sizeOutlierThreshold || weightPercent >= upperThreshold;
 
-            if (sizePercent >= upperThreshold)
-                return _largeFishPrefix;
+            // Strange combos: small+heavy OR large+light
+            if ((sizePercent <= _sizeOutlierThreshold && weightPercent >= upperThreshold) ||
+                (sizePercent >= upperThreshold && weightPercent <= _sizeOutlierThreshold))
+            {
+                return GetRandomPrefix(_outlierFishPrefixes);
+            }
+
+            // Normal combos only if BOTH dimensions are outliers
+            if (!isSizeOutlier || !isWeightOutlier)
+                return string.Empty;
+
+            // small+light combo
+            if (sizePercent <= _sizeOutlierThreshold && weightPercent <= _sizeOutlierThreshold)
+            {
+                string sizePrefix = GetRandomPrefix(_smallFishPrefixes);
+                string weightPrefix = GetRandomPrefix(_lightFishPrefixes);
+                return CombineComboPrefixes(sizePrefix, weightPrefix);
+            }
+
+            // large+heavy combo
+            if (sizePercent >= upperThreshold && weightPercent >= upperThreshold)
+            {
+                string sizePrefix = GetRandomPrefix(_largeFishPrefixes);
+                string weightPrefix = GetRandomPrefix(_heavyFishPrefixes);
+                return CombineComboPrefixes(sizePrefix, weightPrefix);
+            }
 
             return string.Empty;
         }
@@ -598,12 +714,12 @@ namespace Sol.AI
                 : Random.Range(_wanderRetargetMinTime, _wanderRetargetMaxTime);
         }
 
-        private FishingTackleInstance ResolveInterestTackle()
+        private FishingLureInstance ResolveInterestLure()
         {
-            if (_interestTackle != null && IsCurrentInterestTackleValid(_interestTackle))
-                return _interestTackle;
+            if (_interestLure != null && IsCurrentInterestLureValid(_interestLure))
+                return _interestLure;
 
-            ClearInterestTackle();
+            ClearInterestLure();
 
             if (Time.time < _nextInterestAllowedTime)
                 return null;
@@ -613,95 +729,95 @@ namespace Sol.AI
 
             _nextInterestResolveTime = Time.time + Mathf.Max(0.05f, _interestResolveInterval);
 
-            FishingTackleInstance bestTackle = null;
+            FishingLureInstance bestLure = null;
             float bestScore = 0f;
-            FishingTackleInstance fallbackTackle = null;
+            FishingLureInstance fallbackLure = null;
             float fallbackScore = float.MinValue;
-            var activeTackles = FishingTackleInstance.ActiveInstances;
-            for (int i = 0; i < activeTackles.Count; i++)
+            var activeLures = FishingLureInstance.ActiveInstances;
+            for (int i = 0; i < activeLures.Count; i++)
             {
-                FishingTackleInstance tackle = activeTackles[i];
-                if (!IsAwareOfTackle(tackle))
+                FishingLureInstance lure = activeLures[i];
+                if (!IsAwareOfLure(lure))
                     continue;
 
-                float awarenessChance = CalculateAwarenessChance(tackle);
+                float awarenessChance = CalculateAwarenessChance(lure);
                 if (awarenessChance <= 0f || Random.value > awarenessChance)
                     continue;
 
-                float commitScore = CalculateCommitScore(tackle, awarenessChance);
+                float commitScore = CalculateCommitScore(lure, awarenessChance);
                 if (commitScore > fallbackScore)
                 {
                     fallbackScore = commitScore;
-                    fallbackTackle = tackle;
+                    fallbackLure = lure;
                 }
 
                 if (commitScore <= bestScore)
                     continue;
 
-                if (!tackle.TryCommitFish(this))
+                if (!lure.TryCommitFish(this))
                     continue;
 
-                if (bestTackle != null && bestTackle != tackle)
-                    bestTackle.ReleaseCommittedFish(this);
+                if (bestLure != null && bestLure != lure)
+                    bestLure.ReleaseCommittedFish(this);
 
                 bestScore = commitScore;
-                bestTackle = tackle;
+                bestLure = lure;
             }
 
-            if (bestTackle == null && fallbackTackle != null && fallbackTackle.TryCommitFish(this))
-                bestTackle = fallbackTackle;
+            if (bestLure == null && fallbackLure != null && fallbackLure.TryCommitFish(this))
+                bestLure = fallbackLure;
 
-            _interestTackle = bestTackle;
-            if (_interestTackle != null)
+            _interestLure = bestLure;
+            if (_interestLure != null)
             {
                 _interestStartTime = Time.time;
-                ClampCommittedDistanceToTackle(_interestTackle);
+                ClampCommittedDistanceToLure(_interestLure);
             }
 
-            return bestTackle;
+            return bestLure;
         }
 
-        private bool IsCurrentInterestTackleValid(FishingTackleInstance tackle)
+        private bool IsCurrentInterestLureValid(FishingLureInstance lure)
         {
-            if (tackle == null || !tackle.isActiveAndEnabled || !tackle.CanAttractFish)
+            if (lure == null || !lure.isActiveAndEnabled || !lure.CanAttractFish)
                 return false;
 
-            if (!IsAwareOfTackle(tackle))
+            if (!IsAwareOfLure(lure))
                 return false;
 
-            if (tackle.CommittedFish != null && tackle.CommittedFish != this)
+            if (lure.CommittedFish != null && lure.CommittedFish != this)
                 return false;
 
-            float loseDistance = tackle.InterestRadius * Mathf.Max(1f, _interestLoseDistanceMultiplier);
+            float loseDistance = lure.InterestRadius * Mathf.Max(1f, _interestLoseDistanceMultiplier);
             float awarenessRange = Mathf.Max(loseDistance, GetWaterAwareRange());
-            return (tackle.transform.position - transform.position).sqrMagnitude <= awarenessRange * awarenessRange;
+            return (lure.transform.position - transform.position).sqrMagnitude <= awarenessRange * awarenessRange;
         }
 
-        private bool IsAwareOfTackle(FishingTackleInstance tackle)
+        private bool IsAwareOfLure(FishingLureInstance lure)
         {
-            if (tackle == null || !tackle.isActiveAndEnabled || !tackle.CanAttractFish)
+            if (lure == null || !lure.isActiveAndEnabled || !lure.CanAttractFish)
                 return false;
 
-            if (_waterVolume != null && tackle.WaterVolume != null)
-                return tackle.WaterVolume == _waterVolume;
+            if (_waterVolume != null && lure.WaterVolume != null)
+                return lure.WaterVolume == _waterVolume;
 
-            float awarenessRange = Mathf.Max(tackle.InterestRadius, GetWaterAwareRange());
-            return (tackle.transform.position - transform.position).sqrMagnitude <= awarenessRange * awarenessRange;
+            float awarenessRange = Mathf.Max(lure.InterestRadius, GetWaterAwareRange());
+            return (lure.transform.position - transform.position).sqrMagnitude <= awarenessRange * awarenessRange;
         }
 
-        private float CalculateAwarenessChance(FishingTackleInstance tackle)
+        private float CalculateAwarenessChance(FishingLureInstance lure)
         {
             float speciesAffinity = _definition != null ? _definition.baitInterestMultiplier : 1f;
-            float favoriteBaitBonus = GetFavoriteBaitLureMultiplier(tackle);
-            float tackleFactor = Mathf.Max(0.1f, tackle.InterestMultiplier);
-            return Mathf.Clamp01(_baseTackleInterestChance * speciesAffinity * tackleFactor * favoriteBaitBonus);
+            float favoriteBaitBonus = GetFavoriteBaitLureMultiplier(lure);
+            float lureFactor = Mathf.Max(0.1f, lure.InterestMultiplier);
+            return Mathf.Clamp01(_baseLureInterestChance * speciesAffinity * lureFactor * favoriteBaitBonus);
         }
 
-        private float CalculateCommitScore(FishingTackleInstance tackle, float awarenessChance)
+        private float CalculateCommitScore(FishingLureInstance lure, float awarenessChance)
         {
-            Vector3 toTackle = tackle.transform.position - transform.position;
-            float distance = toTackle.magnitude;
-            float nearRange = Mathf.Max(0.01f, tackle.InterestRadius);
+            Vector3 toLure = lure.transform.position - transform.position;
+            float distance = toLure.magnitude;
+            float nearRange = Mathf.Max(0.01f, lure.InterestRadius);
             float awarenessRange = Mathf.Max(nearRange, GetWaterAwareRange());
             float distanceWeight = distance <= nearRange
                 ? 1f
@@ -710,22 +826,32 @@ namespace Sol.AI
             return awarenessChance * distanceWeight;
         }
 
-        private bool TryBiteTackle(FishingTackleInstance tackle)
+        private bool TryBiteLure(FishingLureInstance lure)
         {
-            if (tackle == null)
+            if (lure == null)
                 return false;
 
             if (Time.time < _nextBiteAttemptTime)
                 return false;
 
-            if (Random.value <= CalculateBiteChance(tackle))
-                return tackle.TryHookFish(this);
+            if (Random.value <= CalculateBiteChance(lure))
+                return lure.TryHookFish(this, CalculateHookSetWindow());
 
-            tackle.FlashBiteFail();
+            lure.FlashBiteFail();
             _nextBiteAttemptTime = Time.time + Random.Range(
                 Mathf.Min(_biteRetryDelayRange.x, _biteRetryDelayRange.y),
                 Mathf.Max(_biteRetryDelayRange.x, _biteRetryDelayRange.y));
             return false;
+        }
+
+        private float CalculateHookSetWindow()
+        {
+            // Easier fish (low CatchDifficulty) get the full window. Hard fish get
+            // closer to the floor — the player has to react fast.
+            float minWindow = Mathf.Min(_hookSetWindowMin, _hookSetWindowMax);
+            float maxWindow = Mathf.Max(_hookSetWindowMin, _hookSetWindowMax);
+            float scaled = maxWindow / Mathf.Max(0.5f, CatchDifficulty);
+            return Mathf.Clamp(scaled, minWindow, maxWindow);
         }
 
         private void HoldAtBitePoint(Vector3 biteTarget)
@@ -747,16 +873,16 @@ namespace Sol.AI
             }
         }
 
-        private float CalculateBiteChance(FishingTackleInstance tackle)
+        private float CalculateBiteChance(FishingLureInstance lure)
         {
-            float tackleFactor = Mathf.Lerp(0.6f, 1.2f, Mathf.InverseLerp(0.1f, 2f, tackle.InterestMultiplier));
+            float lureFactor = Mathf.Lerp(0.6f, 1.2f, Mathf.InverseLerp(0.1f, 2f, lure.InterestMultiplier));
             float difficultyFactor = 1f / Mathf.Max(0.35f, CatchDifficulty);
-            return Mathf.Clamp01(_baseBiteChance * tackleFactor * difficultyFactor);
+            return Mathf.Clamp01(_baseBiteChance * lureFactor * difficultyFactor);
         }
 
-        private float GetFavoriteBaitLureMultiplier(FishingTackleInstance tackle)
+        private float GetFavoriteBaitLureMultiplier(FishingLureInstance lure)
         {
-            if (!IsFavoriteBaitMatch(tackle) || _definition == null)
+            if (!IsFavoriteBaitMatch(lure) || _definition == null)
                 return 1f;
 
             return Mathf.Max(1f, _definition.favoriteBaitLureMultiplier);
@@ -764,15 +890,15 @@ namespace Sol.AI
 
         private float GetFavoriteBaitCatchMultiplier()
         {
-            if (!IsFavoriteBaitMatch(_interestTackle) || _definition == null)
+            if (!IsFavoriteBaitMatch(_interestLure) || _definition == null)
                 return 1f;
 
             return Mathf.Max(1f, _definition.favoriteBaitCatchMultiplier);
         }
 
-        private bool IsFavoriteBaitMatch(FishingTackleInstance tackle)
+        private bool IsFavoriteBaitMatch(FishingLureInstance lure)
         {
-            if (_definition == null || tackle == null || !tackle.HasBait)
+            if (_definition == null || lure == null || !lure.HasBait)
                 return false;
 
             bool hasFavoriteItemId = !string.IsNullOrWhiteSpace(_definition.favoriteBaitItemId);
@@ -783,7 +909,7 @@ namespace Sol.AI
             if (hasFavoriteItemId
                 && string.Equals(
                     _definition.favoriteBaitItemId.Trim(),
-                    tackle.BaitItemId,
+                    lure.BaitItemId,
                     System.StringComparison.OrdinalIgnoreCase))
             {
                 return true;
@@ -792,27 +918,27 @@ namespace Sol.AI
             return hasFavoriteName
                 && string.Equals(
                     _definition.favoriteBaitName.Trim(),
-                    tackle.BaitName,
+                    lure.BaitName,
                     System.StringComparison.OrdinalIgnoreCase);
         }
 
-        private Vector3 GetInterestTarget(FishingTackleInstance tackle)
+        private Vector3 GetInterestTarget(FishingLureInstance lure)
         {
-            if (tackle == null)
+            if (lure == null)
                 return GetWanderTarget();
 
-            Vector3 target = tackle.GetFishInterestPoint(_interestDepthOffset);
+            Vector3 target = lure.GetFishInterestPoint(_interestDepthOffset);
             return ClampToWater(target);
         }
 
-        private void ClampCommittedDistanceToTackle(FishingTackleInstance tackle)
+        private void ClampCommittedDistanceToLure(FishingLureInstance lure)
         {
-            if (tackle == null)
+            if (lure == null)
                 return;
 
             float maxTravelDistance = Mathf.Max(1f, _maxCommitTravelDistance);
-            Vector3 tacklePosition = tackle.transform.position;
-            Vector3 toFish = transform.position - tacklePosition;
+            Vector3 lurePosition = lure.transform.position;
+            Vector3 toFish = transform.position - lurePosition;
             float distance = toFish.magnitude;
             if (distance <= maxTravelDistance)
                 return;
@@ -824,30 +950,30 @@ namespace Sol.AI
             if (direction.sqrMagnitude < 0.0001f)
                 direction = Vector3.forward;
 
-            Vector3 clampedPosition = tacklePosition + (direction.normalized * maxTravelDistance);
+            Vector3 clampedPosition = lurePosition + (direction.normalized * maxTravelDistance);
             transform.position = ClampToWater(clampedPosition);
         }
 
-        private void ClearInterestTackle()
+        private void ClearInterestLure()
         {
-            if (_interestTackle == null)
+            if (_interestLure == null)
                 return;
 
-            _interestTackle.ReleaseCommittedFish(this);
-            _interestTackle = null;
+            _interestLure.ReleaseCommittedFish(this);
+            _interestLure = null;
             _interestStartTime = -1f;
         }
 
         private bool HasInterestTimedOut()
         {
-            return _interestTackle != null
+            return _interestLure != null
                 && _interestStartTime >= 0f
                 && Time.time - _interestStartTime >= Mathf.Max(1f, _maxInterestDuration);
         }
 
         private void AbandonInterest()
         {
-            ClearInterestTackle();
+            ClearInterestLure();
             _nextBiteAttemptTime = 0f;
             _nextInterestAllowedTime = Time.time + Random.Range(
                 Mathf.Min(_interestRetryDelayRange.x, _interestRetryDelayRange.y),
@@ -945,38 +1071,192 @@ namespace Sol.AI
             return caughtItem;
         }
 
-        public bool TryHook(FishingTackleInstance tackle)
+        public bool TryHook(FishingLureInstance lure)
         {
-            if (_isCaught || _hookedTackle != null || tackle == null)
+            if (_isCaught || _hookedLure != null || lure == null)
                 return false;
 
-            _interestTackle = tackle;
-            _hookedTackle = tackle;
+            _interestLure = lure;
+            _hookedLure = lure;
             _retargetTimer = 0f;
             _isFleeing = false;
+            _fightStamina = 1f;
+            _isStruggling = false;
+            _currentStruggleIntensity = 0f;
+            ResolveContext(force: true);
+            _hookedPullDirection = GetHookedEscapeDirection(lure);
+            _nextStruggleTime = Time.time + GetStruggleInterval(initialDelay: true);
             return true;
+        }
+
+        public void SetHookedEscapeDirection(FishingLureInstance lure, Vector3 escapeDirection)
+        {
+            if (_isCaught || lure == null || _hookedLure != lure)
+                return;
+
+            ResolveContext(force: true);
+            _hookedPullDirection = GetHookedEscapeDirection(lure, escapeDirection);
         }
 
         public void ReleaseFromHook()
         {
-            if (_hookedTackle == null && _interestTackle == null)
+            if (_hookedLure == null && _interestLure == null)
                 return;
 
-            _hookedTackle = null;
-            ClearInterestTackle();
+            _hookedLure = null;
+            _isStruggling = false;
+            _currentStruggleIntensity = 0f;
+            _hookedPullDirection = Vector3.zero;
+            _fightStamina = 1f;
+            ClearInterestLure();
             ResolveContext(force: true);
             PickNewTarget(shouldFlee: false);
         }
 
-        public void PrepareForCatchHandoff()
+        private void UpdateHookedFight()
         {
-            _hookedTackle = null;
-            ClearInterestTackle();
+            FishingLureInstance lure = _hookedLure;
+            if (lure == null)
+                return;
+
+            // Struggles only happen once the player has confirmed the hook set.
+            if (lure.BiteState != FishBiteState.Hooked)
+                return;
+
+            ResolveContext(force: false);
+            UpdatePlayerVelocity();
+
+            float staminaDuration = _definition != null ? _definition.fightStaminaDuration : 18f;
+            _fightStamina = Mathf.Max(0f, _fightStamina - (Time.deltaTime / Mathf.Max(1f, staminaDuration)));
+
+            if (_isStruggling)
+            {
+                if (Time.time >= _struggleEndTime)
+                {
+                    _isStruggling = false;
+                    _currentStruggleIntensity = 0f;
+                    _nextStruggleTime = Time.time + GetStruggleInterval();
+                }
+                else
+                {
+                    lure.NotifyStruggle(_struggleDirection, _currentStruggleIntensity);
+                }
+            }
+
+            if (!_isStruggling && Time.time >= _nextStruggleTime)
+                BeginStruggle();
+
+            SwimWhileHooked(lure);
         }
 
-        public bool IsCommittedTo(FishingTackleInstance tackle)
+        private void SwimWhileHooked(FishingLureInstance lure)
         {
-            return tackle != null && (_interestTackle == tackle || _hookedTackle == tackle);
+            if (lure == null || !lure.IsSurfaceFightActive)
+                return;
+
+            if (!IsWithinWaterBounds(transform.position))
+                transform.position = ClampToWater(transform.position);
+
+            if (_hookedPullDirection.sqrMagnitude < 0.001f)
+                _hookedPullDirection = GetHookedEscapeDirection(lure);
+
+            Vector3 swimDirection = _hookedPullDirection.normalized;
+
+            float difficultyPressure = Mathf.Clamp01(CatchDifficulty * 0.12f);
+            float weightPressure = Mathf.Clamp01(Weight * 0.035f);
+            float strugglePressure = _isStruggling ? _currentStruggleIntensity * 0.45f : 0f;
+            float pullIntensity = Mathf.Clamp01(0.45f + difficultyPressure + weightPressure + strugglePressure);
+            float swimSpeed = Mathf.Lerp(_swimSpeed * 0.85f, _fleeSpeed, Mathf.Clamp01(0.25f + pullIntensity * 0.55f));
+
+            Vector3 currentPosition = transform.position;
+            Vector3 nextPosition = currentPosition + swimDirection * (swimSpeed * Time.deltaTime);
+            nextPosition = ClampToWater(nextPosition);
+
+            Vector3 actualDirection = nextPosition - currentPosition;
+            transform.position = nextPosition;
+
+            if (actualDirection.sqrMagnitude > 0.0001f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(actualDirection.normalized, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, _turnSpeed * Time.deltaTime);
+                lure.NotifyHookedFishPull(transform.position, actualDirection.normalized, pullIntensity);
+            }
+            else
+            {
+                lure.NotifyHookedFishPull(transform.position, swimDirection, pullIntensity * 0.5f);
+            }
+        }
+
+        private Vector3 GetHookedEscapeDirection(FishingLureInstance lure, Vector3 preferredDirection = default)
+        {
+            preferredDirection.y = 0f;
+            if (preferredDirection.sqrMagnitude >= 0.001f)
+                return preferredDirection.normalized;
+
+            if (_player != null)
+            {
+                Vector3 playerForward = _player.forward;
+                playerForward.y = 0f;
+                if (playerForward.sqrMagnitude >= 0.001f)
+                    return playerForward.normalized;
+            }
+
+            Vector3 away = lure != null
+                ? transform.position - lure.transform.position
+                : transform.forward;
+            away.y = 0f;
+
+            if (away.sqrMagnitude < 0.001f)
+                away = Vector3.forward;
+
+            return away.normalized;
+        }
+
+        private void BeginStruggle()
+        {
+            float minDur = _definition != null ? _definition.struggleDurationMin : 0.8f;
+            float maxDur = _definition != null ? _definition.struggleDurationMax : 2.2f;
+            float duration = Random.Range(minDur, Mathf.Max(minDur, maxDur));
+            // Tired fish struggle in shorter bursts.
+            duration *= Mathf.Lerp(0.4f, 1f, _fightStamina);
+
+            float speciesStrength = _definition != null ? _definition.struggleStrength : 1f;
+            float weightFactor = 1f + Mathf.Clamp(_weight * 0.05f, 0f, 0.6f);
+            // 0.6x global softener so a default fish (strength=1) caps around 0.65 intensity,
+            // leaving headroom for predators/legendaries with strength>1 to feel meaningfully harder.
+            _currentStruggleIntensity = Mathf.Clamp01(speciesStrength * weightFactor * 0.6f * Mathf.Lerp(0.35f, 1f, _fightStamina));
+
+            float angle = Random.Range(0f, Mathf.PI * 2f);
+            _struggleDirection = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+
+            _isStruggling = true;
+            _struggleEndTime = Time.time + duration;
+
+            AudioService.Instance?.PlaySfx(AudioEvent.FishingStruggle, transform.position);
+        }
+
+        private float GetStruggleInterval(bool initialDelay = false)
+        {
+            float minInt = _definition != null ? _definition.struggleIntervalMin : 3.5f;
+            float maxInt = _definition != null ? _definition.struggleIntervalMax : 6.5f;
+            float interval = Random.Range(minInt, Mathf.Max(minInt, maxInt));
+            // Give the player time to settle into the fight before the first struggle hits.
+            if (initialDelay)
+                interval *= 1.4f;
+            // As stamina drops, struggles become rarer (tired fish).
+            interval *= Mathf.Lerp(1.6f, 1f, _fightStamina);
+            return interval;
+        }
+
+        public void PrepareForCatchHandoff()
+        {
+            _hookedLure = null;
+            ClearInterestLure();
+        }
+
+        public bool IsCommittedTo(FishingLureInstance lure)
+        {
+            return lure != null && (_interestLure == lure || _hookedLure == lure);
         }
 
         public void SetHookedPose(Vector3 position, Quaternion rotation)

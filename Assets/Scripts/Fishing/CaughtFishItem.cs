@@ -109,6 +109,46 @@ namespace Sol.Grab
 
             foreach (Rigidbody body in visualInstance.GetComponentsInChildren<Rigidbody>(true))
                 Destroy(body);
+
+            ConfigureColliderFromVisual(visualInstance);
+        }
+
+        private void ConfigureColliderFromVisual(GameObject visualInstance)
+        {
+            BoxCollider fallback = GetComponent<BoxCollider>();
+
+            Mesh mesh = null;
+            GameObject meshHost = null;
+
+            SkinnedMeshRenderer smr = visualInstance.GetComponentInChildren<SkinnedMeshRenderer>(true);
+            if (smr != null && smr.sharedMesh != null)
+            {
+                mesh = smr.sharedMesh;
+                meshHost = smr.gameObject;
+            }
+            else
+            {
+                MeshFilter mf = visualInstance.GetComponentInChildren<MeshFilter>(true);
+                if (mf != null && mf.sharedMesh != null)
+                {
+                    mesh = mf.sharedMesh;
+                    meshHost = mf.gameObject;
+                }
+            }
+
+            if (mesh == null || meshHost == null)
+            {
+                if (fallback != null)
+                    fallback.enabled = true;
+                return;
+            }
+
+            MeshCollider meshCol = meshHost.AddComponent<MeshCollider>();
+            meshCol.sharedMesh = mesh;
+            meshCol.convex = true;
+
+            if (fallback != null)
+                fallback.enabled = false;
         }
 
         private Transform GetOrCreateVisualRoot()

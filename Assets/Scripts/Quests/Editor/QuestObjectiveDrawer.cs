@@ -66,6 +66,7 @@ public class QuestObjectiveDrawer : PropertyDrawer
             case QuestObjectiveType.DeliverItem:
                 DrawProperty(ref row, acceptableItemIdsProp);
                 DrawProperty(ref row, countProp);
+                DrawProperty(ref row, goldAmountProp);
                 DrawProperty(ref row, npcNameProp);
                 break;
 
@@ -139,6 +140,7 @@ public class QuestObjectiveDrawer : PropertyDrawer
             case QuestObjectiveType.DeliverItem:
                 height += HeightFor(acceptableItemIdsProp);
                 height += HeightFor(countProp);
+                height += HeightFor(goldAmountProp);
                 height += HeightFor(npcNameProp);
                 break;
 

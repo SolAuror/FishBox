@@ -22,6 +22,20 @@ namespace Sol.AI
         [Min(0f)] public float catchDifficulty = 1f;
         [Min(0.1f)] public float baitInterestMultiplier = 1f;
 
+        [Header("Fight")]
+        [Tooltip("Min seconds between struggle bursts at full stamina.")]
+        [Min(0.1f)] public float struggleIntervalMin = 3.5f;
+        [Tooltip("Max seconds between struggle bursts at full stamina.")]
+        [Min(0.1f)] public float struggleIntervalMax = 6.5f;
+        [Tooltip("Min struggle burst length.")]
+        [Min(0.1f)] public float struggleDurationMin = 0.8f;
+        [Tooltip("Max struggle burst length.")]
+        [Min(0.1f)] public float struggleDurationMax = 2.2f;
+        [Tooltip("Multiplier on tension rise during struggle. Larger / predator fish should set this higher.")]
+        [Min(0f)] public float struggleStrength = 1f;
+        [Tooltip("Seconds of full-strength fighting before stamina is exhausted.")]
+        [Min(1f)] public float fightStaminaDuration = 18f;
+
         [Header("Bait Preference")]
         [Tooltip("Leave blank to treat any bait as neutral, with no favorite-bait bonus.")]
         public string favoriteBaitItemId = string.Empty;
@@ -42,6 +56,8 @@ namespace Sol.AI
             favoriteBaitLureMultiplier = Mathf.Max(1f, favoriteBaitLureMultiplier);
             favoriteBaitCatchMultiplier = Mathf.Max(1f, favoriteBaitCatchMultiplier);
             modelScaleMultiplier = Mathf.Max(0.01f, modelScaleMultiplier);
+            struggleIntervalMax = Mathf.Max(struggleIntervalMin, struggleIntervalMax);
+            struggleDurationMax = Mathf.Max(struggleDurationMin, struggleDurationMax);
         }
     }
 }

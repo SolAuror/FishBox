@@ -3,9 +3,9 @@ using UnityEngine;
 
 namespace Sol.Fishing
 {
-    public class FishingTackleItem : MonoBehaviour
+    public class FishingLureItem : MonoBehaviour
     {
-        [Header("Tackle")]
+        [Header("Lure")]
         [SerializeField, Min(0.5f)] private float _lureRange = 6f;
         #region Inspector Settings
         [Tooltip("Inspector: tunes cast prefab override.")]

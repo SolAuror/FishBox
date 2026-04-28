@@ -15,6 +15,12 @@ namespace Sol.Audio
         FishingReelLoopStop = 8,
         UnderwaterEnter = 9,
         UnderwaterExit = 10,
-        UnderwaterLoop = 11
+        UnderwaterLoop = 11,
+        FishingNibble = 12,
+        FishingBite = 13,
+        FishingHookSet = 14,
+        FishingFishEscaped = 15,
+        FishingLineSnap = 16,
+        FishingStruggle = 17
     }
 }

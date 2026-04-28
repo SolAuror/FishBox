@@ -121,6 +121,7 @@ public class SolWaterManager : MonoBehaviour
     static readonly int _SolWindDirectionID          = Shader.PropertyToID("_Sol_WindDirection");
     static readonly int _SolWindStrengthID           = Shader.PropertyToID("_Sol_WindStrength");
     static readonly int _SolGlobalWaveSpeedMulID     = Shader.PropertyToID("_Sol_GlobalWaveSpeedMul");
+    static readonly int _SolWaveTimeID               = Shader.PropertyToID("_Sol_WaveTime");
     static readonly int _SolRainIntensityID          = Shader.PropertyToID("_Sol_RainIntensity");
     static readonly int _SolGlobalWaterLevelID       = Shader.PropertyToID("_Sol_GlobalWaterLevel");
 
@@ -212,6 +213,8 @@ public class SolWaterManager : MonoBehaviour
             Shader.SetGlobalFloat(_SolGlobalWaterLevelID, waterLevel);
             _lastWaterLevel = waterLevel;
         }
+
+        Shader.SetGlobalFloat(_SolWaveTimeID, _waveTime);
     }
 
     // --- Weather Push ----------------------------------------------------

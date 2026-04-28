@@ -36,6 +36,13 @@ namespace Sol.Audio
         private bool _validatedCueLibrary;
         private Transform _cachedListenerTransform;
         private float _nextListenerRefreshTime;
+        private SettingsData _runtimeAudioSettings;
+
+        public void ApplySettings(SettingsData data)
+        {
+            _runtimeAudioSettings = data != null ? new SettingsData(data) : null;
+            RefreshLoopVolumes();
+        }
 
         public void PlaySfx(AudioEvent audioEvent, Vector3 worldPos, float volumeScale = 1f)
         {
@@ -129,7 +136,8 @@ namespace Sol.Audio
             }
 
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            if (GetComponent<Sol.Actions.ActionSystem>() == null)
+                EnsurePersistentRoot(gameObject);
 
             _uiSource = CreateChildSource("UI_OneShot", loop: false, spatialBlend: 0f);
             _reelLoopSource = CreateChildSource("Fishing_ReelLoop", loop: true, spatialBlend: 0f);
@@ -146,6 +154,7 @@ namespace Sol.Audio
             TryStartLoop(_worldAmbientSource, _cueLibrary != null ? _cueLibrary.WorldAmbientLoop : null);
             TryStartLoop(_windLoopSource, _cueLibrary != null ? _cueLibrary.WindLoop : null);
             TryStartLoop(_waveLoopSource, _cueLibrary != null ? _cueLibrary.WaveLoop : null);
+            ApplySettings(SettingsPersistence.Current);
             RefreshLoopVolumes();
         }
 
@@ -158,6 +167,14 @@ namespace Sol.Audio
         {
             if (Instance == this)
                 Instance = null;
+        }
+
+        private static void EnsurePersistentRoot(GameObject target)
+        {
+            if (target == null || target.scene.name == "DontDestroyOnLoad")
+                return;
+
+            DontDestroyOnLoad(target);
         }
 
         private bool EnsureCueLibrary()
@@ -278,12 +295,13 @@ namespace Sol.Audio
 
         private void RefreshLoopVolumes()
         {
+            float musicVolume = ResolveMusicVolume();
             float ambientVolume = ResolveAmbientVolume();
             float sfxVolume = ResolveSfxVolume();
             float duck = _isUnderwater && _cueLibrary != null ? _cueLibrary.UnderwaterAmbientDuck : 1f;
 
             if (_worldAmbientSource != null)
-                _worldAmbientSource.volume = ambientVolume * (_cueLibrary != null ? _cueLibrary.WorldAmbientLoop.BaseVolume : 1f) * duck;
+                _worldAmbientSource.volume = musicVolume * (_cueLibrary != null ? _cueLibrary.WorldAmbientLoop.BaseVolume : 1f) * duck;
 
             if (_windLoopSource != null)
                 _windLoopSource.volume = ambientVolume * (_cueLibrary != null ? _cueLibrary.WindLoop.BaseVolume : 1f) * duck;
@@ -301,16 +319,27 @@ namespace Sol.Audio
                 _reelLoopSource.volume = sfxVolume;
         }
 
-        private static float ResolveSfxVolume()
+        private float ResolveMusicVolume()
         {
-            SettingsData data = SettingsPersistence.Current;
+            SettingsData data = ResolveAudioSettings();
+            return data == null ? 1f : Mathf.Clamp01(data.MusicVolume / 100f);
+        }
+
+        private float ResolveSfxVolume()
+        {
+            SettingsData data = ResolveAudioSettings();
             return data == null ? 1f : Mathf.Clamp01(data.SFXVolume / 100f);
         }
 
-        private static float ResolveAmbientVolume()
+        private float ResolveAmbientVolume()
         {
-            SettingsData data = SettingsPersistence.Current;
+            SettingsData data = ResolveAudioSettings();
             return data == null ? 1f : Mathf.Clamp01(data.AmbientVolume / 100f);
+        }
+
+        private SettingsData ResolveAudioSettings()
+        {
+            return _runtimeAudioSettings ?? SettingsPersistence.Current;
         }
 
         private AudioSource CreateChildSource(string childName, bool loop, float spatialBlend)

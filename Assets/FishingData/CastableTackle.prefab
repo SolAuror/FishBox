@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 935366597551721278}
   - component: {fileID: 7898415362343736595}
   m_Layer: 10
-  m_Name: CastableTackle
+  m_Name: CastableLure
   m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -165,7 +165,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: f6685cb978306314f9ccd7eac386c6ab, type: 2}
     - target: {fileID: 919132149155446097, guid: dc8341ea90cf95346b2627ae8f479223, type: 3}
       propertyPath: m_Name
-      value: Tackle
+      value: Lure
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: dc8341ea90cf95346b2627ae8f479223, type: 3}
       propertyPath: m_Layer

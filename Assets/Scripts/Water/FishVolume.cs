@@ -86,6 +86,21 @@ public class FishVolume : MonoBehaviour
         ClearSpawnedFish();
     }
 
+    public void SetFishSpawnCount(int count)
+    {
+        fishSpawnCount = Mathf.Max(0, count);
+
+        for (int i = _spawnedFish.Count - 1; i >= fishSpawnCount; i--)
+        {
+            GameObject fish = _spawnedFish[i];
+            if (fish != null)
+                Destroy(fish);
+            _spawnedFish.RemoveAt(i);
+        }
+
+        FillFish();
+    }
+
     void OnValidate()
     {
         if (_col == null)
@@ -121,6 +136,10 @@ public class FishVolume : MonoBehaviour
                 _spawnedFish.RemoveAt(i);
                 continue;
             }
+
+            AI_Fish fishBehaviour = fish.GetComponent<AI_Fish>();
+            if (fishBehaviour != null && fishBehaviour.IsHooked)
+                continue;
 
             if (!bounds.Contains(fish.transform.position))
             {

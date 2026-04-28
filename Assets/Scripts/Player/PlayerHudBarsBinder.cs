@@ -140,7 +140,10 @@ namespace Sol.Player
 
             SetBarNormalized(healthBar, _boundSoul.HealthNorm);
             if (staminaBar != null)
-                staminaBar.gameObject.SetActive(false);
+            {
+                staminaBar.gameObject.SetActive(true);
+                SetBarNormalized(staminaBar, _boundSoul.StaminaNorm);
+            }
 
             if (nameText != null)
             {
@@ -159,7 +162,12 @@ namespace Sol.Player
             }
 
             if (staminaText != null)
-                staminaText.gameObject.SetActive(false);
+            {
+                staminaText.gameObject.SetActive(true);
+                int current = Mathf.CeilToInt(_boundSoul.Stamina);
+                int max = Mathf.CeilToInt(_boundSoul.MaxStamina);
+                staminaText.text = $"Stamina: {current}/{max}";
+            }
         }
 
         private static void SetBarNormalized(Slider bar, float normalized)

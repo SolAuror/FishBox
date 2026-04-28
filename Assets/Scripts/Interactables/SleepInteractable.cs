@@ -11,22 +11,26 @@ using UnityEngine.UI;
 namespace Sol
 {
     /// <summary>
-    /// Bed-specific sleep interaction that reuses the imported sister radial menu
+    /// Bed-specific sleep interaction that reuses the imported sister sleep menu
     /// without depending on the broader RestPoint / AI rest framework.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class BedSleepInteractable : MonoBehaviour, IInteractable
+    public sealed class SleepInteractable : MonoBehaviour, IInteractable
     {
         #region Inspector Settings
         [Tooltip("Inspector: tunes prompt.")]
         [SerializeField] private string _prompt = "Sleep";
         [SerializeField] private string _displayName = "Bed";
+
         [Tooltip("Inspector: tunes default hours.")]
         [SerializeField] [Min(1)] private int _defaultHours = 8;
         [SerializeField] [Min(1)] private int _minHours = 1;
+        
         [Tooltip("Inspector: tunes max hours.")]
         [SerializeField] [Min(1)] private int _maxHours = 24;
         [SerializeField] [Range(0f, 100f)] private float _healthRecoveryPercentPerHour = 12.5f;
+        [SerializeField] [Range(0f, 100f)] private float _staminaRecoveryPercentPerHour = 12.5f;
+        
         [Tooltip("Inspector: tunes sleep fade duration.")]
         [SerializeField] [Min(0f)] private float _sleepFadeDuration = 0.5f;
         #endregion
@@ -65,20 +69,20 @@ namespace Sol
             if (!CanInteract(interactor))
                 return false;
 
-            RadialMenuSystem radialMenu = RadialMenuSystem.ResolveInstance();
-            if (radialMenu == null)
+            SleepMenuSystem sleepMenu = SleepMenuSystem.ResolveInstance();
+            if (sleepMenu == null)
             {
-                Debug.LogWarning("[BedSleepInteractable] RadialMenuSystem is unavailable.", this);
+                Debug.LogWarning("[BedSleepInteractable] SleepMenuSystem is unavailable.", this);
                 return false;
             }
 
             BeginSleepSession(interactor);
 
-            radialMenu.SetHourRange(_minHours, _maxHours);
-            radialMenu.ConfigureSecondaryPreview(BuildRecoveryPreview);
-            radialMenu.Open(HandleSleepConfirmed, HandleSleepCancelled, _defaultHours);
+            sleepMenu.SetHourRange(_minHours, _maxHours);
+            sleepMenu.ConfigureSecondaryPreview(BuildRecoveryPreview);
+            sleepMenu.Open(HandleSleepConfirmed, HandleSleepCancelled, _defaultHours);
 
-            if (!radialMenu.IsOpen)
+            if (!sleepMenu.IsOpen)
             {
                 CleanupSleepSession();
                 return false;
@@ -167,15 +171,37 @@ namespace Sol
                     _activeInteractor.NpcSoul.Heal(healthDelta);
                 }
             }
+
+            if (_staminaRecoveryPercentPerHour > 0f)
+            {
+                if (_activeInteractor?.PlayerSoul != null)
+                {
+                    float staminaDelta = _activeInteractor.PlayerSoul.MaxStamina * (_staminaRecoveryPercentPerHour * 0.01f) * hours;
+                    _activeInteractor.PlayerSoul.RestoreStamina(staminaDelta);
+                }
+                else if (_activeInteractor?.NpcSoul != null)
+                {
+                    float staminaDelta = _activeInteractor.NpcSoul.MaxStamina * (_staminaRecoveryPercentPerHour * 0.01f) * hours;
+                    _activeInteractor.NpcSoul.RestoreStamina(staminaDelta);
+                }
+            }
         }
 
         private string BuildRecoveryPreview(int hours)
         {
-            if (_healthRecoveryPercentPerHour <= 0f)
+            if (_healthRecoveryPercentPerHour <= 0f && _staminaRecoveryPercentPerHour <= 0f)
                 return $"ADVANCE +{hours:0}H";
 
-            float percent = _healthRecoveryPercentPerHour * hours;
-            return $"HEAL +{percent:0.#}%";
+            float healthPercent = _healthRecoveryPercentPerHour * hours;
+            float staminaPercent = _staminaRecoveryPercentPerHour * hours;
+
+            if (_healthRecoveryPercentPerHour <= 0f)
+                return $"STAMINA +{staminaPercent:0.#}%";
+
+            if (_staminaRecoveryPercentPerHour <= 0f)
+                return $"HEAL +{healthPercent:0.#}%";
+
+            return $"HEAL +{healthPercent:0.#}% / STAMINA +{staminaPercent:0.#}%";
         }
 
         private IEnumerator FadeSleepOverlay(float targetAlpha)
@@ -250,11 +276,11 @@ namespace Sol
             _isCleaningUp = true;
             try
             {
-                RadialMenuSystem radialMenu = RadialMenuSystem.Instance;
-                if (_sleepSessionActive && _sleepRoutine == null && radialMenu != null && radialMenu.IsOpen)
+                SleepMenuSystem sleepMenu = SleepMenuSystem.Instance;
+                if (_sleepSessionActive && _sleepRoutine == null && sleepMenu != null && sleepMenu.IsOpen)
                 {
-                    radialMenu.Close();
-                    radialMenu = RadialMenuSystem.Instance;
+                    sleepMenu.Close();
+                    sleepMenu = SleepMenuSystem.Instance;
                 }
 
                 if (_sleepRoutine != null)
@@ -263,10 +289,10 @@ namespace Sol
                     _sleepRoutine = null;
                 }
 
-                if (radialMenu != null)
+                if (sleepMenu != null)
                 {
-                    radialMenu.SetHourRange(1, 24);
-                    radialMenu.ResetSecondaryPreview();
+                    sleepMenu.SetHourRange(1, 24);
+                    sleepMenu.ResetSecondaryPreview();
                 }
 
                 if (_sleepFadeCanvasGroup != null)

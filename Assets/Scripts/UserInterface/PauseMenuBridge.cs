@@ -50,7 +50,7 @@ namespace Sol.HUD
 
         private void HandleQuit()
         {
-            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(activateIfInactive: true);
+            ConfirmationPromptSystem prompt = ConfirmationPromptSystem.ResolveInstance(activateIfInactive: true);
             if (prompt != null)
             {
                 prompt.Show(
