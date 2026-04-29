@@ -226,6 +226,9 @@ namespace Sol.AI
         private float _currentStruggleIntensity;
         private Vector3 _hookedPullDirection;
 
+        private static Transform s_ResolvedPlayerTransform;
+        private static float s_NextSharedPlayerResolveTime;
+
         // --- Public accessors ---
         public FishDefinition Definition => _definition;
         public string SpeciesName => _fishName;
@@ -242,6 +245,8 @@ namespace Sol.AI
         public float CatchDifficulty => (_catchDifficulty * (1f + _weight * 0.1f)) / GetFavoriteBaitCatchMultiplier();
         public bool IsCaught => _isCaught;
         public bool IsHooked => _hookedLure != null;
+        public bool IsCommitted => _interestLure != null || _hookedLure != null;
+        public bool IsCullProtected => _isCaught || IsCommitted;
         public GameObject CatchItemPrefab => _catchItemPrefab;
         public GameObject CatchVisualPrefab => _definition != null && _definition.modelPrefab != null
             ? _definition.modelPrefab
@@ -393,22 +398,7 @@ namespace Sol.AI
 
             if (_player == null)
             {
-                PlayerSoul playerSoul = FindFirstObjectByType<PlayerSoul>();
-                if (playerSoul != null)
-                    _player = playerSoul.transform;
-                else
-                {
-                    try
-                    {
-                        GameObject taggedPlayer = GameObject.FindGameObjectWithTag("Player");
-                        if (taggedPlayer != null)
-                            _player = taggedPlayer.transform;
-                    }
-                    catch (UnityException)
-                    {
-                        Debug.LogWarning("[AI_Fish] 'Player' tag is not registered in the Tag Manager.");
-                    }
-                }
+                _player = ResolveSharedPlayerTransform();
 
                 if (_player != null)
                 {
@@ -418,6 +408,37 @@ namespace Sol.AI
             }
 
             _nextContextResolveTime = Time.time + 1f;
+        }
+
+        private static Transform ResolveSharedPlayerTransform()
+        {
+            if (s_ResolvedPlayerTransform != null && s_ResolvedPlayerTransform.gameObject.activeInHierarchy)
+                return s_ResolvedPlayerTransform;
+
+            if (Time.time < s_NextSharedPlayerResolveTime)
+                return null;
+
+            PlayerSoul playerSoul = FindFirstObjectByType<PlayerSoul>();
+            if (playerSoul != null)
+            {
+                s_ResolvedPlayerTransform = playerSoul.transform;
+                s_NextSharedPlayerResolveTime = Time.time + 1f;
+                return s_ResolvedPlayerTransform;
+            }
+
+            try
+            {
+                GameObject taggedPlayer = GameObject.FindGameObjectWithTag("Player");
+                s_ResolvedPlayerTransform = taggedPlayer != null ? taggedPlayer.transform : null;
+            }
+            catch (UnityException)
+            {
+                s_ResolvedPlayerTransform = null;
+                Debug.LogWarning("[AI_Fish] 'Player' tag is not registered in the Tag Manager.");
+            }
+
+            s_NextSharedPlayerResolveTime = Time.time + 1f;
+            return s_ResolvedPlayerTransform;
         }
 
         private void SelectModelVariant()

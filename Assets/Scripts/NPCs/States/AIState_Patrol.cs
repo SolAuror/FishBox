@@ -12,11 +12,18 @@ namespace Sol.AI
         private Vector3 patrolTarget;
         private bool hasPatrolTarget;
         private int waypointIndex;
+        private int waypointDirection = 1;
+        private float targetWaitSeconds;
+        private float waitTimer;
+        private bool waitingAtPoint;
 
         public AIState_Patrol(AI_NPC npc) : base(npc) { }
 
         public override void Enter()
         {
+            waitingAtPoint = false;
+            waitTimer = 0f;
+
             if (agent != null && agent.isOnNavMesh)
                 agent.isStopped = false;
 
@@ -26,6 +33,8 @@ namespace Sol.AI
         public override void Exit()
         {
             hasPatrolTarget = false;
+            waitingAtPoint = false;
+            waitTimer = 0f;
         }
 
         public override AI_NPC.State Tick()
@@ -33,9 +42,29 @@ namespace Sol.AI
             if (npc.CanChasePlayer())
                 return AI_NPC.State.Chase;
 
-            if (!hasPatrolTarget || (agent != null && agent.isOnNavMesh && agent.remainingDistance <= (config?.arrivalThreshold ?? 0.5f)))
+            if (waitingAtPoint)
+            {
+                waitTimer -= Time.deltaTime;
+                if (waitTimer > 0f)
+                    return AI_NPC.State.Patrol;
+
+                waitingAtPoint = false;
+                if (agent != null && agent.isOnNavMesh)
+                    agent.isStopped = false;
+
+                SelectNewPatrolPoint();
+                return AI_NPC.State.Patrol;
+            }
+
+            if (!hasPatrolTarget)
             {
                 SelectNewPatrolPoint();
+                return AI_NPC.State.Patrol;
+            }
+
+            if (HasReachedPatrolTarget())
+            {
+                BeginWaypointWaitOrAdvance();
             }
 
             return AI_NPC.State.Patrol;
@@ -43,6 +72,16 @@ namespace Sol.AI
 
         public override Shared.AI.LocomotionIntent GetIntent()
         {
+            if (waitingAtPoint)
+            {
+                return new Shared.AI.LocomotionIntent
+                {
+                    TargetPosition = npc.transform.position,
+                    DesiredSpeed = 0f,
+                    ActionType = Shared.AI.LocomotionActionType.Idle
+                };
+            }
+
             Vector3 targetPos = (hasPatrolTarget && npc.Agent.hasPath)
                 ? npc.Agent.steeringTarget
                 : npc.transform.position;
@@ -56,6 +95,35 @@ namespace Sol.AI
 
         private void SelectNewPatrolPoint()
         {
+            targetWaitSeconds = 0f;
+
+            int authoredPointCount = npc.GetAuthoredPatrolPointCount();
+            if (authoredPointCount > 0)
+            {
+                if (waypointIndex < 0 || waypointIndex >= authoredPointCount)
+                    waypointIndex = 0;
+
+                if (!npc.TryGetAuthoredPatrolPoint(waypointIndex, out patrolTarget, out targetWaitSeconds))
+                {
+                    hasPatrolTarget = false;
+                    return;
+                }
+
+                if (agent != null && agent.isOnNavMesh)
+                {
+                    agent.isStopped = false;
+                    agent.SetDestination(patrolTarget);
+                    hasPatrolTarget = true;
+                }
+                else
+                {
+                    hasPatrolTarget = false;
+                }
+
+                AdvanceWaypointIndex(authoredPointCount);
+                return;
+            }
+
             // Spline patrol if a spline is assigned.
             SplineContainer patrolSpline = npc.PatrolSpline;
             if (patrolSpline != null && patrolSpline.Spline != null && patrolSpline.Spline.Count > 0)
@@ -66,6 +134,7 @@ namespace Sol.AI
 
                 if (agent != null && agent.isOnNavMesh)
                 {
+                    agent.isStopped = false;
                     agent.SetDestination(patrolTarget);
                     hasPatrolTarget = true;
                 }
@@ -74,9 +143,7 @@ namespace Sol.AI
                     hasPatrolTarget = false;
                 }
 
-                waypointIndex++;
-                if (waypointIndex >= sampleCount)
-                    waypointIndex = npc.LoopPatrol ? 0 : sampleCount - 1;
+                AdvanceWaypointIndex(sampleCount);
                 return;
             }
 
@@ -86,6 +153,7 @@ namespace Sol.AI
             {
                 if (agent != null && agent.isOnNavMesh)
                 {
+                    agent.isStopped = false;
                     agent.SetDestination(patrolTarget);
                     hasPatrolTarget = true;
                 }
@@ -98,6 +166,73 @@ namespace Sol.AI
             {
                 hasPatrolTarget = false;
             }
+        }
+
+        private bool HasReachedPatrolTarget()
+        {
+            if (agent == null || !agent.isOnNavMesh || agent.pathPending)
+                return false;
+
+            float arrival = config?.arrivalThreshold ?? 0.5f;
+            return agent.hasPath && agent.remainingDistance <= arrival;
+        }
+
+        private void BeginWaypointWaitOrAdvance()
+        {
+            hasPatrolTarget = false;
+
+            if (agent != null && agent.isOnNavMesh)
+            {
+                agent.ResetPath();
+                agent.isStopped = true;
+            }
+
+            waitTimer = Mathf.Max(0f, targetWaitSeconds);
+            if (waitTimer <= 0f)
+            {
+                waitingAtPoint = false;
+                if (agent != null && agent.isOnNavMesh)
+                    agent.isStopped = false;
+
+                SelectNewPatrolPoint();
+                return;
+            }
+
+            waitingAtPoint = true;
+        }
+
+        private void AdvanceWaypointIndex(int pointCount)
+        {
+            if (pointCount <= 1)
+            {
+                waypointIndex = 0;
+                waypointDirection = 1;
+                return;
+            }
+
+            if (npc.LoopPatrol)
+            {
+                waypointIndex = (waypointIndex + 1) % pointCount;
+                waypointDirection = 1;
+                return;
+            }
+
+            int next = waypointIndex + waypointDirection;
+            if (next >= pointCount)
+            {
+                waypointDirection = -1;
+                waypointIndex = pointCount - 2;
+                return;
+            }
+
+            if (next < 0)
+            {
+                waypointDirection = 1;
+                waypointIndex = 1;
+                return;
+            }
+
+            waypointIndex = next;
         }
     }
 

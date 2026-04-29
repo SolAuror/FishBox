@@ -55,6 +55,7 @@ GameObject:
   - component: {fileID: 3943507199344602462}
   - component: {fileID: 1121901956873848968}
   - component: {fileID: 1206358725295440189}
+  - component: {fileID: 2201453678901234568}
   m_Layer: 10
   m_Name: NPC_Elsbeth
   m_TagString: NPC
@@ -210,6 +211,24 @@ MonoBehaviour:
   _ownerId: OWN00003
   _health: 100
   MaxHealth: 100
+--- !u!114 &2201453678901234568
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 325812429563024634}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: acd6b96f0f2e4ac5a33079a9f68c83b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Combat.HitReaction
+  _animator: {fileID: 6426206577485632570}
+  _hitClip: {fileID: 7400000, guid: 1bad9627f8f541c40aaffa59f179343e, type: 2}
+  _fallbackRoot: {fileID: 1138940119935520320}
+  _fallbackDuration: 0.18
+  _fallbackLeanDegrees: 8
+  _fallbackSettleSpeed: 18
 --- !u!114 &5873582968478298247
 MonoBehaviour:
   m_ObjectHideFlags: 0

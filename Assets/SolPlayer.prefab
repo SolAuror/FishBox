@@ -3295,6 +3295,7 @@ GameObject:
   - component: {fileID: 2886133926555059798}
   - component: {fileID: 7977399770146636083}
   - component: {fileID: 167603563581246085}
+  - component: {fileID: 2201453678901234567}
   m_Layer: 10
   m_Name: SolPlayer
   m_TagString: Player
@@ -3814,6 +3815,30 @@ MonoBehaviour:
   _castBlockingLayers:
     serializedVersion: 2
     m_Bits: 1391
+--- !u!114 &2201453678901234567
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8052694070234560522}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f0b2b6b8a5f4cd0988f14c94f5a0101, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Combat.PlayerPunchCombat
+  _input: {fileID: 5894706381801823478}
+  _controller: {fileID: 1383637752041848490}
+  _fishingState: {fileID: 167603563581246085}
+  _originOverride: {fileID: 5362511797775212015}
+  _damage: 10
+  _range: 1.6
+  _radius: 0.55
+  _cooldown: 0.45
+  _hitHeightOffset: 1
+  _targetLayers:
+    serializedVersion: 2
+    m_Bits: 1024
 --- !u!1 &8075724443460540802
 GameObject:
   m_ObjectHideFlags: 0

@@ -23,8 +23,11 @@ Shader "Sol/UnderwaterOverlay"
         _VolumeFogDensity ("Volume Density", Range(0, 2)) = 0.35
         _VolumeAnisotropy ("Anisotropy", Range(-0.2, 0.9)) = 0.55
         _VolumeScattering ("Scattering", Range(0, 2)) = 0.7
+        [HDR] _VolumeScatteringTint ("Scattering Tint", Color) = (0.16, 0.55, 1.25, 1)
         _VolumeAmbient ("Ambient Fill", Range(0, 1)) = 0.28
         _VolumeEntryDepth ("Entry Softness Depth", Range(0.1, 5)) = 1.4
+        _VolumeMaxDistance ("Max Distance", Range(4, 80)) = 18
+        _VolumeHorizonFade ("Horizon Fade", Range(0.02, 0.6)) = 0.34
 
         [Header(Distortion)]
         _DistortionAmount ("Amount", Range(0, 0.03)) = 0.004
@@ -94,8 +97,11 @@ Shader "Sol/UnderwaterOverlay"
             half _VolumeFogDensity;
             half _VolumeAnisotropy;
             half _VolumeScattering;
+            half4 _VolumeScatteringTint;
             half _VolumeAmbient;
             half _VolumeEntryDepth;
+            half _VolumeMaxDistance;
+            half _VolumeHorizonFade;
 
             half _DistortionAmount;
             half _DistortionSpeed;
@@ -197,6 +203,7 @@ Shader "Sol/UnderwaterOverlay"
                     if (rayLen <= 0.001h) return col;
                     rayDir = toScene / rayLen;
                 }
+                rayLen = min(rayLen, max(_VolumeMaxDistance, 0.01h));
 
                 const int kSteps = 8;
                 half stepLen = rayLen / (half)kSteps;
@@ -210,6 +217,7 @@ Shader "Sol/UnderwaterOverlay"
                 half day = saturate(_Sol_DayFactor);
                 half eclipse = 1.0h - _Sol_EclipseFactor * 0.7h;
                 sunCol *= lerp(0.55h, 1.0h, day) * eclipse;
+                half3 scatterTint = max(_VolumeScatteringTint.rgb, half3(0.0h, 0.0h, 0.0h));
 
                 half transmittance = 1.0h;
                 half3 inscatter = (half3)0.0h;
@@ -222,8 +230,9 @@ Shader "Sol/UnderwaterOverlay"
                 half phase = lerp(phaseIso, phaseHg, anisotropyMix);
                 // Extra guard against concentrated hotspot.
                 phase = min(phase, 0.16h);
-                // Reduce horizon-angle blowout where long rays accumulate too much light.
-                half horizonSuppress = smoothstep(0.0h, 0.22h, abs((half)rayDir.y));
+                // Reduce horizon-angle blowout where shallow rays otherwise read as a flat wall.
+                half horizonSuppress = smoothstep(_VolumeHorizonFade * 0.35h, _VolumeHorizonFade, abs((half)rayDir.y));
+                half surfaceFade = smoothstep(0.03h, max(_VolumeEntryDepth, 0.04h), cameraWaterDepth);
 
                 [unroll]
                 for (int i = 0; i < kSteps; i++)
@@ -237,7 +246,7 @@ Shader "Sol/UnderwaterOverlay"
                     half sigma = localDensity * stepLen;
                     half att = exp(-sigma);
 
-                    inscatter += transmittance * localDensity * phase * horizonSuppress * _VolumeScattering * sunCol * stepLen;
+                    inscatter += transmittance * localDensity * phase * horizonSuppress * surfaceFade * _VolumeScattering * sunCol * scatterTint * stepLen;
                     transmittance *= att;
                 }
 
@@ -248,7 +257,7 @@ Shader "Sol/UnderwaterOverlay"
 
                 half volumeColorT = saturate(rayLen / max(_FogFarDistance, 0.01h));
                 half3 fogBaseColor = lerp(_FogColorNear.rgb, _FogColorFar.rgb, volumeColorT);
-                half3 ambientInscatter = fogBaseColor * (_VolumeAmbient + entryLift * 0.12h);
+                half3 ambientInscatter = fogBaseColor * lerp(half3(1.0h, 1.0h, 1.0h), scatterTint, 0.35h) * (_VolumeAmbient + entryLift * 0.12h) * surfaceFade;
                 half3 fogColor = ambientInscatter + inscatter;
                 return col * transmittance + fogColor * (1.0h - transmittance) * factor;
             }

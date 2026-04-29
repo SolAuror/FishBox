@@ -70,10 +70,10 @@ public class WaterVolume : MonoBehaviour
     {
         foreach (var v in s_Volumes)
         {
-            if (v == null || v._col == null)
+            if (v == null || !v.TryGetWaterCollider(out BoxCollider col))
                 continue;
 
-            Bounds bounds = v._col.bounds;
+            Bounds bounds = col.bounds;
             if (worldPos.x < bounds.min.x || worldPos.x > bounds.max.x ||
                 worldPos.z < bounds.min.z || worldPos.z > bounds.max.z)
                 continue;
@@ -92,10 +92,10 @@ public class WaterVolume : MonoBehaviour
     {
         foreach (var v in s_Volumes)
         {
-            if (v == null || v._col == null)
+            if (v == null || !v.TryGetWaterCollider(out BoxCollider col))
                 continue;
 
-            Bounds bounds = v._col.bounds;
+            Bounds bounds = col.bounds;
             if (worldPos.x < bounds.min.x || worldPos.x > bounds.max.x ||
                 worldPos.z < bounds.min.z || worldPos.z > bounds.max.z)
                 continue;
@@ -113,10 +113,10 @@ public class WaterVolume : MonoBehaviour
         for (int i = 0; i < s_Volumes.Count; i++)
         {
             WaterVolume volume = s_Volumes[i];
-            if (volume == null || volume._col == null)
+            if (volume == null || !volume.TryGetWaterCollider(out BoxCollider col))
                 continue;
 
-            Bounds bounds = volume._col.bounds;
+            Bounds bounds = col.bounds;
             float dx = 0f;
             if (worldPos.x < bounds.min.x)
                 dx = bounds.min.x - worldPos.x;
@@ -139,10 +139,10 @@ public class WaterVolume : MonoBehaviour
 
     void OnEnable()
     {
-        s_Volumes.Add(this);
         _col = GetComponent<BoxCollider>();
+        s_Volumes.Add(this);
 
-        if (!_col.isTrigger)
+        if (_col != null && !_col.isTrigger)
         {
             _col.isTrigger = true;
             Debug.LogWarning($"[WaterVolume] {name}: BoxCollider.isTrigger forced to true.", this);
@@ -214,10 +214,13 @@ public class WaterVolume : MonoBehaviour
     {
         get
         {
+            if (!TryGetWaterCollider(out BoxCollider col))
+                return transform.position.y + surfaceOffset;
+
             Vector3 scale = transform.lossyScale;
             return transform.position.y
-                   + _col.center.y * scale.y
-                   + _col.size.y * 0.5f * scale.y
+                   + col.center.y * scale.y
+                   + col.size.y * 0.5f * scale.y
                    + surfaceOffset;
         }
     }
@@ -229,7 +232,7 @@ public class WaterVolume : MonoBehaviour
 
     public bool ContainsPoint(Vector3 worldPos)
     {
-        return _col != null && _col.bounds.Contains(worldPos);
+        return TryGetWaterCollider(out BoxCollider col) && col.bounds.Contains(worldPos);
     }
 
     public bool IsUnderwater(Vector3 worldPos)
@@ -266,6 +269,15 @@ public class WaterVolume : MonoBehaviour
             Vector2 dir = new Vector2(swell.x, swell.z);
             swellDir = dir.sqrMagnitude > 0f ? dir.normalized : new Vector2(0.05f, 0.03f);
         }
+    }
+
+    bool TryGetWaterCollider(out BoxCollider waterCollider)
+    {
+        if (_col == null)
+            _col = GetComponent<BoxCollider>();
+
+        waterCollider = _col;
+        return waterCollider != null;
     }
 
 #if UNITY_EDITOR

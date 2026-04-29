@@ -67,6 +67,8 @@ Material:
     - _VolumeDepthGain: 0.42
     - _VolumeEntryDepth: 0.58
     - _VolumeFogDensity: 0.3
+    - _VolumeHorizonFade: 0.38
+    - _VolumeMaxDistance: 16
     - _VolumeScattering: 0.2
     - _VolumeSteps: 8
     - _VolumetricFog: 1
@@ -75,5 +77,6 @@ Material:
     - _FogColorNear: {r: 0.050980397, g: 0.18431373, b: 0.21568628, a: 1}
     - _ShaftDir: {r: 0.2, g: 1, b: 0, a: 0}
     - _UnderwaterTint: {r: 0.039215688, g: 0.12834269, b: 0.38039216, a: 1}
+    - _VolumeScatteringTint: {r: 0.12, g: 0.48, b: 1.35, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
