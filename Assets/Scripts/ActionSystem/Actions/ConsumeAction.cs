@@ -46,7 +46,7 @@ namespace Sol.Actions
                 return false;
             }
 
-            if (!_slot.Item.IsConsumable)
+            if (!_slot.Item.CanUseFromInventory)
             {
                 _preconditionFailure = ConsumeActionOutcome.NotConsumable;
                 return false;
@@ -109,7 +109,7 @@ namespace Sol.Actions
             if (_slot == null || _slot.Item == null)
                 return ConsumeActionOutcome.InvalidSlot;
 
-            if (!_slot.Item.IsConsumable)
+            if (!_slot.Item.CanUseFromInventory)
                 return ConsumeActionOutcome.NotConsumable;
 
             if (Context?.Inventory == null)

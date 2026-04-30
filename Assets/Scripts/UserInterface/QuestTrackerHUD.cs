@@ -20,6 +20,12 @@ namespace Sol.HUD
         private QuestManager _manager;
         private CanvasGroup _canvasGroup;
 
+        private const float LeftMargin = 24f;
+        private const float TopMargin = 24f;
+        private const float PanelWidth = 380f;
+        private const float PanelHeight = 120f;
+        private const float TextLeftPadding = 12f;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void EnsureInstance()
         {
@@ -46,11 +52,7 @@ namespace Sol.HUD
             GameObject panel = new("QuestTrackerHUD", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image), typeof(QuestTrackerHUD));
             panel.transform.SetParent(target.transform, false);
             RectTransform panelRect = panel.GetComponent<RectTransform>();
-            panelRect.anchorMin = new Vector2(0f, 1f);
-            panelRect.anchorMax = new Vector2(0f, 1f);
-            panelRect.pivot = new Vector2(0f, 1f);
-            panelRect.anchoredPosition = new Vector2(24f, -24f);
-            panelRect.sizeDelta = new Vector2(380f, 120f);
+            ApplyRootLayout(panelRect);
 
             Image bg = panel.GetComponent<Image>();
             bg.color = new Color(0f, 0f, 0f, 0.6f);
@@ -85,6 +87,7 @@ namespace Sol.HUD
         private void Awake()
         {
             AutoWire();
+            NormalizeLayout();
             _canvasGroup = (_root != null ? _root : (RectTransform)transform).GetComponent<CanvasGroup>();
             if (_canvasGroup == null)
                 _canvasGroup = (_root != null ? _root : (RectTransform)transform).gameObject.AddComponent<CanvasGroup>();
@@ -234,6 +237,53 @@ namespace Sol.HUD
             _titleText ??= MenuUiUtility.FindTextByNames(transform, "Title");
             _objectiveText ??= MenuUiUtility.FindTextByNames(transform, "Objective");
             _timerText ??= MenuUiUtility.FindTextByNames(transform, "Timer");
+        }
+
+        private void NormalizeLayout()
+        {
+            RectTransform root = _root != null ? _root : transform as RectTransform;
+            if (root == null)
+                return;
+
+            ApplyRootLayout(root);
+            ApplyTextLayout(_titleText, root, new Vector2(TextLeftPadding, -12f), 24f, 18f);
+            ApplyTextLayout(_objectiveText, root, new Vector2(TextLeftPadding, -44f), 24f, 18f);
+            ApplyTextLayout(_timerText, root, new Vector2(TextLeftPadding, -76f), 24f, 18f);
+        }
+
+        private static void ApplyRootLayout(RectTransform rect)
+        {
+            if (rect == null)
+                return;
+
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(LeftMargin, -TopMargin);
+            rect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
+        }
+
+        private static void ApplyTextLayout(TMP_Text text, RectTransform root, Vector2 anchoredPosition, float leftPadding, float size)
+        {
+            if (text == null || text.transform is not RectTransform rect)
+                return;
+
+            if (rect != root)
+            {
+                rect.anchorMin = new Vector2(0f, 1f);
+                rect.anchorMax = new Vector2(1f, 1f);
+                rect.pivot = new Vector2(0f, 1f);
+                rect.anchoredPosition = anchoredPosition;
+                rect.sizeDelta = new Vector2(-leftPadding, size + 10f);
+            }
+            else
+            {
+                text.margin = new Vector4(leftPadding, 8f, leftPadding, PanelHeight - 40f);
+            }
+
+            text.fontSize = size;
+            text.alignment = TextAlignmentOptions.Left;
+            text.raycastTarget = false;
         }
 
         private void SetVisible(bool visible)

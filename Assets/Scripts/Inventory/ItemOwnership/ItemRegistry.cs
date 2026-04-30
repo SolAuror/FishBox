@@ -139,6 +139,11 @@ namespace Sol
             ForceEditorSync();
         }
 
+        public static void ForceEditorSyncNow()
+        {
+            ForceEditorSync();
+        }
+
         private static void ExecuteScheduledEditorSync()
         {
             _editorSyncScheduled = false;

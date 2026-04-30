@@ -11,6 +11,9 @@ namespace Sol
                 return false;
 
             ItemComponent item = slot.Item;
+            if (action == ItemActionType.Use)
+                return item.CanUseFromInventory;
+
             if (!ItemTypeRules.SupportsAction(item.Type, item.IsConsumable, action))
                 return false;
 

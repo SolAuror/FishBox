@@ -34,6 +34,98 @@ namespace Sol.Grab
         TwoHanded = 1
     }
 
+    public enum ItemUseOccasion
+    {
+        Always = 0,
+        InventoryOnly = 1,
+        Never = 2
+    }
+
+    public enum ItemUseEffectType
+    {
+        HealHealthFlat = 0,
+        HealHealthPercent = 1,
+        RestoreStaminaFlat = 2,
+        RestoreStaminaPercent = 3
+    }
+
+    public enum ItemAuthoringTemplate
+    {
+        None = 0,
+        Consumable = 1,
+        KeyItem = 2,
+        Equipment = 3,
+        FishingBait = 4,
+        FishingLure = 5,
+        Currency = 6
+    }
+
+    [System.Serializable]
+    public class ItemUseEffect
+    {
+        [SerializeField] private ItemUseEffectType _effectType = ItemUseEffectType.HealHealthFlat;
+        [SerializeField] [Min(0f)] private float _amount = 10f;
+
+        public ItemUseEffectType EffectType => _effectType;
+        public float Amount => Mathf.Max(0f, _amount);
+
+        public bool Apply(Interactor interactor)
+        {
+            if (interactor == null || Amount <= 0f)
+                return false;
+
+            if (interactor.PlayerSoul != null)
+                return ApplyToPlayer(interactor.PlayerSoul);
+
+            if (interactor.NpcSoul != null)
+                return ApplyToNpc(interactor.NpcSoul);
+
+            return false;
+        }
+
+        private bool ApplyToPlayer(Player.PlayerSoul soul)
+        {
+            switch (_effectType)
+            {
+                case ItemUseEffectType.HealHealthFlat:
+                    soul.Heal(Amount);
+                    return true;
+                case ItemUseEffectType.HealHealthPercent:
+                    soul.Heal(soul.MaxHealth * Amount * 0.01f);
+                    return true;
+                case ItemUseEffectType.RestoreStaminaFlat:
+                    soul.RestoreStamina(Amount);
+                    return true;
+                case ItemUseEffectType.RestoreStaminaPercent:
+                    soul.RestoreStamina(soul.MaxStamina * Amount * 0.01f);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private bool ApplyToNpc(AI.NPCSoul soul)
+        {
+            switch (_effectType)
+            {
+                case ItemUseEffectType.HealHealthFlat:
+                    soul.Heal(Amount);
+                    return true;
+                case ItemUseEffectType.HealHealthPercent:
+                    soul.Heal(soul.MaxHealth * Amount * 0.01f);
+                    return true;
+                case ItemUseEffectType.RestoreStaminaFlat:
+                    soul.RestoreStamina(Amount);
+                    return true;
+                case ItemUseEffectType.RestoreStaminaPercent:
+                    soul.RestoreStamina(soul.MaxStamina * Amount * 0.01f);
+                    return true;
+                default:
+                    return false;
+            }
+        }
+    }
+
     [RequireComponent(typeof(GrabbableComponent))]
     [RequireComponent(typeof(Collider))]
     public class ItemComponent : MonoBehaviour, IInteractable
@@ -65,6 +157,10 @@ namespace Sol.Grab
         [Tooltip("Inspector: tunes max stack size.")]
         [SerializeField] private int _maxStackSize = 1;
 
+        [Header("Use")]
+        [SerializeField] private ItemUseOccasion _useOccasion = ItemUseOccasion.InventoryOnly;
+        [SerializeField] private List<ItemUseEffect> _useEffects = new();
+
         [Header("Weapon Stats")]
         [Tooltip("Inspector: tunes damage.")]
         [SerializeField] private float _damage;
@@ -85,6 +181,10 @@ namespace Sol.Grab
         [Header("Pickup")]
         [Tooltip("Optional hand target used by the pickup reach. If unassigned, the system falls back to the item's collider or transform.")]
         [SerializeField] private Transform _pickupGrip;
+
+        [Header("Authoring")]
+        [SerializeField] private ItemAuthoringTemplate _authoringTemplate = ItemAuthoringTemplate.None;
+        [SerializeField] [TextArea] private string _itemAuthoringNotes = string.Empty;
         #endregion
 
         private GameObject _lastInteractorOwner;
@@ -111,6 +211,9 @@ namespace Sol.Grab
         public bool IsConsumable => _isConsumable || ItemTypeRules.IsConsumableType(_itemType);
         public bool IsTradeable => _isTradeable;
         public int MaxStackSize => _maxStackSize;
+        public ItemUseOccasion UseOccasion => _useOccasion;
+        public IReadOnlyList<ItemUseEffect> UseEffects => _useEffects;
+        public bool CanUseFromInventory => IsConsumable && _useOccasion != ItemUseOccasion.Never;
         public float Damage => ItemTypeRules.UsesWeaponStats(_itemType) ? _damage : 0f;
         public float Defense => ItemTypeRules.UsesArmorStats(_itemType) ? _defense : 0f;
         public string EquipBone => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipBone : string.Empty;
@@ -120,11 +223,13 @@ namespace Sol.Grab
         public WeaponHanding WeaponHanding => _weaponHanding;
         public IReadOnlyList<EquipmentSlotType> AllowedEquipSlots => _allowedEquipSlots;
         public Transform PickupGrip => _pickupGrip;
+        public ItemAuthoringTemplate AuthoringTemplate => _authoringTemplate;
+        public string ItemAuthoringNotes => _itemAuthoringNotes;
 
         public List<ItemActionType> GetAvailableActions()
         {
             List<ItemActionType> actions = new(3);
-            if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Use))
+            if (CanUseFromInventory && ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Use))
                 actions.Add(ItemActionType.Use);
 
             if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Equip))
@@ -136,7 +241,7 @@ namespace Sol.Grab
 
         public ItemActionType GetPrimaryAction()
         {
-            if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Use))
+            if (CanUseFromInventory && ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Use))
                 return ItemActionType.Use;
             if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Equip))
                 return ItemActionType.Equip;
@@ -161,6 +266,24 @@ namespace Sol.Grab
         public GameAction GetInteraction(Interactor interactor)
         {
             return new PickupItemAction(this);
+        }
+
+        public bool ApplyUseEffects(Interactor interactor)
+        {
+            if (_useEffects == null || _useEffects.Count == 0)
+                return false;
+
+            bool appliedAny = false;
+            for (int i = 0; i < _useEffects.Count; i++)
+            {
+                ItemUseEffect effect = _useEffects[i];
+                if (effect == null)
+                    continue;
+
+                appliedAny |= effect.Apply(interactor);
+            }
+
+            return appliedAny;
         }
 
         public bool IsOwnedBy(GameObject actor)
@@ -285,6 +408,7 @@ namespace Sol.Grab
             _maxStackSize = Mathf.Max(1, _maxStackSize);
             _itemId = Sol.EntityCodeUtility.NormalizeOrEmpty(_itemId, Sol.EntityCodeUtility.ItemPrefix);
             _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_itemOwnerId);
+            _itemAuthoringNotes = _itemAuthoringNotes?.Trim() ?? string.Empty;
             if (_itemOwner != null)
                 _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(OwnerRegistry.ResolveOwnerId(_itemOwner));
         }

@@ -144,11 +144,12 @@ namespace Sol.Editor
                 string itemName = entry.Prefab != null && !string.IsNullOrWhiteSpace(entry.Prefab.ItemName)
                     ? entry.Prefab.ItemName.Trim()
                     : id;
+                string itemType = entry.Prefab != null ? entry.Prefab.TypeDisplayName : "Missing";
 
                 items.Add(new ItemOption
                 {
                     ItemId = id,
-                    Display = itemName
+                    Display = $"{itemName} ({id}) - {itemType}"
                 });
             }
 
@@ -669,7 +670,7 @@ namespace Sol.Editor
                     Id = id,
                     Name = name,
                     Prefab = entry.Prefab,
-                    Display = $"{name} ({id})"
+                    Display = $"{name} ({id}) - {entry.Prefab.TypeDisplayName}"
                 });
             }
 

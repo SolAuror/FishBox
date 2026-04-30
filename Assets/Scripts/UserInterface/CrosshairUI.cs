@@ -79,8 +79,7 @@ namespace Sol.HUD
 
         private void Start()
         {
-            if (_promptText != null)
-                _promptText.raycastTarget = false;
+            ConfigurePromptText();
 
             EnsurePlayerInteractorBound(logWarningIfMissing: true);
             TryRegisterCallbacks();
@@ -634,7 +633,70 @@ namespace Sol.HUD
                 && _playerInteractor != null
                 && CurrentInteractable.CanInteract(_playerInteractor))
             {
-                return CurrentInteractable.InteractionPrompt;
+                return FormatInteractionPrompt(CurrentInteractable.InteractionPrompt);
+            }
+
+            return string.Empty;
+        }
+
+        private void ConfigurePromptText()
+        {
+            if (_promptText == null)
+                return;
+
+            _promptText.raycastTarget = false;
+            _promptText.alignment = TextAlignmentOptions.Center;
+            _promptText.textWrappingMode = TextWrappingModes.Normal;
+        }
+
+        private string FormatInteractionPrompt(string actionText)
+        {
+            if (string.IsNullOrWhiteSpace(actionText))
+                return string.Empty;
+
+            return $"Press {GetInteractInputDisplayName()}\n{actionText.Trim()}";
+        }
+
+        private string GetInteractInputDisplayName()
+        {
+            InputAction interactAction = LocomotionInputManager.Instance?.Controls?.Default.E;
+            if (interactAction == null)
+                return "E";
+
+            string keyboardBinding = GetFirstBindingDisplayName(interactAction, preferKeyboard: true);
+            if (!string.IsNullOrWhiteSpace(keyboardBinding))
+                return keyboardBinding;
+
+            string fallbackBinding = GetFirstBindingDisplayName(interactAction, preferKeyboard: false);
+            return string.IsNullOrWhiteSpace(fallbackBinding) ? "E" : fallbackBinding;
+        }
+
+        private static string GetFirstBindingDisplayName(InputAction action, bool preferKeyboard)
+        {
+            if (action == null)
+                return string.Empty;
+
+            for (int i = 0; i < action.bindings.Count; i++)
+            {
+                InputBinding binding = action.bindings[i];
+                if (binding.isComposite || binding.isPartOfComposite)
+                    continue;
+
+                string path = !string.IsNullOrWhiteSpace(binding.effectivePath)
+                    ? binding.effectivePath
+                    : binding.path;
+                if (string.IsNullOrWhiteSpace(path))
+                    continue;
+
+                bool isKeyboardBinding = path.IndexOf("Keyboard", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                if (preferKeyboard != isKeyboardBinding)
+                    continue;
+
+                string display = InputControlPath.ToHumanReadableString(
+                    path,
+                    InputControlPath.HumanReadableStringOptions.OmitDevice);
+                if (!string.IsNullOrWhiteSpace(display))
+                    return display;
             }
 
             return string.Empty;

@@ -99,8 +99,10 @@ namespace Sol
 
             var item = slot.Item;
 
-            if (item.IsConsumable)
+            if (item.CanUseFromInventory)
             {
+                item.ApplyUseEffects(interactor);
+
                 // Pop the actual item reference so stacked objects don't leak.
                 var consumed = slot.PopItem();
                 Remove(slot, 1);
