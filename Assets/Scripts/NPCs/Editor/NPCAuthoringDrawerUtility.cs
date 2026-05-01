@@ -7,6 +7,8 @@ namespace Sol.Editor
 {
     public static class NPCAuthoringDrawerUtility
     {
+        private static readonly HashSet<int> _traderRevealOverrides = new();
+
         public static void DrawNPCInspector(SerializedObject serializedObject, NPCSoul soul, bool showWarnings = true)
         {
             if (serializedObject == null)
@@ -19,7 +21,7 @@ namespace Sol.Editor
             DrawVitalsSection(serializedObject);
             DrawAISection(soul);
             DrawInventorySection(soul);
-            DrawTraderSection(soul);
+            DrawTraderSection(serializedObject, soul);
             DrawAuthoringSection(serializedObject);
         }
 
@@ -148,13 +150,37 @@ namespace Sol.Editor
             invSO.ApplyModifiedProperties();
         }
 
-        private static void DrawTraderSection(NPCSoul soul)
+        private static void DrawTraderSection(SerializedObject serializedObject, NPCSoul soul)
         {
             if (soul == null)
                 return;
 
-            DrawHeader("Trader / Conversation");
             NpcTrader trader = soul.GetComponent<NpcTrader>();
+            NPCAuthoringTemplate template = GetTemplate(serializedObject);
+            bool hasComponent = trader != null;
+            bool sectionApplies = NPCTemplateRules.ShowTraderSection(template, hasComponent);
+
+            if (!sectionApplies)
+            {
+                if (hasComponent && !IsTraderRevealed(serializedObject))
+                {
+                    DrawHiddenSectionNotice(
+                        "Trader / Conversation",
+                        $"This NPC has an NpcTrader component but the '{template}' template hides the Trader section. Reveal to edit, or change the template to Trader/QuestGiver.",
+                        () => SetTraderRevealed(serializedObject, true),
+                        () => SetTemplate(serializedObject, NPCAuthoringTemplate.Trader));
+                    return;
+                }
+
+                if (!IsTraderRevealed(serializedObject))
+                    return;
+            }
+            else
+            {
+                SetTraderRevealed(serializedObject, false);
+            }
+
+            DrawHeader("Trader / Conversation");
 
             if (trader == null)
             {
@@ -191,6 +217,62 @@ namespace Sol.Editor
             while (iter.NextVisible(false))
                 EditorGUILayout.PropertyField(iter, true);
             traderSO.ApplyModifiedProperties();
+        }
+
+        private static NPCAuthoringTemplate GetTemplate(SerializedObject serializedObject)
+        {
+            SerializedProperty templateProp = serializedObject?.FindProperty("_authoringTemplate");
+            return templateProp != null
+                ? (NPCAuthoringTemplate)templateProp.enumValueIndex
+                : NPCAuthoringTemplate.None;
+        }
+
+        private static void SetTemplate(SerializedObject serializedObject, NPCAuthoringTemplate template)
+        {
+            SerializedProperty templateProp = serializedObject?.FindProperty("_authoringTemplate");
+            if (templateProp == null)
+                return;
+
+            templateProp.enumValueIndex = (int)template;
+            serializedObject.ApplyModifiedProperties();
+        }
+
+        private static bool IsTraderRevealed(SerializedObject serializedObject)
+        {
+            int id = GetTargetId(serializedObject);
+            return id != 0 && _traderRevealOverrides.Contains(id);
+        }
+
+        private static void SetTraderRevealed(SerializedObject serializedObject, bool revealed)
+        {
+            int id = GetTargetId(serializedObject);
+            if (id == 0)
+                return;
+
+            if (revealed)
+                _traderRevealOverrides.Add(id);
+            else
+                _traderRevealOverrides.Remove(id);
+        }
+
+        private static int GetTargetId(SerializedObject serializedObject)
+        {
+            return serializedObject != null && serializedObject.targetObject != null
+                ? serializedObject.targetObject.GetInstanceID()
+                : 0;
+        }
+
+        private static void DrawHiddenSectionNotice(string label, string reason, System.Action onReveal, System.Action onChangeTemplate)
+        {
+            DrawHeader(label);
+            EditorGUILayout.HelpBox(reason, MessageType.Info);
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Reveal Section", GUILayout.Width(140f)))
+                onReveal?.Invoke();
+            if (onChangeTemplate != null && GUILayout.Button("Set Template: Trader", GUILayout.Width(170f)))
+                onChangeTemplate.Invoke();
+            EditorGUILayout.EndHorizontal();
         }
 
         private static void DrawAuthoringSection(SerializedObject serializedObject)

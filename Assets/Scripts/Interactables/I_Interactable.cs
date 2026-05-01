@@ -213,6 +213,28 @@ namespace Sol
         public static bool UsesArmorStats(ItemType itemType) => itemType == ItemType.Armor;
         public static bool UsesEquipmentSettings(ItemType itemType) => IsEquipableType(itemType);
 
+        public static bool ShowConsumableFlag(ItemType itemType)
+        {
+            return !IsEquipableType(itemType)
+                && itemType != ItemType.Gold
+                && itemType != ItemType.Key
+                && itemType != ItemType.QuestItem;
+        }
+
+        public static bool ShowStackingFields(ItemType itemType)
+        {
+            return !IsEquipableType(itemType) && itemType != ItemType.Gold;
+        }
+
+        public static bool ShowUseSection(ItemType itemType, bool isConsumable, int existingEffectCount)
+        {
+            return isConsumable
+                || IsConsumableType(itemType)
+                || existingEffectCount > 0;
+        }
+
+        public static bool ShowEquipmentSection(ItemType itemType) => IsEquipableType(itemType);
+
         public static bool SupportsAction(ItemType itemType, bool isConsumable, ItemActionType actionType)
         {
             return actionType switch

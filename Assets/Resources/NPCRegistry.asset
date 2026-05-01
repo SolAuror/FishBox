@@ -21,3 +21,5 @@ MonoBehaviour:
     Prefab: {fileID: 2735971236227634467, guid: bf925b594cf19bb478f138f6e5233a9a, type: 3}
   - OwnerId: OWN00005
     Prefab: {fileID: 1114985480798751693, guid: 681b3592f331c1745847f8506bc1291b, type: 3}
+  - OwnerId: OWN00001
+    Prefab: {fileID: 5376140220061540952, guid: 08aeef636f9cb3d4182f4250590f21a1, type: 3}

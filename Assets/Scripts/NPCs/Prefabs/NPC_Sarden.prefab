@@ -1972,7 +1972,7 @@ GameObject:
   - component: {fileID: 2411642763029118176}
   - component: {fileID: 2201453678901234570}
   m_Layer: 10
-  m_Name: NPC_Elvion
+  m_Name: NPC_Sarden
   m_TagString: NPC
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2063,7 +2063,7 @@ MonoBehaviour:
   _greetingLine: What can I do for you?
   _tradeOptionLabel: Trade
   _goodbyeOptionLabel: Goodbye
-  _speakerIcon: {fileID: 21300000, guid: 055c0cc2bc686c94d899f0fa0e9fd7df, type: 3}
+  _speakerIcon: {fileID: 21300000, guid: 344c5ac4a7ac82c49b5c8f5df40bb416, type: 3}
   _goldLootItemTemplate: {fileID: 0}
   _maxGoldItemizeAttemptsPerOpen: 2000
 --- !u!114 &1586391552197703178
@@ -2105,8 +2105,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.NPCSoul
   _soulType: 0
-  _characterName: Elvion
-  _ownerId: OWN00002
+  _characterName: Sarden
+  _ownerId: OWN00001
   _healthStat:
     _current: 100
     _max: 100

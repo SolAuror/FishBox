@@ -26,6 +26,28 @@ namespace Sol.AI
     }
 
     /// <summary>
+    /// Section visibility rules for the NPC authoring inspector. Centralizes the
+    /// "Civilians don't need a Trader section" logic so the drawer stays small.
+    /// All NPCs share Identity/Vitals/AI/Inventory; Trader is the template-gated section.
+    /// </summary>
+    public static class NPCTemplateRules
+    {
+        public static bool ShowAISection(NPCAuthoringTemplate template, bool hasComponent) => true;
+
+        public static bool ShowInventorySection(NPCAuthoringTemplate template, bool hasComponent) => true;
+
+        public static bool ShowTraderSection(NPCAuthoringTemplate template, bool hasComponent)
+        {
+            if (hasComponent)
+                return true;
+
+            return template == NPCAuthoringTemplate.None
+                || template == NPCAuthoringTemplate.Trader
+                || template == NPCAuthoringTemplate.QuestGiver;
+        }
+    }
+
+    /// <summary>
     /// Unified runtime stats for actors (player, NPC, enemy).
     /// </summary>
     public class NPCSoul : MonoBehaviour

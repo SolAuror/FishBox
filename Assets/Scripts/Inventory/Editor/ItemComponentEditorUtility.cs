@@ -8,6 +8,8 @@ namespace Sol.Editor
 {
     public static class ItemComponentEditorUtility
     {
+        private static readonly HashSet<int> _equipmentRevealOverrides = new();
+
         public static void DrawItemInspector(SerializedObject serializedObject, ItemComponent item, bool showWarnings = true)
         {
             if (serializedObject == null)
@@ -61,30 +63,34 @@ namespace Sol.Editor
         private static void DrawInventorySection(SerializedObject serializedObject)
         {
             DrawHeader("Inventory");
-            DrawProperty(serializedObject, "_isStackable");
-            DrawProperty(serializedObject, "_maxStackSize");
-            DrawProperty(serializedObject, "_isConsumable");
+
+            ItemType itemType = GetItemType(serializedObject);
+            bool showStacking = ItemTypeRules.ShowStackingFields(itemType);
+            bool showConsumable = ItemTypeRules.ShowConsumableFlag(itemType);
+
+            if (showStacking)
+            {
+                DrawProperty(serializedObject, "_isStackable");
+                SerializedProperty stackable = serializedObject.FindProperty("_isStackable");
+                if (stackable != null && stackable.boolValue)
+                    DrawProperty(serializedObject, "_maxStackSize");
+            }
+
+            if (showConsumable)
+                DrawProperty(serializedObject, "_isConsumable");
+
             DrawProperty(serializedObject, "_isTradeable");
         }
 
         private static void DrawUseSection(SerializedObject serializedObject)
         {
-            SerializedProperty itemTypeProp = serializedObject.FindProperty("_itemType");
+            ItemType itemType = GetItemType(serializedObject);
             SerializedProperty consumableProp = serializedObject.FindProperty("_isConsumable");
-            bool show = consumableProp != null && consumableProp.boolValue;
-            if (itemTypeProp != null)
-            {
-                ItemType itemType = (ItemType)itemTypeProp.enumValueIndex;
-                show |= ItemTypeRules.IsConsumableType(itemType);
-            }
+            SerializedProperty effects = serializedObject.FindProperty("_useEffects");
+            bool isConsumable = consumableProp != null && consumableProp.boolValue;
+            int effectCount = effects != null ? effects.arraySize : 0;
 
-            if (!show)
-            {
-                SerializedProperty effects = serializedObject.FindProperty("_useEffects");
-                show = effects != null && effects.arraySize > 0;
-            }
-
-            if (!show)
+            if (!ItemTypeRules.ShowUseSection(itemType, isConsumable, effectCount))
                 return;
 
             DrawHeader("Use");
@@ -99,26 +105,124 @@ namespace Sol.Editor
                 return;
 
             ItemType itemType = (ItemType)itemTypeProp.enumValueIndex;
-            bool showWeapon = ItemTypeRules.UsesWeaponStats(itemType);
-            bool showArmor = ItemTypeRules.UsesArmorStats(itemType);
-            bool showEquipment = ItemTypeRules.UsesEquipmentSettings(itemType);
-            if (!showWeapon && !showArmor && !showEquipment)
-                return;
+            bool sectionApplies = ItemTypeRules.ShowEquipmentSection(itemType);
+
+            if (!sectionApplies)
+            {
+                if (HasOrphanEquipmentData(serializedObject) && !IsEquipmentRevealed(serializedObject))
+                {
+                    DrawHiddenSectionNotice(
+                        "Equipment",
+                        $"This item is type '{itemType}' but has equipment data set. Reveal to clear or change type.",
+                        () => SetEquipmentRevealed(serializedObject, true));
+                    return;
+                }
+
+                if (!IsEquipmentRevealed(serializedObject))
+                    return;
+            }
+            else
+            {
+                SetEquipmentRevealed(serializedObject, false);
+            }
+
+            bool showWeapon = sectionApplies && ItemTypeRules.UsesWeaponStats(itemType);
+            bool showArmor = sectionApplies && ItemTypeRules.UsesArmorStats(itemType);
 
             DrawHeader("Equipment");
-            if (showWeapon)
-                DrawProperty(serializedObject, "_damage");
-            if (showArmor)
-                DrawProperty(serializedObject, "_defense");
-            if (showEquipment)
+            if (!sectionApplies)
             {
-                DrawProperty(serializedObject, "_equipBone");
-                DrawProperty(serializedObject, "_equipOffset");
-                DrawProperty(serializedObject, "_equipRotation");
-                DrawProperty(serializedObject, "_equipDomain");
-                DrawProperty(serializedObject, "_weaponHanding");
-                DrawProperty(serializedObject, "_allowedEquipSlots", includeChildren: true);
+                EditorGUILayout.HelpBox(
+                    "Section revealed for cleanup. All fields are shown so you can clear stale data, then change item type back.",
+                    MessageType.Info);
+                DrawProperty(serializedObject, "_damage");
+                DrawProperty(serializedObject, "_defense");
             }
+            else
+            {
+                if (showWeapon)
+                    DrawProperty(serializedObject, "_damage");
+                if (showArmor)
+                    DrawProperty(serializedObject, "_defense");
+            }
+
+            DrawProperty(serializedObject, "_equipBone");
+            DrawProperty(serializedObject, "_equipOffset");
+            DrawProperty(serializedObject, "_equipRotation");
+            DrawProperty(serializedObject, "_equipDomain");
+            DrawProperty(serializedObject, "_weaponHanding");
+            DrawProperty(serializedObject, "_allowedEquipSlots", includeChildren: true);
+        }
+
+        private static ItemType GetItemType(SerializedObject serializedObject)
+        {
+            SerializedProperty itemTypeProp = serializedObject.FindProperty("_itemType");
+            return itemTypeProp != null ? (ItemType)itemTypeProp.enumValueIndex : ItemType.Material;
+        }
+
+        private static bool HasOrphanEquipmentData(SerializedObject serializedObject)
+        {
+            SerializedProperty damage = serializedObject.FindProperty("_damage");
+            if (damage != null && damage.floatValue != 0f) return true;
+
+            SerializedProperty defense = serializedObject.FindProperty("_defense");
+            if (defense != null && defense.floatValue != 0f) return true;
+
+            SerializedProperty bone = serializedObject.FindProperty("_equipBone");
+            if (bone != null && !string.IsNullOrEmpty(bone.stringValue)) return true;
+
+            SerializedProperty offset = serializedObject.FindProperty("_equipOffset");
+            if (offset != null && offset.vector3Value != Vector3.zero) return true;
+
+            SerializedProperty rotation = serializedObject.FindProperty("_equipRotation");
+            if (rotation != null && rotation.vector3Value != Vector3.zero) return true;
+
+            SerializedProperty slots = serializedObject.FindProperty("_allowedEquipSlots");
+            if (slots != null && slots.arraySize > 0) return true;
+
+            SerializedProperty domain = serializedObject.FindProperty("_equipDomain");
+            if (domain != null && domain.enumValueIndex != (int)EquipDomain.Auto) return true;
+
+            SerializedProperty handing = serializedObject.FindProperty("_weaponHanding");
+            if (handing != null && handing.enumValueIndex != (int)WeaponHanding.OneHanded) return true;
+
+            return false;
+        }
+
+        private static bool IsEquipmentRevealed(SerializedObject serializedObject)
+        {
+            int id = GetTargetId(serializedObject);
+            return id != 0 && _equipmentRevealOverrides.Contains(id);
+        }
+
+        private static void SetEquipmentRevealed(SerializedObject serializedObject, bool revealed)
+        {
+            int id = GetTargetId(serializedObject);
+            if (id == 0)
+                return;
+
+            if (revealed)
+                _equipmentRevealOverrides.Add(id);
+            else
+                _equipmentRevealOverrides.Remove(id);
+        }
+
+        private static int GetTargetId(SerializedObject serializedObject)
+        {
+            return serializedObject != null && serializedObject.targetObject != null
+                ? serializedObject.targetObject.GetInstanceID()
+                : 0;
+        }
+
+        private static void DrawHiddenSectionNotice(string label, string reason, System.Action onReveal)
+        {
+            DrawHeader(label);
+            EditorGUILayout.HelpBox(reason, MessageType.Warning);
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            if (GUILayout.Button("Reveal Section", GUILayout.Width(140f)))
+                onReveal?.Invoke();
+            EditorGUILayout.EndHorizontal();
         }
 
         private static void DrawFishingSection(ItemComponent item)

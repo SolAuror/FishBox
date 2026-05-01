@@ -1452,7 +1452,7 @@ MonoBehaviour:
   _greetingLine: What can I do for you?
   _tradeOptionLabel: Trade
   _goodbyeOptionLabel: Goodbye
-  _speakerIcon: {fileID: 0}
+  _speakerIcon: {fileID: 21300000, guid: 2fa30af0bc474944194ac5ff13eb173d, type: 3}
   _goldLootItemTemplate: {fileID: 0}
   _maxGoldItemizeAttemptsPerOpen: 2000
 --- !u!114 &8960879475792424919
