@@ -257,7 +257,7 @@ MonoBehaviour:
   _weaponHanding: 0
   _allowedEquipSlots: 
   _pickupGrip: {fileID: 0}
-  _authoringTemplate: 0
+  _authoringTemplate: 5
   _itemAuthoringNotes: 
 --- !u!1 &5861777005119241836
 GameObject:

@@ -13,6 +13,19 @@ namespace Sol.AI
     }
 
     /// <summary>
+    /// Authoring template applied via the NPC Database window. Drives default component
+    /// setup and validation hints. Mirrors <see cref="Sol.Grab.ItemAuthoringTemplate"/>.
+    /// </summary>
+    public enum NPCAuthoringTemplate
+    {
+        None = 0,
+        Civilian = 1,
+        Patroller = 2,
+        Trader = 3,
+        QuestGiver = 4
+    }
+
+    /// <summary>
     /// Unified runtime stats for actors (player, NPC, enemy).
     /// </summary>
     public class NPCSoul : MonoBehaviour
@@ -64,7 +77,15 @@ namespace Sol.AI
         [SerializeField] private float _maxStamina = 100f;
         [HideInInspector]
         [SerializeField] private bool _soulStatsMigrated;
+
+        [Header("Authoring")]
+        [SerializeField] private NPCAuthoringTemplate _authoringTemplate = NPCAuthoringTemplate.None;
+        [TextArea(2, 6)]
+        [SerializeField] private string _authoringNotes = string.Empty;
         #endregion
+
+        public NPCAuthoringTemplate AuthoringTemplate => _authoringTemplate;
+        public string AuthoringNotes => _authoringNotes;
 
         public float MaxHealth
         {

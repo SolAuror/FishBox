@@ -367,6 +367,31 @@ namespace Sol.Editor
                 seen.Add(string.Empty);
             }
 
+            Sol.AI.NPCRegistry registry = Sol.AI.NPCRegistry.Get();
+            if (registry?.Entries != null)
+            {
+                for (int i = 0; i < registry.Entries.Count; i++)
+                {
+                    Sol.AI.NPCRegistry.Entry entry = registry.Entries[i];
+                    if (entry == null || entry.Prefab == null)
+                        continue;
+
+                    string ownerId = string.IsNullOrWhiteSpace(entry.OwnerId) ? entry.Prefab.OwnerId : entry.OwnerId;
+                    if (string.IsNullOrWhiteSpace(ownerId) || !seen.Add(ownerId))
+                        continue;
+
+                    string displayName = string.IsNullOrWhiteSpace(entry.Prefab.CharacterName)
+                        ? entry.Prefab.gameObject.name
+                        : entry.Prefab.CharacterName;
+                    choices.Add(new NpcChoice
+                    {
+                        Id = ownerId,
+                        Display = $"{displayName} ({ownerId})"
+                    });
+                }
+            }
+
+            // Pick up scene NPCs that aren't backed by a project prefab (live-only authored ids).
             Sol.AI.NPCSoul[] npcSouls = Object.FindObjectsByType<Sol.AI.NPCSoul>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             for (int i = 0; i < npcSouls.Length; i++)
             {
@@ -375,26 +400,6 @@ namespace Sol.Editor
                     continue;
 
                 string displayName = string.IsNullOrWhiteSpace(soul.CharacterName) ? soul.gameObject.name : soul.CharacterName;
-                choices.Add(new NpcChoice
-                {
-                    Id = soul.OwnerId,
-                    Display = $"{displayName} ({soul.OwnerId})"
-                });
-            }
-
-            string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab");
-            for (int i = 0; i < prefabGuids.Length; i++)
-            {
-                string path = AssetDatabase.GUIDToAssetPath(prefabGuids[i]);
-                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
-                if (prefab == null)
-                    continue;
-
-                Sol.AI.NPCSoul soul = prefab.GetComponentInChildren<Sol.AI.NPCSoul>(true);
-                if (soul == null || string.IsNullOrWhiteSpace(soul.OwnerId) || !seen.Add(soul.OwnerId))
-                    continue;
-
-                string displayName = string.IsNullOrWhiteSpace(soul.CharacterName) ? prefab.name : soul.CharacterName;
                 choices.Add(new NpcChoice
                 {
                     Id = soul.OwnerId,

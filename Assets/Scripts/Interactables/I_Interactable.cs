@@ -80,6 +80,7 @@ namespace Sol
         public const string NpcPrefix = "NPC";
         public const string ContainerPrefix = "CNT";
         public const string OwnerPrefix = "OWN";
+        public const string QuestPrefix = "QST";
         public const string DefaultPlayerOwnerId = "PLY00001";
 
         private const int CodeWidth = 5;
@@ -113,7 +114,7 @@ namespace Sol
             if (suffix.Length != CodeWidth || !int.TryParse(suffix, out int parsed))
                 return false;
 
-            if (parsed <= 0 || parsed > MaxCodeValue)
+            if (parsed < 0 || parsed > MaxCodeValue)
                 return false;
 
             numeric = parsed;
