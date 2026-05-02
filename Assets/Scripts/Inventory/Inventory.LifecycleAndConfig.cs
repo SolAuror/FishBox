@@ -69,8 +69,16 @@ namespace Sol
             {
                 for (int i = 0; i < _inspectorContents.Count; i++)
                 {
-                    if (_inspectorContents[i] != null)
-                        _inspectorContents[i].Quantity = Mathf.Max(1, _inspectorContents[i].Quantity);
+                    InventorySeedEntry entry = _inspectorContents[i];
+                    if (entry == null)
+                        continue;
+
+                    entry.Quantity = Mathf.Max(1, entry.Quantity);
+
+#pragma warning disable CS0618
+                    if (string.IsNullOrWhiteSpace(entry.ItemId) && entry.Item != null && !string.IsNullOrWhiteSpace(entry.Item.ItemId))
+                        entry.ItemId = entry.Item.ItemId;
+#pragma warning restore CS0618
                 }
             }
 
@@ -98,13 +106,17 @@ namespace Sol
             for (int i = 0; i < _inspectorContents.Count; i++)
             {
                 var entry = _inspectorContents[i];
-                if (entry == null || entry.Item == null)
+                if (entry == null)
+                    continue;
+
+                ItemComponent template = ResolveSeedTemplate(entry);
+                if (template == null)
                     continue;
 
                 int quantity = Mathf.Max(1, entry.Quantity);
                 for (int j = 0; j < quantity; j++)
                 {
-                    var runtimeItem = Instantiate(entry.Item, transform);
+                    var runtimeItem = Instantiate(template, transform);
                     runtimeItem.gameObject.SetActive(false);
 
                     if (!Add(runtimeItem))
@@ -114,6 +126,24 @@ namespace Sol
                     }
                 }
             }
+        }
+
+        private static ItemComponent ResolveSeedTemplate(InventorySeedEntry entry)
+        {
+            if (entry == null)
+                return null;
+
+            if (!string.IsNullOrWhiteSpace(entry.ItemId))
+            {
+                ItemRegistry registry = ItemRegistry.Get();
+                ItemComponent prefab = registry != null ? registry.GetPrefab(entry.ItemId) : null;
+                if (prefab != null)
+                    return prefab;
+            }
+
+#pragma warning disable CS0618
+            return entry.Item;
+#pragma warning restore CS0618
         }
 
 

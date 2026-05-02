@@ -53,7 +53,10 @@ namespace Sol
         [SerializeField] private Sprite _speakerIcon;
         
         [Header("Corpse Loot")]
-        [Tooltip("Gold item prefab used to convert numeric NPC gold into physical corpse loot.")]
+        [Tooltip("Gold item id (registry-backed). When set, takes precedence over the direct prefab reference.")]
+        [ItemIdDropdown]
+        [SerializeField] private string _goldLootItemId = string.Empty;
+        [Tooltip("Gold item prefab used to convert numeric NPC gold into physical corpse loot. Used as fallback if no id is set.")]
         [SerializeField] private ItemComponent _goldLootItemTemplate;
         [SerializeField] [Min(1)] private int _maxGoldItemizeAttemptsPerOpen = 2000;
 #endregion
@@ -522,6 +525,14 @@ namespace Sol
 
         private ItemComponent ResolveGoldLootTemplate()
         {
+            if (!string.IsNullOrWhiteSpace(_goldLootItemId))
+            {
+                ItemRegistry registry = ItemRegistry.Get();
+                ItemComponent fromRegistry = registry != null ? registry.GetPrefab(_goldLootItemId) : null;
+                if (fromRegistry != null)
+                    return fromRegistry;
+            }
+
             if (_goldLootItemTemplate != null)
                 return _goldLootItemTemplate;
 

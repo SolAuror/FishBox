@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using Sol.AI;
 using UnityEditor;
+using UnityEditorInternal;
 using UnityEngine;
 
 namespace Sol.Editor
@@ -8,6 +10,10 @@ namespace Sol.Editor
     public static class NPCAuthoringDrawerUtility
     {
         private static readonly HashSet<int> _traderRevealOverrides = new();
+        private const string FoldoutPrefPrefix = "Sol.NPCEditor.Section.";
+
+        // ReorderableList caches keyed by inventory instanceId.
+        private static readonly Dictionary<int, ReorderableList> _seedListCache = new();
 
         public static void DrawNPCInspector(SerializedObject serializedObject, NPCSoul soul, bool showWarnings = true)
         {
@@ -18,11 +24,12 @@ namespace Sol.Editor
                 DrawWarnings(soul);
 
             DrawIdentitySection(serializedObject, soul);
-            DrawVitalsSection(serializedObject);
-            DrawAISection(soul);
+            DrawAIMovementSection(soul);
             DrawInventorySection(soul);
-            DrawTraderSection(serializedObject, soul);
-            DrawAuthoringSection(serializedObject);
+            DrawDialogueAndTradingSection(serializedObject, soul);
+            DrawDeathAndLootSection(serializedObject, soul);
+            DrawReferencesSection(serializedObject, soul);
+            DrawDebugSection(serializedObject, soul);
         }
 
         public static void DrawWarnings(NPCSoul soul)
@@ -46,9 +53,25 @@ namespace Sol.Editor
             EditorGUILayout.Space(4f);
         }
 
+        // ----- Section: Identity -----
+
         private static void DrawIdentitySection(SerializedObject serializedObject, NPCSoul soul)
         {
-            DrawHeader("Identity");
+            if (!BeginSection("Identity", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
+            SerializedProperty nameProp = serializedObject.FindProperty("_characterName");
+            if (nameProp != null)
+            {
+                EditorGUILayout.LabelField("Character Name", EditorStyles.miniLabel);
+                GUIStyle bigField = new GUIStyle(EditorStyles.textField) { fontSize = 14, fixedHeight = 22f };
+                nameProp.stringValue = EditorGUILayout.TextField(nameProp.stringValue ?? string.Empty, bigField);
+            }
+
+            DrawProperty(serializedObject, "_soulType");
 
             using (new EditorGUI.DisabledScope(true))
                 DrawProperty(serializedObject, "_ownerId");
@@ -62,8 +85,16 @@ namespace Sol.Editor
             }
             EditorGUILayout.EndHorizontal();
 
-            DrawProperty(serializedObject, "_soulType");
-            DrawProperty(serializedObject, "_characterName");
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.LabelField("Vitals", EditorStyles.miniBoldLabel);
+            DrawProperty(serializedObject, "_healthStat", includeChildren: true);
+            DrawProperty(serializedObject, "_staminaStat", includeChildren: true);
+
+            EditorGUILayout.Space(4f);
+            DrawProperty(serializedObject, "_authoringTemplate");
+            DrawProperty(serializedObject, "_authoringNotes");
+
+            EndSection();
         }
 
         private static void RegenerateOwnerId(SerializedObject serializedObject)
@@ -83,26 +114,29 @@ namespace Sol.Editor
             NPCRegistry.ScheduleEditorSync();
         }
 
-        private static void DrawVitalsSection(SerializedObject serializedObject)
-        {
-            DrawHeader("Vitals");
-            DrawProperty(serializedObject, "_healthStat", includeChildren: true);
-            DrawProperty(serializedObject, "_staminaStat", includeChildren: true);
-        }
+        // ----- Section: AI & Movement -----
 
-        private static void DrawAISection(NPCSoul soul)
+        private static void DrawAIMovementSection(NPCSoul soul)
         {
-            if (soul == null)
+            if (!BeginSection("AI & Movement", defaultOpen: true))
+            {
+                EndSection();
                 return;
+            }
+
+            if (soul == null)
+            {
+                EndSection();
+                return;
+            }
 
             AI_NPC aiNpc = soul.GetComponent<AI_NPC>();
-            DrawHeader("AI");
-
             if (aiNpc == null)
             {
                 EditorGUILayout.HelpBox("No AI_NPC component on this prefab.", MessageType.Info);
                 if (GUILayout.Button("Add AI_NPC Component"))
                     Undo.AddComponent<AI_NPC>(soul.gameObject);
+                EndSection();
                 return;
             }
 
@@ -114,46 +148,122 @@ namespace Sol.Editor
             DrawProperty(aiSO, "patrolPoints", includeChildren: true);
             DrawProperty(aiSO, "patrolPointNavMeshSnapDistance");
             DrawProperty(aiSO, "patrolSplineOverride");
-            DrawProperty(aiSO, "soul");
-            DrawProperty(aiSO, "animator");
-            DrawProperty(aiSO, "fakeCam");
-            DrawProperty(aiSO, "deathTrigger");
-            DrawProperty(aiSO, "deathStateName");
-            DrawProperty(aiSO, "deathAnimDuration");
-            DrawProperty(aiSO, "deathHoldNormalizedTime");
-            DrawProperty(aiSO, "ragdollAfterDeath");
             aiSO.ApplyModifiedProperties();
+
+            EndSection();
         }
+
+        // ----- Section: Inventory -----
 
         private static void DrawInventorySection(NPCSoul soul)
         {
-            if (soul == null)
+            if (!BeginSection("Inventory", defaultOpen: true))
+            {
+                EndSection();
                 return;
+            }
+
+            if (soul == null)
+            {
+                EndSection();
+                return;
+            }
 
             Sol.Inventory inventory = soul.GetComponent<Sol.Inventory>();
-            DrawHeader("Inventory");
-
             if (inventory == null)
             {
                 EditorGUILayout.HelpBox("No Inventory component on this prefab. Trade and corpse loot rely on it.", MessageType.Info);
                 if (GUILayout.Button("Add Inventory Component"))
                     Undo.AddComponent<Sol.Inventory>(soul.gameObject);
+                EndSection();
                 return;
             }
 
             SerializedObject invSO = new(inventory);
             invSO.Update();
-            SerializedProperty iter = invSO.GetIterator();
-            iter.NextVisible(true); // skip script
-            while (iter.NextVisible(false))
-                EditorGUILayout.PropertyField(iter, true);
+            DrawProperty(invSO, "_capacity");
+            DrawProperty(invSO, "_gold");
+
+            EditorGUILayout.Space(4f);
+            DrawSeedContentsList(invSO, inventory);
+
             invSO.ApplyModifiedProperties();
+            EndSection();
         }
 
-        private static void DrawTraderSection(SerializedObject serializedObject, NPCSoul soul)
+        private static void DrawSeedContentsList(SerializedObject invSO, Sol.Inventory inventory)
+        {
+            SerializedProperty contents = invSO.FindProperty("_inspectorContents");
+            if (contents == null)
+                return;
+
+            int key = inventory.GetInstanceID();
+            if (!_seedListCache.TryGetValue(key, out ReorderableList list) || list == null || list.serializedProperty == null || list.serializedProperty.serializedObject != invSO)
+            {
+                list = BuildSeedList(invSO, contents);
+                _seedListCache[key] = list;
+            }
+
+            if (contents.arraySize == 0)
+                EditorGUILayout.HelpBox("No seed items. Click + to add.", MessageType.None);
+
+            list.DoLayoutList();
+        }
+
+        private static ReorderableList BuildSeedList(SerializedObject invSO, SerializedProperty contents)
+        {
+            ReorderableList list = new ReorderableList(invSO, contents, true, true, true, true)
+            {
+                elementHeight = EditorGUIUtility.singleLineHeight + 6f,
+                drawHeaderCallback = rect =>
+                {
+                    EditorGUI.LabelField(rect, $"Seed Contents ({contents.arraySize})", EditorStyles.boldLabel);
+                },
+                drawElementCallback = (rect, index, isActive, isFocused) =>
+                {
+                    if (index < 0 || index >= contents.arraySize)
+                        return;
+                    SerializedProperty element = contents.GetArrayElementAtIndex(index);
+                    SerializedProperty idProp = element.FindPropertyRelative("_itemId");
+                    SerializedProperty qtyProp = element.FindPropertyRelative("Quantity");
+
+                    Rect row = new Rect(rect.x, rect.y + 3f, rect.width, EditorGUIUtility.singleLineHeight);
+                    float gap = 6f;
+                    float qtyWidth = 70f;
+                    float itemWidth = row.width - qtyWidth - gap;
+                    Rect itemRect = new Rect(row.x, row.y, itemWidth, row.height);
+                    Rect qtyRect = new Rect(row.x + itemWidth + gap, row.y, qtyWidth, row.height);
+
+                    if (idProp != null)
+                        ReferenceDropdown.DrawItem(itemRect, GUIContent.none, idProp);
+                    if (qtyProp != null)
+                        EditorGUI.PropertyField(qtyRect, qtyProp, GUIContent.none);
+                },
+                onAddCallback = l =>
+                {
+                    int last = contents.arraySize;
+                    contents.arraySize = last + 1;
+                    SerializedProperty element = contents.GetArrayElementAtIndex(last);
+                    SerializedProperty idProp = element.FindPropertyRelative("_itemId");
+                    SerializedProperty qtyProp = element.FindPropertyRelative("Quantity");
+                    if (idProp != null) idProp.stringValue = string.Empty;
+                    if (qtyProp != null) qtyProp.intValue = 1;
+                }
+            };
+
+            return list;
+        }
+
+        // ----- Section: Dialogue & Trading -----
+
+        private static void DrawDialogueAndTradingSection(SerializedObject serializedObject, NPCSoul soul)
         {
             if (soul == null)
+            {
+                if (BeginSection("Dialogue & Trading", defaultOpen: true)) { /* nothing */ }
+                EndSection();
                 return;
+            }
 
             NpcTrader trader = soul.GetComponent<NpcTrader>();
             NPCAuthoringTemplate template = GetTemplate(serializedObject);
@@ -164,11 +274,14 @@ namespace Sol.Editor
             {
                 if (hasComponent && !IsTraderRevealed(serializedObject))
                 {
-                    DrawHiddenSectionNotice(
-                        "Trader / Conversation",
-                        $"This NPC has an NpcTrader component but the '{template}' template hides the Trader section. Reveal to edit, or change the template to Trader/QuestGiver.",
-                        () => SetTraderRevealed(serializedObject, true),
-                        () => SetTemplate(serializedObject, NPCAuthoringTemplate.Trader));
+                    if (BeginSection("Dialogue & Trading", defaultOpen: true))
+                    {
+                        DrawHiddenSectionNotice(
+                            $"This NPC has an NpcTrader component but the '{template}' template hides the Trader section.",
+                            () => SetTraderRevealed(serializedObject, true),
+                            () => SetTemplate(serializedObject, NPCAuthoringTemplate.Trader));
+                    }
+                    EndSection();
                     return;
                 }
 
@@ -180,7 +293,11 @@ namespace Sol.Editor
                 SetTraderRevealed(serializedObject, false);
             }
 
-            DrawHeader("Trader / Conversation");
+            if (!BeginSection("Dialogue & Trading", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
 
             if (trader == null)
             {
@@ -191,33 +308,201 @@ namespace Sol.Editor
                         Undo.AddComponent<Sol.Inventory>(soul.gameObject);
                     Undo.AddComponent<NpcTrader>(soul.gameObject);
                 }
+                EndSection();
                 return;
             }
 
+            SerializedObject traderSO = new(trader);
+            traderSO.Update();
+            DrawProperty(traderSO, "_useConversationWindow");
+            DrawProperty(traderSO, "_talkPrompt");
+            DrawProperty(traderSO, "_prompt");
+            DrawProperty(traderSO, "_tradeOptionLabel");
+            DrawProperty(traderSO, "_goodbyeOptionLabel");
+            DrawProperty(traderSO, "_greetingLine");
+            DrawProperty(traderSO, "_speakerIcon");
+            traderSO.ApplyModifiedProperties();
+
+            EditorGUILayout.Space(4f);
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
             if (GUILayout.Button("Remove NpcTrader", GUILayout.Width(160f)))
             {
                 if (EditorUtility.DisplayDialog(
-                    "Remove NpcTrader",
-                    "Remove the NpcTrader component from this prefab? Trade and corpse-loot interactions will be disabled.",
-                    "Remove",
-                    "Cancel"))
+                        "Remove NpcTrader",
+                        "Remove the NpcTrader component from this prefab? Trade and corpse-loot interactions will be disabled.",
+                        "Remove",
+                        "Cancel"))
                 {
                     Undo.DestroyObjectImmediate(trader);
+                    EditorGUILayout.EndHorizontal();
+                    EndSection();
                     return;
                 }
             }
             EditorGUILayout.EndHorizontal();
 
-            SerializedObject traderSO = new(trader);
-            traderSO.Update();
-            SerializedProperty iter = traderSO.GetIterator();
-            iter.NextVisible(true); // skip script
-            while (iter.NextVisible(false))
-                EditorGUILayout.PropertyField(iter, true);
-            traderSO.ApplyModifiedProperties();
+            EndSection();
         }
+
+        // ----- Section: Death & Loot -----
+
+        private static void DrawDeathAndLootSection(SerializedObject serializedObject, NPCSoul soul)
+        {
+            if (!BeginSection("Death & Loot", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
+            if (soul == null)
+            {
+                EndSection();
+                return;
+            }
+
+            AI_NPC aiNpc = soul.GetComponent<AI_NPC>();
+            if (aiNpc != null)
+            {
+                SerializedObject aiSO = new(aiNpc);
+                aiSO.Update();
+                DrawProperty(aiSO, "deathTrigger");
+                DrawProperty(aiSO, "deathStateName");
+                DrawProperty(aiSO, "deathAnimDuration");
+                DrawProperty(aiSO, "deathHoldNormalizedTime");
+                DrawProperty(aiSO, "ragdollAfterDeath");
+                aiSO.ApplyModifiedProperties();
+            }
+
+            NpcTrader trader = soul.GetComponent<NpcTrader>();
+            if (trader != null)
+            {
+                EditorGUILayout.Space(4f);
+                EditorGUILayout.LabelField("Corpse Loot", EditorStyles.miniBoldLabel);
+                SerializedObject traderSO = new(trader);
+                traderSO.Update();
+                DrawProperty(traderSO, "_lootPrompt");
+
+                SerializedProperty goldIdProp = traderSO.FindProperty("_goldLootItemId");
+                if (goldIdProp != null)
+                    ReferenceDropdown.DrawItemLayout(new GUIContent("Gold Loot Item Id"), goldIdProp);
+
+                DrawProperty(traderSO, "_goldLootItemTemplate");
+                traderSO.ApplyModifiedProperties();
+            }
+
+            EndSection();
+        }
+
+        // ----- Section: References -----
+
+        private static void DrawReferencesSection(SerializedObject serializedObject, NPCSoul soul)
+        {
+            if (!BeginSection("References", defaultOpen: false))
+            {
+                EndSection();
+                return;
+            }
+
+            if (soul == null)
+            {
+                EndSection();
+                return;
+            }
+
+            AI_NPC aiNpc = soul.GetComponent<AI_NPC>();
+            if (aiNpc != null)
+            {
+                EditorGUILayout.LabelField("AI_NPC", EditorStyles.miniBoldLabel);
+                SerializedObject aiSO = new(aiNpc);
+                aiSO.Update();
+                DrawProperty(aiSO, "soul");
+                DrawProperty(aiSO, "animator");
+                DrawProperty(aiSO, "fakeCam");
+                aiSO.ApplyModifiedProperties();
+                EditorGUILayout.Space(4f);
+            }
+
+            Sol.Inventory inventory = soul.GetComponent<Sol.Inventory>();
+            if (inventory != null)
+            {
+                EditorGUILayout.LabelField("Inventory", EditorStyles.miniBoldLabel);
+                SerializedObject invSO = new(inventory);
+                invSO.Update();
+                DrawProperty(invSO, "_owner");
+
+                SerializedProperty ownerIdProp = invSO.FindProperty("_ownerId");
+                if (ownerIdProp != null)
+                    ReferenceDropdown.DrawNpcLayout(new GUIContent("Owner Id"), ownerIdProp);
+
+                SerializedProperty keyIdProp = invSO.FindProperty("_requiredKeyItemId");
+                if (keyIdProp != null)
+                    ReferenceDropdown.DrawItemLayout(new GUIContent("Required Key Item"), keyIdProp);
+
+                invSO.ApplyModifiedProperties();
+            }
+
+            EndSection();
+        }
+
+        // ----- Section: Debug -----
+
+        private static void DrawDebugSection(SerializedObject serializedObject, NPCSoul soul)
+        {
+            if (!BeginSection("Debug", defaultOpen: false))
+            {
+                EndSection();
+                return;
+            }
+
+            UnityEngine.Object target = serializedObject?.targetObject;
+            GameObject prefabRoot = ResolvePrefabGameObject(target, soul);
+            using (new EditorGUI.DisabledScope(target == null))
+            {
+                if (GUILayout.Button("Reveal in Project"))
+                    EditorGUIUtility.PingObject(target);
+
+                using (new EditorGUI.DisabledScope(prefabRoot == null))
+                {
+                    if (GUILayout.Button("Spawn in Scene"))
+                        SpawnAtSceneViewPivot(prefabRoot);
+                }
+            }
+
+            EndSection();
+        }
+
+        private static GameObject ResolvePrefabGameObject(UnityEngine.Object target, NPCSoul soul)
+        {
+            if (target is GameObject go)
+                return go;
+            if (target is Component component && component != null)
+                return component.gameObject;
+            return soul != null ? soul.gameObject : null;
+        }
+
+        private static void SpawnAtSceneViewPivot(GameObject prefab)
+        {
+            if (prefab == null)
+                return;
+
+            GameObject root = prefab;
+            while (root.transform.parent != null)
+                root = root.transform.parent.gameObject;
+
+            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(root);
+            if (instance == null)
+                return;
+
+            SceneView sv = SceneView.lastActiveSceneView;
+            if (sv != null)
+                instance.transform.position = sv.pivot;
+
+            Undo.RegisterCreatedObjectUndo(instance, "Spawn NPC From Database");
+            Selection.activeGameObject = instance;
+        }
+
+        // ----- Trader-reveal helpers -----
 
         private static NPCAuthoringTemplate GetTemplate(SerializedObject serializedObject)
         {
@@ -262,9 +547,8 @@ namespace Sol.Editor
                 : 0;
         }
 
-        private static void DrawHiddenSectionNotice(string label, string reason, System.Action onReveal, System.Action onChangeTemplate)
+        private static void DrawHiddenSectionNotice(string reason, Action onReveal, Action onChangeTemplate)
         {
-            DrawHeader(label);
             EditorGUILayout.HelpBox(reason, MessageType.Info);
             EditorGUILayout.BeginHorizontal();
             GUILayout.FlexibleSpace();
@@ -275,22 +559,35 @@ namespace Sol.Editor
             EditorGUILayout.EndHorizontal();
         }
 
-        private static void DrawAuthoringSection(SerializedObject serializedObject)
+        // ----- Foldout / section helpers -----
+
+        private static bool BeginSection(string title, bool defaultOpen)
         {
-            DrawHeader("Authoring");
-            DrawProperty(serializedObject, "_authoringTemplate");
-            DrawProperty(serializedObject, "_authoringNotes");
+            EditorGUILayout.Space(6f);
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            string key = FoldoutPrefPrefix + title;
+            bool stored = EditorPrefs.GetBool(key, defaultOpen);
+
+            GUIStyle style = new GUIStyle(EditorStyles.foldout)
+            {
+                fontStyle = FontStyle.Bold
+            };
+            bool open = EditorGUILayout.Foldout(stored, title, true, style);
+            if (open != stored)
+                EditorPrefs.SetBool(key, open);
+
+            return open;
         }
 
-        private static void DrawHeader(string label)
+        private static void EndSection()
         {
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            EditorGUILayout.EndVertical();
         }
 
-        private static void DrawProperty(SerializedObject serializedObject, string propertyName, bool includeChildren = false)
+        private static void DrawProperty(SerializedObject serializedObject, string propertyName, bool includeChildren = true)
         {
-            SerializedProperty property = serializedObject.FindProperty(propertyName);
+            SerializedProperty property = serializedObject?.FindProperty(propertyName);
             if (property != null)
                 EditorGUILayout.PropertyField(property, includeChildren);
         }

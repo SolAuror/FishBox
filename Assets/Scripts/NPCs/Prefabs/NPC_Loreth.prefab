@@ -394,7 +394,9 @@ MonoBehaviour:
   _capacity: 99
   _gold: 1000
   _containerType: 0
-  _inspectorContents: []
+  _inspectorContents:
+  - Item: {fileID: 0}
+    Quantity: 1
   _owner: {fileID: 0}
   _ownerId: 
   _isLocked: 0
