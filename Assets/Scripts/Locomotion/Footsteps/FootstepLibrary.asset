@@ -16,3 +16,5 @@ MonoBehaviour:
   _mappings:
   - material: {fileID: 13400000, guid: 335cb2b15e98946459b07b46bf0a2fb8, type: 2}
     surface: {fileID: 11400000, guid: d6d93e5324ac9a34981b0e9484c6db0a, type: 2}
+  - material: {fileID: 13400000, guid: 335cb2b15e98946459b07b46bf0a2fb8, type: 2}
+    surface: {fileID: 11400000, guid: d6d93e5324ac9a34981b0e9484c6db0a, type: 2}

@@ -20,11 +20,13 @@ MonoBehaviour:
   - Type: 5
     DisplayText: Pay Garus's residence fee...
     Count: 100
-    ItemId: ITM00003
+    _legacySingleItemId: 
+    AcceptableItemIds:
+    - ItemId: ITM00003
     ItemTag: 
     MatchSlot: 0
     Slot: 0
-    GoldAmount: 0
+    GoldAmount: 100
     Rarity: 0
     PrefixRequirements: []
     NpcName: OWN00004

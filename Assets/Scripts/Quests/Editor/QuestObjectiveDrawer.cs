@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using Sol.Quests;
@@ -7,6 +8,21 @@ public class QuestObjectiveDrawer : PropertyDrawer
 {
     private static readonly float Line = EditorGUIUtility.singleLineHeight;
     private static readonly float Space = EditorGUIUtility.standardVerticalSpacing;
+
+    private static readonly string[] AlwaysFields =
+    {
+        nameof(QuestObjective.Type),
+        nameof(QuestObjective.DisplayText),
+    };
+
+    private static readonly string[] CatchCountFields = { nameof(QuestObjective.Count) };
+    private static readonly string[] CatchTotalValueFields = { nameof(QuestObjective.GoldAmount) };
+    private static readonly string[] CatchRarityFields = { nameof(QuestObjective.Rarity), nameof(QuestObjective.Count) };
+    private static readonly string[] CatchByPrefixFields = { nameof(QuestObjective.PrefixRequirements) };
+    private static readonly string[] CollectItemFields = { nameof(QuestObjective.AcceptableItemIds), nameof(QuestObjective.Count) };
+    private static readonly string[] DeliverItemFields = { nameof(QuestObjective.AcceptableItemIds), nameof(QuestObjective.Count), nameof(QuestObjective.GoldAmount), nameof(QuestObjective.NpcName) };
+    private static readonly string[] TalkToNpcFields = { nameof(QuestObjective.NpcName) };
+    private static readonly string[] EquipItemFields = { nameof(QuestObjective.AcceptableItemIds), nameof(QuestObjective.ItemTag), nameof(QuestObjective.MatchSlot) };
 
     public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
     {
@@ -21,152 +37,102 @@ public class QuestObjectiveDrawer : PropertyDrawer
         }
 
         EditorGUI.indentLevel++;
-
-        SerializedProperty typeProp = property.FindPropertyRelative(nameof(QuestObjective.Type));
-        SerializedProperty displayTextProp = property.FindPropertyRelative(nameof(QuestObjective.DisplayText));
-        SerializedProperty countProp = property.FindPropertyRelative(nameof(QuestObjective.Count));
-        SerializedProperty acceptableItemIdsProp = property.FindPropertyRelative(nameof(QuestObjective.AcceptableItemIds));
-        SerializedProperty itemTagProp = property.FindPropertyRelative(nameof(QuestObjective.ItemTag));
-        SerializedProperty matchSlotProp = property.FindPropertyRelative(nameof(QuestObjective.MatchSlot));
-        SerializedProperty slotProp = property.FindPropertyRelative(nameof(QuestObjective.Slot));
-        SerializedProperty goldAmountProp = property.FindPropertyRelative(nameof(QuestObjective.GoldAmount));
-        SerializedProperty rarityProp = property.FindPropertyRelative(nameof(QuestObjective.Rarity));
-        SerializedProperty prefixRequirementsProp = property.FindPropertyRelative(nameof(QuestObjective.PrefixRequirements));
-        SerializedProperty npcNameProp = property.FindPropertyRelative(nameof(QuestObjective.NpcName));
-
         row.y += Line + Space;
-        DrawProperty(ref row, typeProp);
-        DrawProperty(ref row, displayTextProp);
-
-        QuestObjectiveType objectiveType = (QuestObjectiveType)typeProp.enumValueIndex;
-        switch (objectiveType)
-        {
-            case QuestObjectiveType.CatchCount:
-                DrawProperty(ref row, countProp);
-                break;
-
-            case QuestObjectiveType.CatchTotalValue:
-                DrawProperty(ref row, goldAmountProp);
-                break;
-
-            case QuestObjectiveType.CatchRarity:
-                DrawProperty(ref row, rarityProp);
-                DrawProperty(ref row, countProp);
-                break;
-
-            case QuestObjectiveType.CatchByPrefix:
-                DrawProperty(ref row, prefixRequirementsProp);
-                break;
-
-            case QuestObjectiveType.CollectItem:
-                DrawProperty(ref row, acceptableItemIdsProp);
-                DrawProperty(ref row, countProp);
-                break;
-
-            case QuestObjectiveType.DeliverItem:
-                DrawProperty(ref row, acceptableItemIdsProp);
-                DrawProperty(ref row, countProp);
-                DrawProperty(ref row, npcNameProp);
-                break;
-
-            case QuestObjectiveType.TalkToNpc:
-                DrawProperty(ref row, npcNameProp);
-                break;
-
-            case QuestObjectiveType.EquipItem:
-                DrawProperty(ref row, acceptableItemIdsProp);
-                DrawProperty(ref row, itemTagProp);
-                DrawProperty(ref row, matchSlotProp);
-                if (matchSlotProp.boolValue)
-                {
-                    DrawProperty(ref row, slotProp);
-                }
-                break;
-        }
-
+        DrawObjectiveBody(ref row, property);
         EditorGUI.indentLevel--;
+
         EditorGUI.EndProperty();
     }
 
     public override float GetPropertyHeight(SerializedProperty property, GUIContent label)
     {
-        float height = Line;
         if (!property.isExpanded)
-        {
-            return height;
-        }
+            return Line;
 
+        return Line + GetObjectiveBodyHeight(property);
+    }
+
+    /// <summary>
+    /// Renders the per-type objective fields (Type + DisplayText + type-conditional fields)
+    /// at the given row rect. Advances <paramref name="row"/> as it goes. Reusable from
+    /// the property drawer and the Quest Database window.
+    /// </summary>
+    internal static void DrawObjectiveBody(ref Rect row, SerializedProperty property)
+    {
         SerializedProperty typeProp = property.FindPropertyRelative(nameof(QuestObjective.Type));
-        SerializedProperty displayTextProp = property.FindPropertyRelative(nameof(QuestObjective.DisplayText));
-        SerializedProperty countProp = property.FindPropertyRelative(nameof(QuestObjective.Count));
-        SerializedProperty acceptableItemIdsProp = property.FindPropertyRelative(nameof(QuestObjective.AcceptableItemIds));
-        SerializedProperty itemTagProp = property.FindPropertyRelative(nameof(QuestObjective.ItemTag));
-        SerializedProperty matchSlotProp = property.FindPropertyRelative(nameof(QuestObjective.MatchSlot));
-        SerializedProperty slotProp = property.FindPropertyRelative(nameof(QuestObjective.Slot));
-        SerializedProperty goldAmountProp = property.FindPropertyRelative(nameof(QuestObjective.GoldAmount));
-        SerializedProperty rarityProp = property.FindPropertyRelative(nameof(QuestObjective.Rarity));
-        SerializedProperty prefixRequirementsProp = property.FindPropertyRelative(nameof(QuestObjective.PrefixRequirements));
-        SerializedProperty npcNameProp = property.FindPropertyRelative(nameof(QuestObjective.NpcName));
 
-        height += HeightFor(typeProp);
-        height += HeightFor(displayTextProp);
+        DrawProperty(ref row, property, AlwaysFields[0]);
+        DrawProperty(ref row, property, AlwaysFields[1]);
 
         QuestObjectiveType objectiveType = (QuestObjectiveType)typeProp.enumValueIndex;
-        switch (objectiveType)
+        IReadOnlyList<string> typeFields = FieldsFor(objectiveType);
+        for (int i = 0; i < typeFields.Count; i++)
+            DrawProperty(ref row, property, typeFields[i]);
+
+        if (objectiveType == QuestObjectiveType.EquipItem)
         {
-            case QuestObjectiveType.CatchCount:
-                height += HeightFor(countProp);
-                break;
+            SerializedProperty matchSlotProp = property.FindPropertyRelative(nameof(QuestObjective.MatchSlot));
+            if (matchSlotProp != null && matchSlotProp.boolValue)
+                DrawProperty(ref row, property, nameof(QuestObjective.Slot));
+        }
+    }
 
-            case QuestObjectiveType.CatchTotalValue:
-                height += HeightFor(goldAmountProp);
-                break;
+    internal static float GetObjectiveBodyHeight(SerializedProperty property)
+    {
+        SerializedProperty typeProp = property.FindPropertyRelative(nameof(QuestObjective.Type));
+        float height = 0f;
 
-            case QuestObjectiveType.CatchRarity:
-                height += HeightFor(rarityProp);
-                height += HeightFor(countProp);
-                break;
+        height += HeightFor(property, AlwaysFields[0]);
+        height += HeightFor(property, AlwaysFields[1]);
 
-            case QuestObjectiveType.CatchByPrefix:
-                height += HeightFor(prefixRequirementsProp);
-                break;
+        QuestObjectiveType objectiveType = (QuestObjectiveType)typeProp.enumValueIndex;
+        IReadOnlyList<string> typeFields = FieldsFor(objectiveType);
+        for (int i = 0; i < typeFields.Count; i++)
+            height += HeightFor(property, typeFields[i]);
 
-            case QuestObjectiveType.CollectItem:
-                height += HeightFor(acceptableItemIdsProp);
-                height += HeightFor(countProp);
-                break;
-
-            case QuestObjectiveType.DeliverItem:
-                height += HeightFor(acceptableItemIdsProp);
-                height += HeightFor(countProp);
-                height += HeightFor(npcNameProp);
-                break;
-
-            case QuestObjectiveType.TalkToNpc:
-                height += HeightFor(npcNameProp);
-                break;
-
-            case QuestObjectiveType.EquipItem:
-                height += HeightFor(acceptableItemIdsProp);
-                height += HeightFor(itemTagProp);
-                height += HeightFor(matchSlotProp);
-                if (matchSlotProp.boolValue)
-                {
-                    height += HeightFor(slotProp);
-                }
-                break;
+        if (objectiveType == QuestObjectiveType.EquipItem)
+        {
+            SerializedProperty matchSlotProp = property.FindPropertyRelative(nameof(QuestObjective.MatchSlot));
+            if (matchSlotProp != null && matchSlotProp.boolValue)
+                height += HeightFor(property, nameof(QuestObjective.Slot));
         }
 
         return height;
     }
 
-    private static float HeightFor(SerializedProperty property)
+    /// <summary>
+    /// Returns the ordered list of field names rendered for a given objective type, excluding
+    /// the always-rendered Type/DisplayText prefix and the conditional EquipItem.Slot.
+    /// </summary>
+    internal static IReadOnlyList<string> FieldsFor(QuestObjectiveType type)
     {
+        return type switch
+        {
+            QuestObjectiveType.CatchCount => CatchCountFields,
+            QuestObjectiveType.CatchTotalValue => CatchTotalValueFields,
+            QuestObjectiveType.CatchRarity => CatchRarityFields,
+            QuestObjectiveType.CatchByPrefix => CatchByPrefixFields,
+            QuestObjectiveType.CollectItem => CollectItemFields,
+            QuestObjectiveType.DeliverItem => DeliverItemFields,
+            QuestObjectiveType.TalkToNpc => TalkToNpcFields,
+            QuestObjectiveType.EquipItem => EquipItemFields,
+            _ => System.Array.Empty<string>(),
+        };
+    }
+
+    private static float HeightFor(SerializedProperty objectiveProp, string relativeName)
+    {
+        SerializedProperty property = objectiveProp.FindPropertyRelative(relativeName);
+        if (property == null)
+            return 0f;
         return EditorGUI.GetPropertyHeight(property, true) + Space;
     }
 
-    private static void DrawProperty(ref Rect row, SerializedProperty property)
+    private static void DrawProperty(ref Rect row, SerializedProperty objectiveProp, string relativeName)
     {
+        SerializedProperty property = objectiveProp.FindPropertyRelative(relativeName);
+        if (property == null)
+            return;
         float propertyHeight = EditorGUI.GetPropertyHeight(property, true);
         row.height = propertyHeight;
         EditorGUI.PropertyField(row, property, true);

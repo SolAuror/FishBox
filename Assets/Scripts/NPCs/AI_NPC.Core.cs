@@ -17,6 +17,18 @@ namespace Sol.AI
         [Tooltip("Inspector: tunes config.")]
         [SerializeField] private AIConfig config;
 
+        [Header("Scene Patrol")]
+        [Tooltip("Optional root whose children are used as authored patrol waypoints when the explicit list is empty.")]
+        [SerializeField] private Transform patrolRoot;
+        [Tooltip("When enabled, children of Patrol Root are used as patrol waypoints if no explicit points are assigned.")]
+        [SerializeField] private bool autoUsePatrolRootChildren = true;
+        [Tooltip("Explicit scene waypoints for this NPC. These take priority over Patrol Root children.")]
+        [SerializeField] private List<Transform> patrolPoints = new();
+        [Tooltip("How far authored patrol points may be from the NavMesh and still be snapped to a valid destination.")]
+        [SerializeField, Min(0.1f)] private float patrolPointNavMeshSnapDistance = 2f;
+        [Tooltip("Optional scene spline for this NPC to patrol. Assign scene SplineContainer objects here; AIConfig assets cannot reliably store scene references.")]
+        [SerializeField] private SplineContainer patrolSplineOverride;
+
         [Header("References")]
         [Tooltip("Inspector: tunes soul.")]
         [SerializeField] private NPCSoul soul;
@@ -40,6 +52,9 @@ namespace Sol.AI
         public event Action<State, State> OnStateChanged;
 
         public AIConfig Config => config;
+        public SplineContainer PatrolSpline => patrolSplineOverride != null ? patrolSplineOverride : config != null ? config.patrolSpline : null;
+        public int PatrolSampleCount => config != null ? config.patrolSampleCount : 8;
+        public bool LoopPatrol => config == null || config.loop;
         public NavMeshAgent Agent => agent;
         public NPCSoul Soul => soul;
         public Animator Animator => animator;
@@ -58,6 +73,8 @@ namespace Sol.AI
         private Transform playerTarget;
         private float nextPlayerResolveTime;
         private readonly Dictionary<State, AIStateBase> states = new();
+        private readonly List<Transform> resolvedPatrolPoints = new();
+        private bool patrolPointsResolved;
         private AIStateBase activeState;
 
         private Coroutine deathFreezeRoutine;
@@ -100,6 +117,11 @@ namespace Sol.AI
 
         private void OnDisable()
         {
+        }
+
+        private void OnValidate()
+        {
+            patrolPointsResolved = false;
         }
 
         private void OnDestroy()
@@ -187,6 +209,89 @@ namespace Sol.AI
 
             playerPosition = playerTarget.position;
             return true;
+        }
+
+        public int GetAuthoredPatrolPointCount()
+        {
+            EnsureAuthoredPatrolPointsResolved();
+            return resolvedPatrolPoints.Count;
+        }
+
+        public bool TryGetAuthoredPatrolPoint(int index, out Vector3 position, out float waitSeconds)
+        {
+            position = default;
+            waitSeconds = GetDefaultPatrolWaitSeconds();
+
+            EnsureAuthoredPatrolPointsResolved();
+            if (index < 0 || index >= resolvedPatrolPoints.Count)
+                return false;
+
+            Transform point = resolvedPatrolPoints[index];
+            if (point == null)
+                return false;
+
+            position = point.position;
+            if (point.TryGetComponent(out NpcPatrolPoint patrolPoint) && patrolPoint.OverrideWaitSeconds)
+                waitSeconds = patrolPoint.WaitSeconds;
+
+            int areaMask = agent != null && agent.areaMask != 0 ? agent.areaMask : NavMesh.AllAreas;
+            if (NavMesh.SamplePosition(position, out NavMeshHit hit, Mathf.Max(0.1f, patrolPointNavMeshSnapDistance), areaMask))
+                position = hit.position;
+
+            return true;
+        }
+
+        public float GetDefaultPatrolWaitSeconds()
+        {
+            return config != null ? Mathf.Max(0f, config.idleDuration) : 0f;
+        }
+
+        private void EnsureAuthoredPatrolPointsResolved()
+        {
+            if (!patrolPointsResolved)
+                ResolveAuthoredPatrolPoints();
+        }
+
+        private void ResolveAuthoredPatrolPoints()
+        {
+            resolvedPatrolPoints.Clear();
+            patrolPointsResolved = true;
+
+            bool hasExplicitPoints = false;
+            if (patrolPoints != null)
+            {
+                for (int i = 0; i < patrolPoints.Count; i++)
+                {
+                    Transform point = patrolPoints[i];
+                    if (point == null)
+                        continue;
+
+                    hasExplicitPoints = true;
+                    resolvedPatrolPoints.Add(point);
+                }
+            }
+
+            if (hasExplicitPoints || !autoUsePatrolRootChildren)
+                return;
+
+            Transform root = patrolRoot != null ? patrolRoot : transform.Find("PatrolPoints");
+            if (root != null)
+            {
+                for (int i = 0; i < root.childCount; i++)
+                {
+                    Transform child = root.GetChild(i);
+                    if (child != null)
+                        resolvedPatrolPoints.Add(child);
+                }
+                return;
+            }
+
+            for (int i = 0; i < transform.childCount; i++)
+            {
+                Transform child = transform.GetChild(i);
+                if (child != null && child.GetComponent<NpcPatrolPoint>() != null)
+                    resolvedPatrolPoints.Add(child);
+            }
         }
 
         private void ResolvePlayerTarget()

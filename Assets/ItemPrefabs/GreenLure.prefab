@@ -80,7 +80,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 284c374d060ddd34aa2717663b4a3182, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingTackleItem
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingLureItem
   _lureRange: 10
   _castPrefabOverride: {fileID: 9075445031357625527, guid: 6dd044c15e57fb24bba1d55112fc93f6, type: 3}
 --- !u!114 &1626935943008335794
@@ -108,12 +108,19 @@ MonoBehaviour:
   _isConsumable: 0
   _isTradeable: 1
   _maxStackSize: 1
+  _useOccasion: 1
+  _useEffects: []
   _damage: 0
   _defense: 0
   _equipBone: 
   _equipOffset: {x: 0, y: 0, z: 0}
   _equipRotation: {x: 0, y: 0, z: 0}
+  _equipDomain: 0
+  _weaponHanding: 0
+  _allowedEquipSlots: 
   _pickupGrip: {fileID: 0}
+  _authoringTemplate: 5
+  _itemAuthoringNotes: 
 --- !u!54 &5713446569433651340
 Rigidbody:
   m_ObjectHideFlags: 0

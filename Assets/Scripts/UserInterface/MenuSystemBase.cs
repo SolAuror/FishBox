@@ -5,14 +5,14 @@ namespace Sol.HUD
     /// <summary>
     /// Generic singleton base for all modal menu panels.
     /// Handles instance lifecycle, CanvasGroup, SetOpen, and UIStateOwnership registration.
-    ///
-    /// Usage: public sealed class MyMenu : MenuSystemBase&lt;MyMenu&gt; { ... }
     /// </summary>
     public abstract class MenuSystemBase<T> : MonoBehaviour where T : MenuSystemBase<T>
     {
         #region Inspector Settings
+        
         [Tooltip("Inspector: tunes canvas group.")]
         [SerializeField] protected CanvasGroup _canvasGroup;
+        
         #endregion
 
         protected static T _instance;

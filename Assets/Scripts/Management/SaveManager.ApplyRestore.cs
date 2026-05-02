@@ -74,8 +74,21 @@ namespace Sol.SaveLoad
             PlayerSoul soul = playerRoot.GetComponent<PlayerSoul>();
             if (soul != null)
             {
-                soul.MaxHealth = data.MaxHealth;
-                soul.Health = data.Health;
+                if (data.MaxHealth > 0f)
+                {
+                    soul.MaxHealth = data.MaxHealth;
+                    soul.Health = data.Health;
+                }
+                else if (data.Health > 0f)
+                {
+                    soul.Health = data.Health;
+                }
+
+                if (data.MaxStamina > 0f)
+                {
+                    soul.MaxStamina = data.MaxStamina;
+                    soul.Stamina = data.Stamina;
+                }
             }
 
             RestoreInventoryAndEquipment(
@@ -174,8 +187,20 @@ namespace Sol.SaveLoad
                 if (soul != null)
                 {
                     if (saved.MaxHealth > 0f)
+                    {
                         soul.MaxHealth = saved.MaxHealth;
-                    soul.Health = saved.Health;
+                        soul.Health = saved.Health;
+                    }
+                    else if (saved.Health > 0f)
+                    {
+                        soul.Health = saved.Health;
+                    }
+
+                    if (saved.MaxStamina > 0f)
+                    {
+                        soul.MaxStamina = saved.MaxStamina;
+                        soul.Stamina = saved.Stamina;
+                    }
                 }
 
                 Inventory npcInventory = npc.Inventory;
@@ -269,14 +294,26 @@ namespace Sol.SaveLoad
                 if (item == null)
                     continue;
 
+                EquipmentSlotType? preferredSlot = null;
+                if (TryParseEquipmentSlot(saved.SlotType, out EquipmentSlotType restoredSlot))
+                    preferredSlot = ResolveRestoredEquipmentSlot(item, restoredSlot);
+
+                if (preferredSlot.HasValue
+                    && !equipment.CanEquip(item, preferredSlot.Value)
+                    && HasEquivalentEquippedItem(equipment, saved.Item))
+                {
+                    Destroy(item.gameObject);
+                    continue;
+                }
+
                 if (!inventory.Add(item))
                 {
                     Destroy(item.gameObject);
                     continue;
                 }
 
-                if (TryParseEquipmentSlot(saved.SlotType, out EquipmentSlotType restoredSlot))
-                    equipment.Equip(item, restoredSlot);
+                if (preferredSlot.HasValue)
+                    equipment.Equip(item, preferredSlot.Value);
                 else
                     equipment.Equip(item);
             }
@@ -438,6 +475,67 @@ namespace Sol.SaveLoad
             {
                 slot = EquipmentSlotType.Back;
                 return true;
+            }
+
+            return false;
+        }
+
+        private static EquipmentSlotType ResolveRestoredEquipmentSlot(ItemComponent item, EquipmentSlotType restoredSlot)
+        {
+            if (ItemTypeRules.IsHandSlot(restoredSlot)
+                && TryInferHandSlotFromEquipBone(item, out EquipmentSlotType boneSlot))
+            {
+                return boneSlot;
+            }
+
+            return restoredSlot;
+        }
+
+        private static bool TryInferHandSlotFromEquipBone(ItemComponent item, out EquipmentSlotType slot)
+        {
+            slot = default;
+            if (item == null || string.IsNullOrWhiteSpace(item.EquipBone))
+                return false;
+
+            string normalized = item.EquipBone.Trim().ToLowerInvariant();
+            if (normalized.Contains("left")
+                || normalized.StartsWith("l_")
+                || normalized.Contains("_l_")
+                || normalized.EndsWith("_l"))
+            {
+                slot = EquipmentSlotType.LeftHand;
+                return true;
+            }
+
+            if (normalized.Contains("right")
+                || normalized.StartsWith("r_")
+                || normalized.Contains("_r_")
+                || normalized.EndsWith("_r"))
+            {
+                slot = EquipmentSlotType.RightHand;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool HasEquivalentEquippedItem(Equipment equipment, ItemInstanceSaveData savedItem)
+        {
+            if (equipment == null || savedItem == null || string.IsNullOrWhiteSpace(savedItem.ItemId))
+                return false;
+
+            foreach (KeyValuePair<EquipmentSlotType, ItemComponent> pair in equipment.Equipped)
+            {
+                ItemComponent item = pair.Value;
+                if (item == null || !string.Equals(item.ItemId, savedItem.ItemId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (string.IsNullOrWhiteSpace(savedItem.FishCode))
+                    return true;
+
+                CaughtFishItem fishItem = item.GetComponent<CaughtFishItem>();
+                if (fishItem != null && string.Equals(fishItem.FishCode, savedItem.FishCode, StringComparison.OrdinalIgnoreCase))
+                    return true;
             }
 
             return false;

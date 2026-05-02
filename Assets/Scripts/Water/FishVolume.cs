@@ -43,10 +43,39 @@ public class FishVolume : MonoBehaviour
     [SerializeField] bool followPlayer = true;
     [Tooltip("Inspector: tunes player.")]
     [SerializeField] Transform player;
+
+    [Header("Runtime")]
+    [Tooltip("Cull fish when they swim outside this volume. Disable when render-distance culling should own despawn.")]
+    [SerializeField] bool constrainSpawnedFishToBounds = true;
+    [Tooltip("Destroy owned fish when this volume is disabled.")]
+    [SerializeField] bool clearSpawnedFishOnDisable = true;
+    [Tooltip("Seconds between owned-fish bounds checks. Raising this smooths CPU cost for large schools.")]
+    [SerializeField, Min(0.02f)] float boundsCullInterval = 0.25f;
+    [Tooltip("Seconds between automatic refill checks after fish are culled.")]
+    [SerializeField, Min(0.02f)] float fillInterval = 0.25f;
+    [Tooltip("Maximum fish spawned by one automatic refill pass. Prevents single-frame instantiate spikes.")]
+    [SerializeField, Min(1)] int maxFishSpawnsPerFill = 2;
     #endregion
+
+    sealed class TrackedFish
+    {
+        public GameObject fish;
+        public Transform transform;
+        public AI_Fish fishAi;
+        public Renderer[] renderers;
+        public FishVolume owner;
+        public float offscreenSince = -1f;
+    }
+
+    static readonly List<TrackedFish> s_TrackedFish = new();
+    static readonly Dictionary<GameObject, TrackedFish> s_TrackedByFish = new();
+    static readonly Plane[] s_FrustumPlanes = new Plane[6];
+    static int s_HybridCullCursor;
 
     BoxCollider _col;
     readonly List<GameObject> _spawnedFish = new();
+    float _nextBoundsCullTime;
+    float _nextFillTime;
 
     void Awake()
     {
@@ -77,17 +106,151 @@ public class FishVolume : MonoBehaviour
             transform.position = pos;
         }
 
-        CullOutOfBounds();
-        FillFish();
+        if (constrainSpawnedFishToBounds && Time.time >= _nextBoundsCullTime)
+        {
+            _nextBoundsCullTime = Time.time + Mathf.Max(0.02f, boundsCullInterval);
+            CullOutOfBounds();
+        }
+
+        if (Time.time >= _nextFillTime)
+        {
+            _nextFillTime = Time.time + Mathf.Max(0.02f, fillInterval);
+            FillFish(maxFishSpawnsPerFill);
+        }
     }
 
     void OnDisable()
     {
-        ClearSpawnedFish();
+        if (clearSpawnedFishOnDisable)
+            ClearSpawnedFish();
+    }
+
+    public void SetFishSpawnCount(int count)
+    {
+        fishSpawnCount = Mathf.Max(0, count);
+
+        for (int i = _spawnedFish.Count - 1; i >= fishSpawnCount; i--)
+        {
+            GameObject fish = _spawnedFish[i];
+            if (!CanDespawnFish(fish))
+                continue;
+
+            if (fish != null)
+            {
+                UntrackFish(fish);
+                DestroyUnityObject(fish);
+            }
+
+            _spawnedFish.RemoveAt(i);
+        }
+
+        FillFish();
+    }
+
+    public static void RunHybridCulling(
+        Camera cullCamera,
+        Transform cullTarget,
+        float nearKeepDistance,
+        float farCullDistance,
+        float offscreenCullDelay,
+        int maxFishCheckedPerPass = int.MaxValue)
+    {
+        if (!Application.isPlaying || s_TrackedFish.Count == 0)
+            return;
+
+        Vector3 targetPosition;
+        if (cullTarget != null)
+            targetPosition = cullTarget.position;
+        else if (cullCamera != null)
+            targetPosition = cullCamera.transform.position;
+        else
+            return;
+
+        Plane[] frustumPlanes = null;
+        if (cullCamera != null)
+        {
+            GeometryUtility.CalculateFrustumPlanes(cullCamera, s_FrustumPlanes);
+            frustumPlanes = s_FrustumPlanes;
+        }
+
+        float now = Time.time;
+        float nearSqr = Mathf.Max(0f, nearKeepDistance) * Mathf.Max(0f, nearKeepDistance);
+        float far = Mathf.Max(nearKeepDistance, farCullDistance);
+        float farSqr = far * far;
+        float delay = Mathf.Max(0f, offscreenCullDelay);
+        int budget = Mathf.Clamp(maxFishCheckedPerPass, 1, s_TrackedFish.Count);
+
+        for (int processed = 0; processed < budget && s_TrackedFish.Count > 0; processed++)
+        {
+            if (s_HybridCullCursor >= s_TrackedFish.Count)
+                s_HybridCullCursor = 0;
+
+            int i = s_HybridCullCursor;
+            TrackedFish tracked = s_TrackedFish[i];
+            if (tracked == null || tracked.fish == null || tracked.transform == null)
+            {
+                RemoveTrackedAt(i);
+                continue;
+            }
+
+            AI_Fish fishAi = tracked.fishAi;
+            if (fishAi != null && fishAi.IsCullProtected)
+            {
+                tracked.offscreenSince = -1f;
+                s_HybridCullCursor++;
+                continue;
+            }
+
+            float sqrDistance = (tracked.transform.position - targetPosition).sqrMagnitude;
+            if (sqrDistance <= nearSqr)
+            {
+                tracked.offscreenSince = -1f;
+                s_HybridCullCursor++;
+                continue;
+            }
+
+            if (sqrDistance >= farSqr)
+            {
+                CullTrackedFish(i);
+                continue;
+            }
+
+            if (frustumPlanes == null || IsVisibleToCamera(tracked, frustumPlanes))
+            {
+                tracked.offscreenSince = -1f;
+                s_HybridCullCursor++;
+                continue;
+            }
+
+            if (delay <= 0f)
+            {
+                CullTrackedFish(i);
+                continue;
+            }
+
+            if (tracked.offscreenSince < 0f)
+            {
+                tracked.offscreenSince = now;
+                s_HybridCullCursor++;
+                continue;
+            }
+
+            if (now - tracked.offscreenSince >= delay)
+            {
+                CullTrackedFish(i);
+                continue;
+            }
+
+            s_HybridCullCursor++;
+        }
     }
 
     void OnValidate()
     {
+        boundsCullInterval = Mathf.Max(0.02f, boundsCullInterval);
+        fillInterval = Mathf.Max(0.02f, fillInterval);
+        maxFishSpawnsPerFill = Mathf.Max(1, maxFishSpawnsPerFill);
+
         if (_col == null)
             _col = GetComponent<BoxCollider>();
 
@@ -111,6 +274,7 @@ public class FishVolume : MonoBehaviour
         if (_col == null)
             return;
 
+        CleanupSpawnedFishList();
         Bounds bounds = _col.bounds;
 
         for (int i = _spawnedFish.Count - 1; i >= 0; i--)
@@ -122,16 +286,23 @@ public class FishVolume : MonoBehaviour
                 continue;
             }
 
+            AI_Fish fishBehaviour = GetTrackedFishAi(fish);
+            if (fishBehaviour != null && fishBehaviour.IsCullProtected)
+                continue;
+
             if (!bounds.Contains(fish.transform.position))
             {
-                Destroy(fish);
+                UntrackFish(fish);
+                DestroyUnityObject(fish);
                 _spawnedFish.RemoveAt(i);
             }
         }
     }
 
-    void FillFish()
+    void FillFish(int maxSpawnsThisPass = int.MaxValue)
     {
+        CleanupSpawnedFishList();
+
         if (fishPrefabs == null || fishPrefabs.Length == 0)
             return;
 
@@ -140,10 +311,14 @@ public class FishVolume : MonoBehaviour
 
         Bounds bounds = _col.bounds;
         int attemptsPerFish = Mathf.Max(1, fishSpawnAttemptsPerFish);
-        Transform parent = fishParent != null ? fishParent : transform;
+        Transform parent = waterVolume != null
+            ? waterVolume.transform
+            : (fishParent != null ? fishParent : transform);
         int target = Mathf.Max(0, fishSpawnCount);
+        int spawnBudget = Mathf.Max(1, maxSpawnsThisPass);
+        int spawnedThisPass = 0;
 
-        while (_spawnedFish.Count < target)
+        while (_spawnedFish.Count < target && spawnedThisPass < spawnBudget)
         {
             GameObject prefab = GetRandomFishPrefab();
             if (prefab == null)
@@ -179,8 +354,142 @@ public class FishVolume : MonoBehaviour
                     mostCommonSpeciesChanceNormalized);
             }
 
-            _spawnedFish.Add(fishInstance);
+            TrackFish(fishInstance);
+            spawnedThisPass++;
         }
+    }
+
+    void CleanupSpawnedFishList()
+    {
+        for (int i = _spawnedFish.Count - 1; i >= 0; i--)
+        {
+            if (_spawnedFish[i] == null)
+                _spawnedFish.RemoveAt(i);
+        }
+    }
+
+    static bool CanDespawnFish(GameObject fish)
+    {
+        if (fish == null)
+            return true;
+
+        AI_Fish fishAi = GetTrackedFishAi(fish);
+        return fishAi == null || !fishAi.IsCullProtected;
+    }
+
+    static AI_Fish GetTrackedFishAi(GameObject fish)
+    {
+        if (fish == null)
+            return null;
+
+        if (s_TrackedByFish.TryGetValue(fish, out TrackedFish tracked))
+            return tracked.fishAi;
+
+        return fish.GetComponent<AI_Fish>();
+    }
+
+    void TrackFish(GameObject fish)
+    {
+        if (fish == null)
+            return;
+
+        if (s_TrackedByFish.TryGetValue(fish, out TrackedFish existing))
+        {
+            existing.owner?._spawnedFish.Remove(fish);
+            existing.owner = this;
+            existing.transform = fish.transform;
+            existing.fishAi = fish.GetComponent<AI_Fish>();
+            existing.renderers = fish.GetComponentsInChildren<Renderer>(false);
+            existing.offscreenSince = -1f;
+        }
+        else
+        {
+            existing = new TrackedFish
+            {
+                fish = fish,
+                transform = fish.transform,
+                fishAi = fish.GetComponent<AI_Fish>(),
+                renderers = fish.GetComponentsInChildren<Renderer>(false),
+                owner = this
+            };
+            s_TrackedByFish.Add(fish, existing);
+            s_TrackedFish.Add(existing);
+        }
+
+        if (!_spawnedFish.Contains(fish))
+            _spawnedFish.Add(fish);
+    }
+
+    void UntrackFish(GameObject fish)
+    {
+        if (fish == null)
+            return;
+
+        if (!s_TrackedByFish.TryGetValue(fish, out TrackedFish tracked))
+            return;
+
+        s_TrackedByFish.Remove(fish);
+        s_TrackedFish.Remove(tracked);
+    }
+
+    static void RemoveTrackedAt(int index)
+    {
+        TrackedFish tracked = s_TrackedFish[index];
+        if (tracked != null && !ReferenceEquals(tracked.fish, null))
+            s_TrackedByFish.Remove(tracked.fish);
+
+        if (tracked?.owner != null)
+            tracked.owner._spawnedFish.Remove(tracked.fish);
+
+        s_TrackedFish.RemoveAt(index);
+    }
+
+    static void CullTrackedFish(int index)
+    {
+        TrackedFish tracked = s_TrackedFish[index];
+        GameObject fish = tracked.fish;
+
+        RemoveTrackedAt(index);
+
+        if (fish != null)
+            DestroyUnityObject(fish);
+    }
+
+    static bool IsVisibleToCamera(TrackedFish tracked, Plane[] frustumPlanes)
+    {
+        Bounds bounds = new Bounds(tracked.transform.position, Vector3.one);
+        Renderer[] renderers = tracked.renderers;
+        bool hasRenderer = false;
+
+        for (int i = 0; renderers != null && i < renderers.Length; i++)
+        {
+            Renderer renderer = renderers[i];
+            if (renderer == null || !renderer.enabled)
+                continue;
+
+            if (!hasRenderer)
+            {
+                bounds = renderer.bounds;
+                hasRenderer = true;
+            }
+            else
+            {
+                bounds.Encapsulate(renderer.bounds);
+            }
+        }
+
+        return GeometryUtility.TestPlanesAABB(frustumPlanes, bounds);
+    }
+
+    static void DestroyUnityObject(Object obj)
+    {
+        if (obj == null)
+            return;
+
+        if (Application.isPlaying)
+            Destroy(obj);
+        else
+            DestroyImmediate(obj);
     }
 
     GameObject GetRandomFishPrefab()
@@ -380,7 +689,10 @@ public class FishVolume : MonoBehaviour
         {
             GameObject fish = _spawnedFish[i];
             if (fish != null)
-                Destroy(fish);
+            {
+                UntrackFish(fish);
+                DestroyUnityObject(fish);
+            }
         }
 
         _spawnedFish.Clear();

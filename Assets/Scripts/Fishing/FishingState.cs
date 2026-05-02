@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using Sol.AI;
 using Sol.Actions;
@@ -13,7 +13,7 @@ namespace Sol.Fishing
     public class FishingState : MonoBehaviour
     {
         private const string DefaultRodName = "Fishing Rod";
-        private const string DefaultTackleName = "Tackle";
+        private const string DefaultLureName = "Lure";
         private const string LineObjectName = "[FishingLine]";
 #region Inspector Settings
 
@@ -37,8 +37,8 @@ namespace Sol.Fishing
         [Header("Fallback Rod Settings")]
         [Tooltip("Inspector: tunes fallback rod item name.")]
         [SerializeField] private string _fallbackRodItemName = DefaultRodName;
-        [Tooltip("Inspector: tunes fallback tackle visual name.")]
-        [SerializeField] private string _fallbackTackleVisualName = DefaultTackleName;
+        [Tooltip("Inspector: tunes fallback lure visual name.")]
+        [SerializeField] private string _fallbackLureVisualName = DefaultLureName;
         [SerializeField, Min(1f)] private float _fallbackMaxCastDistance = 18f;
         [SerializeField, Min(0.05f)] private float _fallbackCastFlightDuration = 0.45f;
         [SerializeField, Min(0.1f)] private float _fallbackCastArcHeight = 1.15f;
@@ -56,11 +56,12 @@ namespace Sol.Fishing
         [SerializeField, Min(0f)] private float _fallbackFloatBobFrequency = 2.1f;
         [SerializeField, Min(0f)] private float _fallbackFloatDriftDistance = 0.18f;
         [SerializeField, Min(0f)] private float _fallbackFloatDriftFrequency = 0.75f;
-        [SerializeField, Min(0.05f)] private float _fallbackFloatLineSlackDistance = 1.1f;
+        [SerializeField, Min(0f)] private float _fallbackFloatLineSlackDistance = 0.5f;
+        [SerializeField, Min(0.01f)] private float _fallbackLineSlackRecoverSpeed = 0.35f;
         [SerializeField, Min(0.05f)] private float _fallbackFloatSettleSpeed = 4.5f;
         [SerializeField, Min(0f)] private float _fallbackFloatTensionStrength = 8f;
         [SerializeField, Min(0.25f)] private float _fallbackBaitlessInterestMultiplier = 0.35f;
-        [SerializeField, Min(0.5f)] private float _fallbackTackleInterestRadius = 6f;
+        [SerializeField, Min(0.5f)] private float _fallbackLureInterestRadius = 6f;
 
         [Header("Safety")]
         [SerializeField, Min(0.5f)] private float _castAnimationTimeout = 2f;
@@ -86,9 +87,9 @@ namespace Sol.Fishing
         private FishingRodItem _activeRod;
         private ItemComponent _activeRodItem;
         private Transform _activeLineOrigin;
-        private Transform _restingTackleVisual;
+        private Transform _restingLureVisual;
         private LineRenderer _lineRenderer;
-        private FishingTackleInstance _activeTackle;
+        private FishingLureInstance _activeLure;
         private ItemComponent _displayedCatchItem;
         private GrabbableComponent _displayedCatchGrabbable;
         private WaterVolume _pendingWaterVolume;
@@ -108,20 +109,40 @@ namespace Sol.Fishing
         private float _reelTotalDistance;
         private float _reelReleaseTime = -1f;
         private Vector3 _reelStartPosition;
+        private float _currentLineTautDistance;
+        private float _currentLineSlack;
+        private bool _hasRuntimeLineLength;
+        private string _fishingStatusText = string.Empty;
+        private float _fishingStatusUntil;
 
         public bool ShouldBlockDefaultAttack => _isRodEquipped;
-        public bool HasLineOut => _activeTackle != null || _isCastPending;
+        public bool HasLineOut => _activeLure != null || _isCastPending;
         public bool HasEquippedRod => _isRodEquipped && _activeRod != null;
         public bool HasDisplayedCatch => _displayedCatchItem != null;
         public string DisplayedCatchPrompt => _displayedCatchItem == null
             ? string.Empty
             : $"E Take {_displayedCatchItem.ItemName}\nHold E Grab\nQ Drop";
+        public string FishingStatusText
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(_fishingStatusText) && Time.time < _fishingStatusUntil)
+                    return _fishingStatusText;
+
+                if (_activeLure != null && _activeLure.HasHookedFish)
+                    return _activeLure.LineTension >= 0.85f ? "Ease off" : "Hooked";
+
+                return string.Empty;
+            }
+        }
+        public bool HasFishingStatus => !string.IsNullOrWhiteSpace(FishingStatusText);
+        public float FishingStatusUntil => _fishingStatusUntil;
 
         public bool CanCast => _isRodEquipped
             && _activeRodItem != null
             && _activeLineOrigin != null
             && !_isCastPending
-            && _activeTackle == null
+            && _activeLure == null
             && _displayedCatchItem == null;
 
         public void ExecuteCast() => BeginCast();
@@ -163,22 +184,22 @@ namespace Sol.Fishing
 
             SetAnimatorRodEquipped(false);
             SetAnimatorReelState(false, 0f);
-            ClearCastState(destroyTackle: true);
+            ClearCastState(destroyLure: true);
         }
 
         private void Update()
         {
             if (_isCastPending && !_castReleasedByEvent && Time.time > _castStartTime + _castAnimationTimeout)
-                ClearCastState(destroyTackle: false);
+                ClearCastState(destroyLure: false);
 
             UpdateDisplayedCatchState();
-            UpdateTackleState();
+            UpdateLureState();
             UpdateLineRenderer();
 
             if (!_isRodEquipped || _locomotionInput == null)
                 return;
 
-            if (_activeTackle != null)
+            if (_activeLure != null)
             {
                 UpdateReelInput();
                 return;
@@ -203,14 +224,14 @@ namespace Sol.Fishing
             ReleaseCast();
         }
 
-        public bool CanLoadTackle(ItemComponent item)
+        public bool CanLoadLure(ItemComponent item)
         {
             if (!HasEquippedRod || HasLineOut || _displayedCatchItem != null || item == null)
                 return false;
 
             return _activeRod != null
                 && _activeRod.LoadedBaitItem == null
-                && item.GetComponent<FishingTackleItem>() != null;
+                && item.GetComponent<FishingLureItem>() != null;
         }
 
         public bool CanLoadBait(ItemComponent item)
@@ -219,17 +240,17 @@ namespace Sol.Fishing
                 return false;
 
             return _activeRod != null
-                && _activeRod.LoadedTackleItem != null
+                && _activeRod.LoadedLureItem != null
                 && FishingBaitItem.IsSupportedBait(item);
         }
 
-        public bool CanDetachTackle()
+        public bool CanDetachLure()
         {
             return HasEquippedRod
                 && !HasLineOut
                 && _displayedCatchItem == null
                 && _activeRod != null
-                && _activeRod.LoadedTackleItem != null
+                && _activeRod.LoadedLureItem != null
                 && _activeRod.LoadedBaitItem == null;
         }
 
@@ -282,9 +303,9 @@ namespace Sol.Fishing
             return ActionSystem.Instance.Dispatch(new StartGrabAction(), actor, grabbable.gameObject);
         }
 
-        public bool TryLoadTackle(InventorySlot slot, Inventory inventory)
+        public bool TryLoadLure(InventorySlot slot, Inventory inventory)
         {
-            if (slot?.Item == null || inventory == null || !CanLoadTackle(slot.Item))
+            if (slot?.Item == null || inventory == null || !CanLoadLure(slot.Item))
                 return false;
 
             inventory.BeginBulkUpdate();
@@ -294,23 +315,23 @@ namespace Sol.Fishing
                 if (slotItem == null)
                     return false;
 
-                FishingTackleItem incomingTackle = slotItem.GetComponent<FishingTackleItem>();
-                if (incomingTackle == null)
+                FishingLureItem incomingLure = slotItem.GetComponent<FishingLureItem>();
+                if (incomingLure == null)
                     return false;
 
                 if (!inventory.Remove(slot, 1))
                     return false;
 
-                ItemComponent previousTackle = _activeRod.UnloadTackleItem();
-                if (previousTackle != null)
+                ItemComponent previousLure = _activeRod.UnloadLureItem();
+                if (previousLure != null)
                 {
-                    previousTackle.transform.SetParent(inventory.transform, false);
-                    previousTackle.gameObject.SetActive(false);
-                    if (!inventory.Add(previousTackle))
+                    previousLure.transform.SetParent(inventory.transform, false);
+                    previousLure.gameObject.SetActive(false);
+                    if (!inventory.Add(previousLure))
                     {
- // Inventory full - abort swap. Restore the old tackle to the rod.
-                        previousTackle.transform.SetParent(_activeRod.transform, false);
-                        _activeRod.SetLoadedTackleItem(previousTackle);
+ // Inventory full - abort swap. Restore the old lure to the rod.
+                        previousLure.transform.SetParent(_activeRod.transform, false);
+                        _activeRod.SetLoadedLureItem(previousLure);
                         // The slot was already removed from inventory; return the new item safely.
                         ReturnItemToInventoryOrDrop(slotItem, inventory);
                         return false;
@@ -319,7 +340,7 @@ namespace Sol.Fishing
 
                 slotItem.transform.SetParent(_activeRod.transform, false);
                 slotItem.gameObject.SetActive(false);
-                _activeRod.SetLoadedTackleItem(slotItem);
+                _activeRod.SetLoadedLureItem(slotItem);
                 return true;
             }
             finally
@@ -367,21 +388,21 @@ namespace Sol.Fishing
             }
         }
 
-        public bool TryDetachTackle(Inventory inventory)
+        public bool TryDetachLure(Inventory inventory)
         {
-            if (!CanDetachTackle() || inventory == null)
+            if (!CanDetachLure() || inventory == null)
                 return false;
 
-            ItemComponent tackle = _activeRod.UnloadTackleItem();
-            if (tackle == null)
+            ItemComponent lure = _activeRod.UnloadLureItem();
+            if (lure == null)
                 return false;
 
-            tackle.transform.SetParent(inventory.transform, false);
-            tackle.gameObject.SetActive(false);
-            if (inventory.Add(tackle))
+            lure.transform.SetParent(inventory.transform, false);
+            lure.gameObject.SetActive(false);
+            if (inventory.Add(lure))
                 return true;
 
-            _activeRod.SetLoadedTackleItem(tackle);
+            _activeRod.SetLoadedLureItem(lure);
             return false;
         }
 
@@ -434,7 +455,7 @@ namespace Sol.Fishing
             if (rodChanged)
             {
                 DetachDisplayedCatchItemToWorld();
-                ClearCastState(destroyTackle: true);
+                ClearCastState(destroyLure: true);
                 _activeRodItem = resolvedItem;
                 _activeRod = resolvedRod;
                 _lineRenderer = null;
@@ -443,7 +464,7 @@ namespace Sol.Fishing
             _isRodEquipped = _activeRodItem != null;
             CacheActiveRodReferences();
             SetAnimatorRodEquipped(_isRodEquipped);
-            UpdateRestingTackleVisual();
+            UpdateRestingLureVisual();
         }
 
         private bool IsFishingRod(ItemComponent item, out FishingRodItem rod)
@@ -465,12 +486,12 @@ namespace Sol.Fishing
             if (_activeRod != null)
             {
                 _activeLineOrigin = _activeRod.LineOrigin;
-                _restingTackleVisual = _activeRod.RestingTackleVisual;
+                _restingLureVisual = _activeRod.RestingLureVisual;
                 return;
             }
 
             _activeLineOrigin = _activeRodItem != null ? _activeRodItem.transform : null;
-            _restingTackleVisual = null;
+            _restingLureVisual = null;
 
             if (_activeRodItem == null)
                 return;
@@ -485,12 +506,12 @@ namespace Sol.Fishing
                 if (_activeLineOrigin == _activeRodItem.transform && child.name == "LineOrigin")
                     _activeLineOrigin = child;
 
-                if (_restingTackleVisual == null && child.name == _fallbackTackleVisualName)
-                    _restingTackleVisual = child;
+                if (_restingLureVisual == null && child.name == _fallbackLureVisualName)
+                    _restingLureVisual = child;
             }
 
-            if (_activeLineOrigin == null && _restingTackleVisual != null)
-                _activeLineOrigin = _restingTackleVisual;
+            if (_activeLineOrigin == null && _restingLureVisual != null)
+                _activeLineOrigin = _restingLureVisual;
         }
 
         private void BeginCast()
@@ -501,6 +522,7 @@ namespace Sol.Fishing
             if (!TryGetCastTarget(out Vector3 castTarget))
                 return;
 
+            ClearFishingStatus();
             _pendingCastTarget = castTarget;
             _pendingWaterVolume = WaterVolume.FindVolumeXZ(castTarget);
             _isCastPending = true;
@@ -510,7 +532,7 @@ namespace Sol.Fishing
 
             TriggerCastAnimation();
             _locomotionController?.SetMovementLock(GetMovementLockDuration());
-            UpdateRestingTackleVisual();
+            UpdateRestingLureVisual();
         }
 
         private void ReleaseCast()
@@ -520,20 +542,20 @@ namespace Sol.Fishing
 
             _isCastPending = false;
 
-            FishingTackleInstance tackleInstance = SpawnTackleInstance();
-            if (tackleInstance == null)
+            FishingLureInstance lureInstance = SpawnLureInstance();
+            if (lureInstance == null)
                 return;
 
-            _activeTackle = tackleInstance;
-            _activeTackle.OnEnteredFloating += HandleTackleEnteredFloating;
+            _activeLure = lureInstance;
+            _activeLure.OnEnteredFloating += HandleLureEnteredFloating;
 
             if (_activeRod != null)
             {
-                Transform baitPoint = _activeRod.FindBaitPoint(_activeTackle.transform);
+                Transform baitPoint = _activeRod.FindBaitPoint(_activeLure.transform);
                 _activeRod.AttachLoadedBaitToExternalPoint(baitPoint);
             }
 
-            _activeTackle.Launch(
+            _activeLure.Launch(
                 _activeLineOrigin.position,
                 _pendingCastTarget,
                 _activeLineOrigin.forward,
@@ -547,27 +569,28 @@ namespace Sol.Fishing
                 GetFloatBobFrequency(),
                 GetCastCollisionEnableDelay(),
                 GetCastWaterContactTimeout(),
-                GetTackleInterestMultiplier(),
-                GetTackleInterestRadius(),
+                GetLureInterestMultiplier(),
+                GetLureInterestRadius(),
                 GetCurrentBaitItemId(),
                 GetCurrentBaitName());
-            _activeTackle.SetHookEscapeWindow(GetHookEscapeWindow());
+            _activeLure.SetHookEscapeWindow(GetHookEscapeWindow());
 
             EnsureLineRenderer();
-            UpdateRestingTackleVisual();
+            ResetRuntimeLineLength();
+            UpdateRestingLureVisual();
         }
 
         private void BeginReel()
         {
-            if (_activeTackle == null || _activeLineOrigin == null)
+            if (_activeLure == null || _activeLineOrigin == null)
             {
-                ClearCastState(destroyTackle: true);
+                ClearCastState(destroyLure: true);
                 return;
             }
 
             if (!_isReeling)
             {
-                _reelStartPosition = _activeTackle.transform.position;
+                _reelStartPosition = _activeLure.transform.position;
                 _reelTotalDistance = Vector3.Distance(_reelStartPosition, _activeLineOrigin.position);
                 ForceReelAnimationProgress();
                 AudioService.Instance?.PlaySfx(AudioEvent.FishingReelLoopStart, _activeLineOrigin.position);
@@ -577,42 +600,54 @@ namespace Sol.Fishing
             SetAnimatorReelState(true, _reelProgress);
         }
 
-        private void UpdateTackleState()
+        private void UpdateLureState()
         {
-            if (_activeTackle != null)
-                _activeTackle.SetReelInputActive(_isReeling);
+            bool fishHooked = _activeLure != null && _activeLure.HasHookedFish;
+            if (fishHooked && _activeLineOrigin != null)
+                _activeLure.SetFightContext(
+                    _activeLineOrigin.position,
+                    GetReelSurfacePullStrength(),
+                    GetHookedFishEscapeDirection());
 
-            if (_activeTackle != null && _activeTackle.ShouldCancelCast)
+            if (_activeLure != null)
+                _activeLure.SetReelInputActive(_isReeling);
+
+            if (_activeLure != null && _activeLure.HasTerminalOutcome)
             {
-                ClearCastState(destroyTackle: true);
+                HandleLureTerminalOutcome(_activeLure.TerminalOutcome);
                 return;
             }
 
-            if (_activeTackle != null && _isReeling)
+            if (_activeLure != null && _activeLure.ShouldCancelCast)
+            {
+                HandleLureTerminalOutcome(FishingLureOutcome.InvalidCast);
+                return;
+            }
+
+            if (_activeLure != null && _isReeling)
                 UpdateReelProgress();
 
-            if (_activeTackle != null && _isReeling && _activeTackle.ShouldCompleteReel)
+            if (_activeLure != null && _activeLineOrigin != null && (_activeLure.HasLanded || fishHooked))
+                UpdateRuntimeLineLength(fishHooked);
+            // Float anchor uses the cast line length plus recoverable slack, not the slack
+            // alone. This keeps long casts out while player movement can still pull the
+            // lure once the line becomes taut.
+            if (_activeLure != null && _activeLure.IsFloating && !_isReeling && !_activeLure.HasHookedFish && _activeLineOrigin != null)
             {
-                CompleteReel();
-                return;
-            }
-
-            if (_activeTackle != null && !_isReeling && _activeLineOrigin != null)
-            {
-                _activeTackle.SetFloatAnchor(
+                _activeLure.SetFloatAnchor(
                     _activeLineOrigin.position,
-                    GetFloatLineSlackDistance(),
+                    GetFloatAnchorDistance(),
                     GetFloatSettleSpeed(),
                     GetFloatTensionStrength(),
                     GetFloatDriftDistance(),
                     GetFloatDriftFrequency());
             }
 
-            if (_activeTackle != null)
+            if (_activeLure != null)
                 return;
 
             if (!_isCastPending)
-                UpdateRestingTackleVisual();
+                UpdateRestingLureVisual();
         }
 
         private void UpdateReelInput()
@@ -633,11 +668,17 @@ namespace Sol.Fishing
                 SetAnimatorReelState(false, _reelProgress);
                 AudioService.Instance?.PlaySfx(AudioEvent.FishingReelLoopStop, _activeLineOrigin != null ? _activeLineOrigin.position : transform.position);
 
-                bool fishHooked = _activeTackle != null && _activeTackle.HasHookedFish;
+                bool fishHooked = _activeLure != null && _activeLure.HasHookedFish;
                 if (!fishHooked)
+                {
+                    _activeLure?.StopManualReel();
+                    FreezeRuntimeLineAtCurrentLureDistance();
                     ResetReelProgress();
+                }
                 else
+                {
                     _reelReleaseTime = Time.time;
+                }
             }
             else if (_reelReleaseTime >= 0f && Time.time >= _reelReleaseTime + _reelProgressResetDelay)
             {
@@ -655,9 +696,9 @@ namespace Sol.Fishing
 
         private void UpdateReelProgress()
         {
-            if (_activeTackle == null || _activeLineOrigin == null)
+            if (_activeLure == null || _activeLineOrigin == null)
             {
-                ClearCastState(destroyTackle: true);
+                ClearCastState(destroyLure: true);
                 return;
             }
 
@@ -665,61 +706,157 @@ namespace Sol.Fishing
 
             // Surface target is the rod tip's XZ position at start-height. This is independent
             // of _reelProgress, which breaks the circular dependency that previously kept
- // surfaceTarget == tackle position (progress=0 - lerp to start - tackle can't move).
+ // surfaceTarget == lure position (progress=0 - lerp to start - lure can't move).
             Vector3 surfaceTarget = new Vector3(rodTipPosition.x, _reelStartPosition.y, rodTipPosition.z);
 
-            // Tell the tackle where to go first, then measure how far it has come.
-            _activeTackle.SetManualReelTarget(
+            // Tell the lure where to go first, then measure how far it has come.
+            _activeLure.SetManualReelTarget(
                 surfaceTarget,
                 rodTipPosition,
                 GetReelLiftDistance(),
                 GetReelSurfacePullStrength());
 
-            float remaining = Vector3.Distance(_activeTackle.transform.position, rodTipPosition);
+            float remaining = Vector3.Distance(_activeLure.transform.position, rodTipPosition);
             float initial   = Mathf.Max(0.05f, _reelTotalDistance);
             _reelProgress   = Mathf.Clamp01(1f - remaining / initial);
 
             SetAnimatorReelState(true, _reelProgress);
 
             // 0.99f threshold: Distance() returning exactly 0 requires a perfect float snap.
-            // ShouldCompleteReel is the physics signal (tackle within 0.1 units of rod tip).
-            if (_reelProgress >= 0.99f || _activeTackle.ShouldCompleteReel)
+            if (_reelProgress >= 0.99f && !_activeLure.HasHookedFish)
                 CompleteReel();
+        }
+
+        private void UpdateRuntimeLineLength(bool fishHooked)
+        {
+            if (_activeLure == null || _activeLineOrigin == null)
+            {
+                ResetRuntimeLineLength();
+                return;
+            }
+
+            float currentDistance = Vector3.Distance(_activeLure.transform.position, _activeLineOrigin.position);
+            if (!_hasRuntimeLineLength)
+                InitializeRuntimeLineLength(currentDistance);
+
+            float defaultSlack = GetFloatLineSlackDistance();
+            if (_isReeling)
+            {
+                float reelStep = GetReelSurfacePullStrength() * Time.deltaTime;
+                _currentLineSlack = Mathf.MoveTowards(_currentLineSlack, 0f, reelStep);
+                _currentLineTautDistance = Mathf.Min(_currentLineTautDistance, currentDistance + _currentLineSlack);
+                _currentLineTautDistance = Mathf.Max(0.05f, _currentLineTautDistance - reelStep);
+            }
+            else
+            {
+                _currentLineSlack = Mathf.MoveTowards(
+                    _currentLineSlack,
+                    defaultSlack,
+                    GetLineSlackRecoverSpeed() * Time.deltaTime);
+
+                if (fishHooked)
+                    _currentLineTautDistance = Mathf.Max(_currentLineTautDistance, currentDistance);
+            }
+        }
+
+        private void InitializeRuntimeLineLength(float currentDistance)
+        {
+            _currentLineTautDistance = Mathf.Max(0.05f, currentDistance);
+            _currentLineSlack = GetFloatLineSlackDistance();
+            _hasRuntimeLineLength = true;
+        }
+
+        private void ResetRuntimeLineLength()
+        {
+            _currentLineTautDistance = 0f;
+            _currentLineSlack = 0f;
+            _hasRuntimeLineLength = false;
+        }
+
+        private void FreezeRuntimeLineAtCurrentLureDistance()
+        {
+            if (_activeLure == null || _activeLineOrigin == null)
+                return;
+
+            float currentDistance = Vector3.Distance(_activeLure.transform.position, _activeLineOrigin.position);
+            _currentLineTautDistance = Mathf.Max(0.05f, currentDistance);
+            _currentLineSlack = Mathf.Max(0f, _currentLineSlack);
+            _hasRuntimeLineLength = true;
+        }
+
+        private float GetFloatAnchorDistance()
+        {
+            if (!_hasRuntimeLineLength && _activeLure != null && _activeLineOrigin != null)
+                InitializeRuntimeLineLength(Vector3.Distance(_activeLure.transform.position, _activeLineOrigin.position));
+
+            return _hasRuntimeLineLength
+                ? Mathf.Max(0.05f, _currentLineTautDistance + _currentLineSlack)
+                : GetMaxCastDistance() + GetFloatLineSlackDistance();
+        }
+
+        private void HandleLureTerminalOutcome(FishingLureOutcome outcome)
+        {
+            if (outcome == FishingLureOutcome.None)
+                return;
+
+            switch (outcome)
+            {
+                case FishingLureOutcome.Caught:
+                    CompleteCatchFromLure();
+                    break;
+                case FishingLureOutcome.FishEscaped:
+                    ShowFishingStatus("Fish escaped");
+                    break;
+                case FishingLureOutcome.LineSnapped:
+                    ShowFishingStatus("Line snapped");
+                    break;
+            }
+
+            ClearCastState(destroyLure: true);
+        }
+
+        private void CompleteCatchFromLure()
+        {
+            if (_activeLure == null || !_activeLure.HasHookedFish)
+                return;
+
+            AI_Fish hookedFish = _activeLure.ConsumeHookedFish();
+            if (hookedFish == null)
+                return;
+
+            ItemComponent caughtItem = hookedFish.Catch(null, _activeRod != null ? _activeRod.transform : transform);
+            if (caughtItem != null)
+                AttachDisplayedCatchItem(caughtItem);
         }
 
         private void CompleteReel()
         {
-            if (_activeTackle != null && _activeTackle.HasHookedFish)
-            {
-                AI_Fish hookedFish = _activeTackle.ConsumeHookedFish();
-                if (hookedFish != null)
-                {
-                    ItemComponent caughtItem = hookedFish.Catch(null, _activeRod != null ? _activeRod.transform : transform);
-                    if (caughtItem != null)
-                        AttachDisplayedCatchItem(caughtItem);
-                }
-            }
-
-            if (_activeTackle != null)
-            {
-                _activeTackle.OnEnteredFloating -= HandleTackleEnteredFloating;
-                Destroy(_activeTackle.gameObject);
-            }
-
-            _activeTackle = null;
-            _isReeling = false;
-            _reelProgress = 0f;
-            SetAnimatorReelState(false, 0f);
-            AudioService.Instance?.PlaySfx(AudioEvent.FishingReelLoopStop, _activeLineOrigin != null ? _activeLineOrigin.position : transform.position);
-            UpdateRestingTackleVisual();
+            HandleLureTerminalOutcome(FishingLureOutcome.Retrieved);
         }
+
+        private void ShowFishingStatus(string text, float duration = 1.5f)
+        {
+            _fishingStatusText = text ?? string.Empty;
+            _fishingStatusUntil = Time.time + Mathf.Max(0.05f, duration);
+        }
+
+        private void ClearFishingStatus()
+        {
+            _fishingStatusText = string.Empty;
+            _fishingStatusUntil = 0f;
+        }
+
+        private static readonly Color LineRestColor = Color.black;
+        private static readonly Color LineSafeColor = new(0.35f, 1f, 0.45f, 1f);
+        private static readonly Color LineWarnColor = new(1f, 0.95f, 0.3f, 1f);
+        private static readonly Color LineDangerColor = new(1f, 0.35f, 0.35f, 1f);
 
         private void UpdateLineRenderer()
         {
             if (_lineRenderer == null)
                 return;
 
-            if (_activeLineOrigin == null || _activeTackle == null)
+            if (_activeLineOrigin == null || _activeLure == null)
             {
                 _lineRenderer.enabled = false;
                 return;
@@ -731,9 +868,11 @@ namespace Sol.Fishing
             if (_lineRenderer.positionCount != segmentCount)
                 _lineRenderer.positionCount = segmentCount;
 
+            ApplyLineTensionColor(_activeLure.LineTension);
+
             Vector3 start = _activeLineOrigin.position;
-            Vector3 end = _activeTackle.transform.position;
-            float slack = GetLineSlack();
+            Vector3 end = _activeLure.transform.position;
+            float slack = GetLineRenderSlack();
 
             for (int i = 0; i < segmentCount; i++)
             {
@@ -742,6 +881,35 @@ namespace Sol.Fishing
                 point.y -= Mathf.Sin(t * Mathf.PI) * slack;
                 _lineRenderer.SetPosition(i, point);
             }
+        }
+
+        private void ApplyLineTensionColor(float tension)
+        {
+            Color color;
+            if (tension < 0.3f)
+                color = Color.Lerp(LineRestColor, LineSafeColor, tension / 0.3f);
+            else if (tension < 0.6f)
+                color = Color.Lerp(LineSafeColor, LineWarnColor, Mathf.InverseLerp(0.3f, 0.6f, tension));
+            else
+                color = Color.Lerp(LineWarnColor, LineDangerColor, Mathf.InverseLerp(0.6f, 1f, tension));
+
+            if (tension >= 0.85f)
+            {
+                float pulse = (Mathf.Sin(Time.time * 28f) + 1f) * 0.5f;
+                color = Color.Lerp(color, Color.white, pulse * 0.35f);
+            }
+
+            _lineRenderer.startColor = color;
+            _lineRenderer.endColor = color;
+
+            Material lineMaterial = _lineRenderer.material;
+            if (lineMaterial == null)
+                return;
+
+            if (lineMaterial.HasProperty("_BaseColor"))
+                lineMaterial.SetColor("_BaseColor", color);
+            if (lineMaterial.HasProperty("_Color"))
+                lineMaterial.SetColor("_Color", color);
         }
 
         private void EnsureLineRenderer()
@@ -776,34 +944,34 @@ namespace Sol.Fishing
             _lineRenderer.enabled = false;
         }
 
-        private FishingTackleInstance SpawnTackleInstance()
+        private FishingLureInstance SpawnLureInstance()
         {
-            GameObject tacklePrefab = _activeRod != null ? _activeRod.ActiveCastTacklePrefab : null;
-            GameObject tackleObject = null;
+            GameObject lurePrefab = _activeRod != null ? _activeRod.ActiveCastLurePrefab : null;
+            GameObject lureObject = null;
 
-            if (tacklePrefab != null)
+            if (lurePrefab != null)
             {
-                tackleObject = Instantiate(tacklePrefab, _activeLineOrigin.position, Quaternion.identity);
+                lureObject = Instantiate(lurePrefab, _activeLineOrigin.position, Quaternion.identity);
             }
-            else if (_restingTackleVisual != null)
+            else if (_restingLureVisual != null)
             {
-                tackleObject = Instantiate(_restingTackleVisual.gameObject, _activeLineOrigin.position, _restingTackleVisual.rotation);
-                tackleObject.name = $"{_restingTackleVisual.name}_Cast";
-                tackleObject.SetActive(true);
+                lureObject = Instantiate(_restingLureVisual.gameObject, _activeLineOrigin.position, _restingLureVisual.rotation);
+                lureObject.name = $"{_restingLureVisual.name}_Cast";
+                lureObject.SetActive(true);
             }
 
-            if (tackleObject == null)
+            if (lureObject == null)
                 return null;
 
-            ItemComponent itemComponent = tackleObject.GetComponent<ItemComponent>();
+            ItemComponent itemComponent = lureObject.GetComponent<ItemComponent>();
             if (itemComponent != null)
                 Destroy(itemComponent);
 
-            FishingTackleInstance tackleInstance = tackleObject.GetComponent<FishingTackleInstance>();
-            if (tackleInstance == null)
-                tackleInstance = tackleObject.AddComponent<FishingTackleInstance>();
+            FishingLureInstance lureInstance = lureObject.GetComponent<FishingLureInstance>();
+            if (lureInstance == null)
+                lureInstance = lureObject.AddComponent<FishingLureInstance>();
 
-            return tackleInstance;
+            return lureInstance;
         }
 
         private bool TryGetCastTarget(out Vector3 castTarget)
@@ -821,6 +989,10 @@ namespace Sol.Fishing
                 rayDistance = Mathf.Max(1f, hit.distance);
 
             castTarget = aimRay.GetPoint(rayDistance);
+            WaterVolume targetWater = WaterVolume.FindVolumeXZ(castTarget);
+            if (targetWater != null)
+                castTarget.y = targetWater.GetSurfaceHeight(castTarget);
+
             return true;
         }
 
@@ -861,23 +1033,23 @@ namespace Sol.Fishing
             _animator.Play(_fishingReelStateHash, _upperBodyLayerIndex, Mathf.Clamp01(_reelProgress));
         }
 
-        private void UpdateRestingTackleVisual()
+        private void UpdateRestingLureVisual()
         {
-            bool showRestingTackle = _isRodEquipped && _activeTackle == null && !_isCastPending && _displayedCatchItem == null;
-            ItemComponent loadedTackleItem = _activeRod != null ? _activeRod.LoadedTackleItem : null;
+            bool showRestingLure = _isRodEquipped && _activeLure == null && !_isCastPending && _displayedCatchItem == null;
+            ItemComponent loadedLureItem = _activeRod != null ? _activeRod.LoadedLureItem : null;
 
-            if (loadedTackleItem != null)
+            if (loadedLureItem != null)
             {
-                if (loadedTackleItem.gameObject.activeSelf != showRestingTackle)
-                    loadedTackleItem.gameObject.SetActive(showRestingTackle);
+                if (loadedLureItem.gameObject.activeSelf != showRestingLure)
+                    loadedLureItem.gameObject.SetActive(showRestingLure);
             }
-            else if (_restingTackleVisual != null && _restingTackleVisual.gameObject.activeSelf)
+            else if (_restingLureVisual != null && _restingLureVisual.gameObject.activeSelf)
             {
-                _restingTackleVisual.gameObject.SetActive(false);
+                _restingLureVisual.gameObject.SetActive(false);
             }
         }
 
-        private void ClearCastState(bool destroyTackle)
+        private void ClearCastState(bool destroyLure)
         {
             if (_isReeling)
                 AudioService.Instance?.PlaySfx(AudioEvent.FishingReelLoopStop, _activeLineOrigin != null ? _activeLineOrigin.position : transform.position);
@@ -888,20 +1060,21 @@ namespace Sol.Fishing
             _reelProgress = 0f;
             _reelTotalDistance = 0f;
             _reelReleaseTime = -1f;
+            ResetRuntimeLineLength();
 
-            if (_activeTackle != null && _activeRod != null)
+            if (_activeLure != null && _activeRod != null)
                 _activeRod.ReattachLoadedBaitToRod();
 
-            if (destroyTackle && _activeTackle != null)
+            if (destroyLure && _activeLure != null)
             {
-                _activeTackle.OnEnteredFloating -= HandleTackleEnteredFloating;
-                Destroy(_activeTackle.gameObject);
+                _activeLure.OnEnteredFloating -= HandleLureEnteredFloating;
+                Destroy(_activeLure.gameObject);
             }
 
-            if (_activeTackle != null)
-                _activeTackle.OnEnteredFloating -= HandleTackleEnteredFloating;
+            if (_activeLure != null)
+                _activeLure.OnEnteredFloating -= HandleLureEnteredFloating;
 
-            _activeTackle = null;
+            _activeLure = null;
 
             if (_lineRenderer != null)
                 _lineRenderer.enabled = false;
@@ -909,15 +1082,18 @@ namespace Sol.Fishing
             _locomotionController?.ClearMovementLock();
             SetAnimatorReelState(false, 0f);
 
-            UpdateRestingTackleVisual();
+            UpdateRestingLureVisual();
         }
 
-        private void HandleTackleEnteredFloating(bool touchedWater)
+        private void HandleLureEnteredFloating(bool touchedWater)
         {
             if (!touchedWater)
                 return;
 
-            Vector3 splashPos = _activeTackle != null ? _activeTackle.transform.position : transform.position;
+            if (_activeLure != null && _activeLineOrigin != null)
+                InitializeRuntimeLineLength(Vector3.Distance(_activeLure.transform.position, _activeLineOrigin.position));
+
+            Vector3 splashPos = _activeLure != null ? _activeLure.transform.position : transform.position;
             AudioService.Instance?.PlaySfx(AudioEvent.FishingSplash, splashPos);
         }
 
@@ -948,7 +1124,7 @@ namespace Sol.Fishing
             _displayedCatchGrabbable = item.GetComponent<GrabbableComponent>()
                 ?? item.GetComponentInChildren<GrabbableComponent>(true);
             _activeRod.SetDisplayedCatchItem(item);
-            UpdateRestingTackleVisual();
+            UpdateRestingLureVisual();
         }
 
         private void DetachDisplayedCatchItem()
@@ -990,7 +1166,7 @@ namespace Sol.Fishing
             _activeRod?.ForgetDisplayedCatchItem(item);
             _displayedCatchItem = null;
             _displayedCatchGrabbable = null;
-            UpdateRestingTackleVisual();
+            UpdateRestingLureVisual();
         }
 
         private Camera GetActiveGameplayCamera()
@@ -1006,6 +1182,28 @@ namespace Sol.Fishing
                 return _locomotionController.PlayerCamera;
 
             return Camera.main;
+        }
+
+        private Vector3 GetHookedFishEscapeDirection()
+        {
+            Camera cameraToUse = GetActiveGameplayCamera();
+            if (cameraToUse != null)
+            {
+                Vector3 cameraForward = cameraToUse.transform.forward;
+                cameraForward.y = 0f;
+                if (cameraForward.sqrMagnitude >= 0.001f)
+                    return cameraForward.normalized;
+            }
+
+            if (_activeLineOrigin != null)
+            {
+                Vector3 lineForward = _activeLineOrigin.forward;
+                lineForward.y = 0f;
+                if (lineForward.sqrMagnitude >= 0.001f)
+                    return lineForward.normalized;
+            }
+
+            return transform.forward;
         }
 
         private void CacheAnimatorParameters()
@@ -1079,9 +1277,10 @@ namespace Sol.Fishing
         private float GetFloatDriftDistance() => _activeRod != null ? _activeRod.FloatDriftDistance : _fallbackFloatDriftDistance;
         private float GetFloatDriftFrequency() => _activeRod != null ? _activeRod.FloatDriftFrequency : _fallbackFloatDriftFrequency;
         private float GetFloatLineSlackDistance() => _activeRod != null ? _activeRod.FloatLineSlackDistance : _fallbackFloatLineSlackDistance;
+        private float GetLineSlackRecoverSpeed() => _activeRod != null ? _activeRod.LineSlackRecoverSpeed : _fallbackLineSlackRecoverSpeed;
         private float GetFloatSettleSpeed() => _activeRod != null ? _activeRod.FloatSettleSpeed : _fallbackFloatSettleSpeed;
         private float GetFloatTensionStrength() => _activeRod != null ? _activeRod.FloatTensionStrength : _fallbackFloatTensionStrength;
-        private float GetTackleInterestMultiplier()
+        private float GetLureInterestMultiplier()
         {
             if (_activeRod != null)
             {
@@ -1094,9 +1293,9 @@ namespace Sol.Fishing
             return _fallbackBaitlessInterestMultiplier;
         }
 
-        private float GetTackleInterestRadius()
+        private float GetLureInterestRadius()
         {
-            float baseRadius = _activeRod != null ? _activeRod.CurrentLureRange : _fallbackTackleInterestRadius;
+            float baseRadius = _activeRod != null ? _activeRod.CurrentLureRange : _fallbackLureInterestRadius;
             if (_activeRod != null)
             {
                 return baseRadius * FishingBaitItem.ResolveRadiusMultiplier(_activeRod.LoadedBaitItem, _activeRod.DefaultBait);
@@ -1120,10 +1319,10 @@ namespace Sol.Fishing
             return FishingBaitItem.ResolveBaitName(_activeRod.LoadedBaitItem, _activeRod.DefaultBait);
         }
 
-        private float CalculateReelDistance(Vector3 tacklePosition, Vector3 rodTipPosition)
+        private float CalculateReelDistance(Vector3 lurePosition, Vector3 rodTipPosition)
         {
-            Vector3 surfaceLegStart = new Vector3(tacklePosition.x, tacklePosition.y, tacklePosition.z);
-            Vector3 surfaceLegEnd = new Vector3(rodTipPosition.x, tacklePosition.y, rodTipPosition.z);
+            Vector3 surfaceLegStart = new Vector3(lurePosition.x, lurePosition.y, lurePosition.z);
+            Vector3 surfaceLegEnd = new Vector3(rodTipPosition.x, lurePosition.y, rodTipPosition.z);
             float surfaceDistance = Vector3.Distance(surfaceLegStart, surfaceLegEnd);
             float liftDistance = Vector3.Distance(surfaceLegEnd, rodTipPosition);
             return Mathf.Max(0.05f, surfaceDistance + liftDistance);
@@ -1132,5 +1331,6 @@ namespace Sol.Fishing
         private int GetLineSegments() => _activeRod != null ? _activeRod.LineSegments : _fallbackLineSegments;
         private float GetLineWidth() => _activeRod != null ? _activeRod.LineWidth : _fallbackLineWidth;
         private float GetLineSlack() => _activeRod != null ? _activeRod.LineSlack : _fallbackLineSlack;
+        private float GetLineRenderSlack() => _hasRuntimeLineLength ? _currentLineSlack : GetLineSlack();
     }
 }

@@ -1970,6 +1970,7 @@ GameObject:
   - component: {fileID: 3395603523321107126}
   - component: {fileID: 7542043854769053104}
   - component: {fileID: 2411642763029118176}
+  - component: {fileID: 2201453678901234570}
   m_Layer: 10
   m_Name: NPC_Elvion
   m_TagString: NPC
@@ -2062,7 +2063,7 @@ MonoBehaviour:
   _greetingLine: What can I do for you?
   _tradeOptionLabel: Trade
   _goodbyeOptionLabel: Goodbye
-  _speakerIcon: {fileID: 0}
+  _speakerIcon: {fileID: 21300000, guid: 055c0cc2bc686c94d899f0fa0e9fd7df, type: 3}
   _goldLootItemTemplate: {fileID: 0}
   _maxGoldItemizeAttemptsPerOpen: 2000
 --- !u!114 &1586391552197703178
@@ -2078,6 +2079,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.AI_NPC
   config: {fileID: 11400000, guid: c68c8bbfbee74db438c3a68072420ff1, type: 2}
+  patrolRoot: {fileID: 0}
+  autoUsePatrolRootChildren: 1
+  patrolPoints: []
+  patrolPointNavMeshSnapDistance: 2
+  patrolSplineOverride: {fileID: 0}
   soul: {fileID: 5376140220061540952}
   animator: {fileID: 637130161396194400}
   fakeCam: {fileID: 0}
@@ -2101,8 +2107,19 @@ MonoBehaviour:
   _soulType: 0
   _characterName: Elvion
   _ownerId: OWN00002
+  _healthStat:
+    _current: 100
+    _max: 100
+  _staminaStat:
+    _current: 100
+    _max: 100
   _health: 100
-  MaxHealth: 100
+  _maxHealth: 100
+  _stamina: 100
+  _maxStamina: 100
+  _soulStatsMigrated: 1
+  _authoringTemplate: 2
+  _authoringNotes: 
 --- !u!114 &5083089871566594419
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2312,6 +2329,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed11ff3d19f6cb84593e4e1886fe3de3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Equipment
+  _authoredEquippedItems: []
+  _runtimeEquippedItems: []
 --- !u!82 &7542043854769053104
 AudioSource:
   m_ObjectHideFlags: 0
@@ -2426,6 +2445,24 @@ MonoBehaviour:
   _sprintVolumeScale: 1.5
   _landingVolumeScale: 2
   _minInterval: 0.15
+--- !u!114 &2201453678901234570
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5795271249710339576}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: acd6b96f0f2e4ac5a33079a9f68c83b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Combat.HitReaction
+  _animator: {fileID: 637130161396194400}
+  _hitClip: {fileID: 7400000, guid: 1bad9627f8f541c40aaffa59f179343e, type: 2}
+  _fallbackRoot: {fileID: 3484338788260103175}
+  _fallbackDuration: 0.18
+  _fallbackLeanDegrees: 8
+  _fallbackSettleSpeed: 18
 --- !u!1 &5815396836682067433
 GameObject:
   m_ObjectHideFlags: 0

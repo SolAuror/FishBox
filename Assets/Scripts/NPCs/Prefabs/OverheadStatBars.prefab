@@ -899,6 +899,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 702956918056017256}
+  - component: {fileID: 6304010065422197851}
   m_Layer: 10
   m_Name: OverheadStatBars
   m_TagString: Untagged
@@ -922,6 +923,26 @@ Transform:
   - {fileID: 4809316189288130673}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
+--- !u!114 &6304010065422197851
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8619693891090920864}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1fdc854bb34144378b3d80b4f91d3f2b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  npcRoot: {fileID: 0}
+  npcSoul: {fileID: 0}
+  healthBar: {fileID: 6923658019562166906}
+  staminaBar: {fileID: 155410323500172069}
+  nameText: {fileID: 2168120746630983420}
+  healthText: {fileID: 6875431503136144078}
+  staminaText: {fileID: 1237567543973403404}
+  autoFindByName: 1
 --- !u!1 &8671837831465604331
 GameObject:
   m_ObjectHideFlags: 0

@@ -11,48 +11,64 @@ namespace Sol.HUD
     public class TradeUI : MonoBehaviour
     {
         #region Inspector Settings
+        
         [Header("Panels")]
+        
         [Tooltip("Inspector: tunes trade panel.")]
         [SerializeField] private GameObject _tradePanel;
         [SerializeField] private InventoryUI _playerInventoryUI;
+        
         [Tooltip("Inspector: tunes npc inventory ui.")]
         [SerializeField] private InventoryUI _npcInventoryUI;
         [SerializeField] private TextMeshProUGUI _playerInventoryTitleText;
+        
         [Tooltip("Inspector: tunes npc inventory title text.")]
         [SerializeField] private TextMeshProUGUI _npcInventoryTitleText;
 
         [Header("Cart")]
+        
         [Tooltip("Inspector: tunes confirm button.")]
         [SerializeField] private Button _confirmButton;
         [SerializeField] private Button _cancelButton;
+        
         [Tooltip("Inspector: tunes cancel button text.")]
         [SerializeField] private TextMeshProUGUI _cancelButtonText;
         [SerializeField] private TextMeshProUGUI _buyText;
+        
         [Tooltip("Inspector: tunes sell text.")]
         [SerializeField] private TextMeshProUGUI _sellText;
         [SerializeField] private TextMeshProUGUI _netDirectionText;
+        
         [Tooltip("Inspector: tunes total cost text.")]
         [SerializeField] private TextMeshProUGUI _totalCostText;
 
         [Header("Fixed Item Info")]
+        
         [Tooltip("Inspector: tunes item name text.")]
         [SerializeField] private TextMeshProUGUI _itemNameText;
         [SerializeField] private TextMeshProUGUI _itemTypeText;
+        
         [Tooltip("Inspector: tunes item flavour text.")]
         [SerializeField] private TextMeshProUGUI _itemFlavourText;
         [SerializeField] private TextMeshProUGUI _itemStatsText;
+        
         [Tooltip("Inspector: tunes item id text.")]
         [SerializeField] private TextMeshProUGUI _itemIdText;
         [Header("Reference Codes")]
+        
         [Tooltip("Inspector: tunes show reference codes.")]
         [SerializeField] private bool _showReferenceCodes = true;
+        
         [Tooltip("Inspector: tunes preview image.")]
         [SerializeField] private RawImage _previewImage;
         [Header("Stolen Indicator")]
+        
         [Tooltip("Inspector: tunes item name stolen icon.")]
         [SerializeField] private Image _itemNameStolenIcon;
+        
         [Tooltip("Inspector: tunes stolen icon sprite.")]
         [SerializeField] private Sprite _stolenIconSprite;
+        
         #endregion
 
         public bool IsOpen { get; private set; }

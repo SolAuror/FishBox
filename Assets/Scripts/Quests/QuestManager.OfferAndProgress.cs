@@ -213,6 +213,34 @@ namespace Sol.Quests
         }
 
 
+        public void NotifyPaidGoldToNpc(string npcName, int goldAmount)
+        {
+            if (string.IsNullOrWhiteSpace(npcName) || goldAmount <= 0)
+                return;
+
+            for (int i = 0; i < _active.Count; i++)
+            {
+                QuestSaveData q = _active[i];
+                if (q.State != QuestState.Active)
+                    continue;
+
+                QuestObjective obj = CurrentObjective(q);
+                if (obj == null || obj.Type != QuestObjectiveType.DeliverItem)
+                    continue;
+
+                int requiredGold = obj.GetRequiredGoldPaymentAmount();
+                if (requiredGold <= 0 || !NpcReferenceMatches(obj.NpcName, npcName))
+                    continue;
+
+                q.CurrentObjectiveProgress = Mathf.Min(
+                    q.CurrentObjectiveProgress + goldAmount,
+                    requiredGold);
+                OnQuestUpdated?.Invoke(q);
+                AdvanceIfComplete(q);
+            }
+        }
+
+
         public static bool NpcReferenceMatches(string requiredReference, string candidateReference)
         {
             if (string.IsNullOrWhiteSpace(requiredReference) || string.IsNullOrWhiteSpace(candidateReference))
@@ -324,7 +352,7 @@ namespace Sol.Quests
                 if (!CanOfferQuest(def, def.GiverNpcName, fromBoard: false))
                     continue;
 
-                DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(true);
+                ConfirmationPromptSystem prompt = ConfirmationPromptSystem.ResolveInstance(true);
                 if (prompt == null)
                 {
                     return false;

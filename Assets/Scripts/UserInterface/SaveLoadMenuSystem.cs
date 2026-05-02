@@ -162,7 +162,7 @@ namespace Sol.HUD
                 return;
             }
 
-            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(activateIfInactive: true);
+            ConfirmationPromptSystem prompt = ConfirmationPromptSystem.ResolveInstance(activateIfInactive: true);
             if (prompt != null)
             {
                 int slot = overwriteSlot;
@@ -239,7 +239,7 @@ namespace Sol.HUD
 
         private void RequestLoadSlot(int slotIndex)
         {
-            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(activateIfInactive: true);
+            ConfirmationPromptSystem prompt = ConfirmationPromptSystem.ResolveInstance(activateIfInactive: true);
             if (prompt != null)
             {
                 prompt.Show(
@@ -258,7 +258,7 @@ namespace Sol.HUD
 
         private void RequestDeleteSlot(int slotIndex)
         {
-            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(activateIfInactive: true);
+            ConfirmationPromptSystem prompt = ConfirmationPromptSystem.ResolveInstance(activateIfInactive: true);
             if (prompt != null)
             {
                 prompt.Show(
@@ -293,7 +293,7 @@ namespace Sol.HUD
                 return;
             }
 
-            DialoguePromptSystem prompt = DialoguePromptSystem.ResolveInstance(activateIfInactive: true);
+            ConfirmationPromptSystem prompt = ConfirmationPromptSystem.ResolveInstance(activateIfInactive: true);
             if (prompt != null)
             {
                 prompt.Show(

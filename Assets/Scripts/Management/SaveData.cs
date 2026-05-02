@@ -10,7 +10,7 @@ namespace Sol.SaveLoad
     public class GameSaveData                               // Root class for all save data. Contains metadata and all relevant game state data for saving and loading.
     {
         public const int InitialVersion = 1;                // First version of the save data structure.
-        public const int CurrentVersion = 5;                // Increment when making changes to the save data structure.
+        public const int CurrentVersion = 6;                // Increment when making changes to the save data structure.
 
         public int SaveVersion = CurrentVersion;            // Used to handle loading old save versions and applying necessary conversions.
 
@@ -43,6 +43,8 @@ namespace Sol.SaveLoad
         public SerializableQuaternion Rotation;
         public float Health;
         public float MaxHealth;
+        public float Stamina;
+        public float MaxStamina;
         public int Gold;
         public List<ItemInstanceSaveData> InventoryItems = new();
         public List<EquippedItemSaveData> EquippedItems = new();
@@ -108,6 +110,8 @@ namespace Sol.SaveLoad
         public SerializableQuaternion Rotation;
         public float Health;
         public float MaxHealth;
+        public float Stamina;
+        public float MaxStamina;
         public int Gold;
         public List<ItemInstanceSaveData> InventoryItems = new();
     }
@@ -160,4 +164,3 @@ namespace Sol.SaveLoad
         public static implicit operator Quaternion(SerializableQuaternion value) => value.ToQuaternion();
     }
 }
-

@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using Sol.Audio;
 using Sol.Locomotion;
 using Sol.Settings;
 
@@ -12,58 +13,91 @@ namespace Sol.HUD
     public sealed class SettingsMenuSystem : MenuSystemBase<SettingsMenuSystem>
     {
         #region Inspector Settings
+        
         [Tooltip("Inspector: tunes tab audio.")]
         [SerializeField] private Button _tabAudio;
         [SerializeField] private Button _tabGraphics;
+        
         [Tooltip("Inspector: tunes tab gameplay.")]
         [SerializeField] private Button _tabGameplay;
         [SerializeField] private Button _tabControls;
+        
         [Tooltip("Inspector: tunes tab accessibility.")]
         [SerializeField] private Button _tabAccessibility;
         [SerializeField] private UnityEngine.Object _panelAudio;
+        
         [Tooltip("Inspector: tunes panel graphics.")]
         [SerializeField] private UnityEngine.Object _panelGraphics;
         [SerializeField] private UnityEngine.Object _panelGameplay;
+        
         [Tooltip("Inspector: tunes panel controls.")]
         [SerializeField] private UnityEngine.Object _panelControls;
         [SerializeField] private UnityEngine.Object _panelAccessibility;
+        
         [Tooltip("Inspector: tunes slider master.")]
         [SerializeField] private UnityEngine.Object _sliderMaster;
         [SerializeField] private UnityEngine.Object _sliderMusic;
+        
         [Tooltip("Inspector: tunes slider sfx.")]
         [SerializeField] private UnityEngine.Object _sliderSFX;
         [SerializeField] private UnityEngine.Object _sliderAmbient;
+        
         [Tooltip("Inspector: tunes dropdown resolution.")]
         [SerializeField] private UnityEngine.Object _dropdownResolution;
         [SerializeField] private UnityEngine.Object _dropdownDisplayMode;
+        
         [Tooltip("Inspector: tunes dropdown quality.")]
         [SerializeField] private UnityEngine.Object _dropdownQuality;
         [SerializeField] private UnityEngine.Object _toggleVSync;
+        
         [Tooltip("Inspector: tunes dropdown shadows.")]
         [SerializeField] private UnityEngine.Object _dropdownShadows;
         [SerializeField] private UnityEngine.Object _dropdownAA;
+        
         [Tooltip("Inspector: tunes slider sensitivity.")]
         [SerializeField] private UnityEngine.Object _sliderSensitivity;
         [SerializeField] private UnityEngine.Object _toggleInvertY;
+        
         [Tooltip("Inspector: tunes slider fov.")]
         [SerializeField] private UnityEngine.Object _sliderFOV;
+        [SerializeField] private UnityEngine.Object _sliderFOVThirdPerson;
         [SerializeField] private UnityEngine.Object _toggleCrosshair;
+        [SerializeField] private UnityEngine.Object _sliderFishSpawnCount;
+        
         [Tooltip("Inspector: tunes controls scroll rect.")]
         [SerializeField] private ScrollRect _controlsScrollRect;
         [SerializeField] private Transform _bindRowParent;
+        
         [Tooltip("Inspector: tunes slider uiscale.")]
         [SerializeField] private UnityEngine.Object _sliderUIScale;
         [SerializeField] private UnityEngine.Object _dropdownSubtitleSize;
+        
         [Tooltip("Inspector: tunes dropdown colorblind.")]
         [SerializeField] private UnityEngine.Object _dropdownColorblind;
         [SerializeField] private Button _applyButton;
+        
         [Tooltip("Inspector: tunes reset defaults button.")]
         [SerializeField] private Button _resetDefaultsButton;
+        
         [Tooltip("Inspector: tunes back button.")]
         [SerializeField] private Button _backButton;
+        
         #endregion
 
         public bool ReturnsToPause => _returnToPause;
+
+        private static readonly string[] DisplayModeOptions = { "Fullscreen", "Borderless Window", "Windowed" };
+        private static readonly string[] ShadowOptions = { "Off", "Low", "Medium", "High" };
+        private static readonly string[] AntiAliasingOptions = { "Off", "2x", "4x", "8x" };
+        private static readonly int[] AntiAliasingValues = { 0, 2, 4, 8 };
+        private const float GameplayFovMin = 60f;
+        private const float GameplayFppFovMax = 90f;
+        private const float GameplayTppFovMax = 130f;
+        private static readonly string[] SubtitleSizeOptions = { "Small", "Medium", "Large" };
+        private static readonly string[] ColorblindModeOptions = { "None", "Protanopia", "Deuteranopia", "Tritanopia" };
+        private static readonly Dictionary<int, LightShadows> CachedSceneLightShadows = new();
+        private static bool _hasCachedShadowDistance;
+        private static float _cachedShadowDistance;
 
         private readonly List<Resolution> _filteredResolutions = new();
         private readonly List<GameObject> _spawnedBindRows = new();
@@ -72,6 +106,14 @@ namespace Sol.HUD
         private InputActionRebindingExtensions.RebindingOperation _activeRebind;
         private SettingsData _workingCopy;
         private bool _returnToPause;
+        private int _selectedResolutionIndex;
+        private int _selectedDisplayModeIndex;
+        private int _selectedQualityIndex;
+        private int _selectedShadowIndex;
+        private int _selectedAntiAliasingIndex;
+        private int _selectedSubtitleSizeIndex;
+        private int _selectedColorblindModeIndex;
+        private bool _selectedVSync;
 
         #region Lifecycle
         protected override void Awake()
@@ -128,6 +170,7 @@ namespace Sol.HUD
             _returnToPause = false;
 
             _activeRebind?.Cancel();
+            RestorePersistedRuntimeSettings();
             SetOpen(false);
             MenuUiUtility.SetBackgroundUiRaycasts(transform, true);
 
@@ -163,27 +206,65 @@ namespace Sol.HUD
         public static void ApplyGameplaySettings(SettingsData data)
         {
             if (data == null) return;
-            if (Camera.main != null) Camera.main.fieldOfView = data.FieldOfView;
-            if (TryResolvePlayerRoot(out GameObject playerRoot))
+            ResolveGameplayFov(data, out float firstPersonFov, out float thirdPersonFov);
+
+            // Apply to both the rendered camera and Cinemachine rigs used by locomotion.
+            if (TryResolvePlayerLocomotion(out LocomotionController locomotion))
             {
-                LocomotionController locomotion = playerRoot.GetComponent<LocomotionController>();
-                if (locomotion != null)
+                float invert = data.InvertYAxis ? -1f : 1f;
+                locomotion.lookSenseH = data.MouseSensitivity;
+                locomotion.lookSenseV = data.MouseSensitivity * invert;
+
+                bool useThirdPersonFov = LocomotionInputManager.Instance != null && LocomotionInputManager.Instance.IsThirdPerson;
+                if (locomotion.PlayerCamera != null)
+                    locomotion.PlayerCamera.fieldOfView = useThirdPersonFov ? thirdPersonFov : firstPersonFov;
+
+                if (locomotion.TryGetCameraForMode(CameraMode.FirstPerson, out var firstPersonCamera) && firstPersonCamera != null)
                 {
-                    float invert = data.InvertYAxis ? -1f : 1f;
-                    locomotion.lookSenseH = data.MouseSensitivity;
-                    locomotion.lookSenseV = data.MouseSensitivity * invert;
+                    var lens = firstPersonCamera.Lens;
+                    lens.FieldOfView = firstPersonFov;
+                    firstPersonCamera.Lens = lens;
+                }
+
+                if (locomotion.TryGetCameraForMode(CameraMode.ThirdPerson, out var thirdPersonCamera) && thirdPersonCamera != null)
+                {
+                    var lens = thirdPersonCamera.Lens;
+                    lens.FieldOfView = thirdPersonFov;
+                    thirdPersonCamera.Lens = lens;
                 }
             }
+
+            if (Camera.main != null)
+            {
+                bool useThirdPersonFov = LocomotionInputManager.Instance != null && LocomotionInputManager.Instance.IsThirdPerson;
+                Camera.main.fieldOfView = useThirdPersonFov ? thirdPersonFov : firstPersonFov;
+            }
+
             FindFirstObjectByType<CrosshairUI>(FindObjectsInactive.Include)?.SetCrosshairVisible(data.ShowCrosshair);
+
+            FishVolume[] fishVolumes = FindObjectsByType<FishVolume>(FindObjectsSortMode.None);
+            for (int i = 0; i < fishVolumes.Length; i++)
+                if (fishVolumes[i] != null)
+                    fishVolumes[i].SetFishSpawnCount(data.FishSpawnCount);
         }
 
         public static void ApplyAccessibilitySettings(SettingsData data)
         {
             if (data == null) return;
+            float uiScale = Mathf.Clamp(data.UIScale, 0.75f, 1.5f);
             CanvasScaler[] scalers = FindObjectsByType<CanvasScaler>(FindObjectsSortMode.None);
             for (int i = 0; i < scalers.Length; i++)
-                if (scalers[i] != null && scalers[i].uiScaleMode == CanvasScaler.ScaleMode.ConstantPixelSize)
-                    scalers[i].scaleFactor = data.UIScale;
+            {
+                CanvasScaler scaler = scalers[i];
+                if (scaler == null) continue;
+                if (scaler.uiScaleMode == CanvasScaler.ScaleMode.ConstantPixelSize)
+                    scaler.scaleFactor = uiScale;
+                else
+                    scaler.transform.localScale = new Vector3(uiScale, uiScale, 1f);
+            }
+
+            // Subtitle size and colorblind mode are persisted for the settings UI, but no runtime
+            // subtitle renderer or colorblind post-process exists in this project yet.
         }
 
         public static void ApplyGraphicsSettings(SettingsData data)
@@ -221,14 +302,89 @@ namespace Sol.HUD
             if (data.QualityLevel >= 0)
                 QualitySettings.SetQualityLevel(data.QualityLevel, true);
             QualitySettings.vSyncCount = Mathf.Max(0, data.VSyncCount);
-            switch (Mathf.Clamp(data.ShadowQuality, 0, 3))
-            {
-                case 0: QualitySettings.shadows = ShadowQuality.Disable; break;
-                case 1: QualitySettings.shadows = ShadowQuality.HardOnly; QualitySettings.shadowResolution = ShadowResolution.Low; break;
-                case 2: QualitySettings.shadows = ShadowQuality.All; QualitySettings.shadowResolution = ShadowResolution.Medium; break;
-                case 3: QualitySettings.shadows = ShadowQuality.All; QualitySettings.shadowResolution = ShadowResolution.High; break;
-            }
+            ApplyShadowQualitySettings(data.ShadowQuality);
             QualitySettings.antiAliasing = Mathf.Clamp(data.AntiAliasing, 0, 8);
+        }
+
+        private static void ApplyShadowQualitySettings(int setting)
+        {
+            int clamped = Mathf.Clamp(setting, 0, 3);
+            switch (clamped)
+            {
+                case 0:
+                    QualitySettings.shadows = ShadowQuality.Disable;
+                    QualitySettings.shadowResolution = ShadowResolution.Low;
+                    CacheAndDisableSceneLightShadows();
+                    break;
+                case 1:
+                    QualitySettings.shadows = ShadowQuality.HardOnly;
+                    QualitySettings.shadowResolution = ShadowResolution.Low;
+                    RestoreSceneLightShadows();
+                    break;
+                case 2:
+                    QualitySettings.shadows = ShadowQuality.All;
+                    QualitySettings.shadowResolution = ShadowResolution.Medium;
+                    RestoreSceneLightShadows();
+                    break;
+                case 3:
+                    QualitySettings.shadows = ShadowQuality.All;
+                    QualitySettings.shadowResolution = ShadowResolution.High;
+                    RestoreSceneLightShadows();
+                    break;
+            }
+        }
+
+        private static void CacheAndDisableSceneLightShadows()
+        {
+            if (!_hasCachedShadowDistance)
+            {
+                _cachedShadowDistance = QualitySettings.shadowDistance;
+                _hasCachedShadowDistance = true;
+            }
+
+            QualitySettings.shadowDistance = 0f;
+
+            Light[] lights = FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < lights.Length; i++)
+            {
+                Light light = lights[i];
+                if (light == null) continue;
+                int id = light.GetInstanceID();
+                if (!CachedSceneLightShadows.ContainsKey(id))
+                    CachedSceneLightShadows[id] = light.shadows;
+                light.shadows = LightShadows.None;
+            }
+        }
+
+        private static void RestoreSceneLightShadows()
+        {
+            QualitySettings.shadowDistance = _hasCachedShadowDistance && _cachedShadowDistance > 0f
+                ? _cachedShadowDistance
+                : 50f;
+
+            if (CachedSceneLightShadows.Count == 0) return;
+
+            Light[] lights = FindObjectsByType<Light>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            HashSet<int> seen = new();
+            for (int i = 0; i < lights.Length; i++)
+            {
+                Light light = lights[i];
+                if (light == null) continue;
+                int id = light.GetInstanceID();
+                seen.Add(id);
+                if (CachedSceneLightShadows.TryGetValue(id, out LightShadows shadows))
+                    light.shadows = shadows;
+            }
+
+            List<int> stale = new();
+            foreach (KeyValuePair<int, LightShadows> pair in CachedSceneLightShadows)
+            {
+                if (!seen.Contains(pair.Key))
+                    stale.Add(pair.Key);
+            }
+
+            for (int i = 0; i < stale.Count; i++)
+                CachedSceneLightShadows.Remove(stale[i]);
         }
 
         public static void ApplyControlOverrides(SettingsData data)
@@ -262,6 +418,7 @@ namespace Sol.HUD
             if (music != null) { music.minValue = 0f; music.maxValue = 100f; music.value = _workingCopy.MusicVolume; }
             if (sfx != null) { sfx.minValue = 0f; sfx.maxValue = 100f; sfx.value = _workingCopy.SFXVolume; }
             if (ambient != null) { ambient.minValue = 0f; ambient.maxValue = 100f; ambient.value = _workingCopy.AmbientVolume; }
+            UpdateAudioValueLabels();
         }
 
         private void PopulateGraphics()
@@ -273,62 +430,61 @@ namespace Sol.HUD
             TMP_Dropdown shadows = DropdownRef(ref _dropdownShadows, "Dropdown_Shadows");
             TMP_Dropdown antiAliasing = DropdownRef(ref _dropdownAA, "Dropdown_AA");
 
+            List<string> resolutionOptions = BuildResolutionOptions(out _selectedResolutionIndex);
             if (resolution != null)
             {
-                _filteredResolutions.Clear();
-                _availableResolutions = Screen.resolutions;
-                HashSet<string> seen = new();
-                foreach (Resolution res in _availableResolutions)
-                {
-                    // Collapse refresh-rate variants so the dropdown stays readable.
-                    string key = $"{res.width}x{res.height}";
-                    if (seen.Add(key)) _filteredResolutions.Add(res);
-                }
                 resolution.ClearOptions();
-                int selected = 0;
-                List<string> options = new();
-                for (int i = 0; i < _filteredResolutions.Count; i++)
-                {
-                    Resolution res = _filteredResolutions[i];
-                    options.Add($"{res.width} x {res.height}");
-                    if (res.width == _workingCopy.ResolutionWidth && res.height == _workingCopy.ResolutionHeight) selected = i;
-                }
-                resolution.AddOptions(options);
-                resolution.value = selected;
+                resolution.AddOptions(resolutionOptions);
+                resolution.value = _selectedResolutionIndex;
             }
+            else SetChoiceValueText(_dropdownResolution, resolutionOptions, _selectedResolutionIndex);
 
+            _selectedDisplayModeIndex = _workingCopy.FullscreenMode switch
+            {
+                (int)FullScreenMode.ExclusiveFullScreen => 0,
+                (int)FullScreenMode.FullScreenWindow => 1,
+                (int)FullScreenMode.Windowed => 2,
+                _ => 1
+            };
             if (displayMode != null)
             {
                 displayMode.ClearOptions();
-                displayMode.AddOptions(new List<string> { "Fullscreen", "Borderless Window", "Windowed" });
-                displayMode.value = _workingCopy.FullscreenMode switch
-                {
-                    (int)FullScreenMode.ExclusiveFullScreen => 0,
-                    (int)FullScreenMode.FullScreenWindow => 1,
-                    (int)FullScreenMode.Windowed => 2,
-                    _ => 1
-                };
+                displayMode.AddOptions(new List<string>(DisplayModeOptions));
+                displayMode.value = _selectedDisplayModeIndex;
             }
+            else SetChoiceValueText(_dropdownDisplayMode, DisplayModeOptions, _selectedDisplayModeIndex);
 
+            string[] qualityOptions = QualitySettings.names != null && QualitySettings.names.Length > 0 ? QualitySettings.names : new[] { "Default" };
+            _selectedQualityIndex = _workingCopy.QualityLevel >= 0 ? Mathf.Clamp(_workingCopy.QualityLevel, 0, qualityOptions.Length - 1) : Mathf.Clamp(QualitySettings.GetQualityLevel(), 0, qualityOptions.Length - 1);
             if (quality != null)
             {
                 quality.ClearOptions();
-                quality.AddOptions(new List<string>(QualitySettings.names));
-                quality.value = _workingCopy.QualityLevel >= 0 ? Mathf.Clamp(_workingCopy.QualityLevel, 0, QualitySettings.names.Length - 1) : QualitySettings.GetQualityLevel();
+                quality.AddOptions(new List<string>(qualityOptions));
+                quality.value = _selectedQualityIndex;
             }
-            if (vSync != null) vSync.isOn = _workingCopy.VSyncCount > 0;
+            else SetChoiceValueText(_dropdownQuality, qualityOptions, _selectedQualityIndex);
+
+            _selectedVSync = _workingCopy.VSyncCount > 0;
+            if (vSync != null) vSync.isOn = _selectedVSync;
+            else SetChoiceValueText(_toggleVSync, _selectedVSync ? "On" : "Off");
+
+            _selectedShadowIndex = Mathf.Clamp(_workingCopy.ShadowQuality, 0, ShadowOptions.Length - 1);
             if (shadows != null)
             {
                 shadows.ClearOptions();
-                shadows.AddOptions(new List<string> { "Off", "Low", "Medium", "High" });
-                shadows.value = Mathf.Clamp(_workingCopy.ShadowQuality, 0, 3);
+                shadows.AddOptions(new List<string>(ShadowOptions));
+                shadows.value = _selectedShadowIndex;
             }
+            else SetChoiceValueText(_dropdownShadows, ShadowOptions, _selectedShadowIndex);
+
+            _selectedAntiAliasingIndex = _workingCopy.AntiAliasing switch { 0 => 0, 2 => 1, 4 => 2, 8 => 3, _ => 1 };
             if (antiAliasing != null)
             {
                 antiAliasing.ClearOptions();
-                antiAliasing.AddOptions(new List<string> { "Off", "2x", "4x", "8x" });
-                antiAliasing.value = _workingCopy.AntiAliasing switch { 0 => 0, 2 => 1, 4 => 2, 8 => 3, _ => 1 };
+                antiAliasing.AddOptions(new List<string>(AntiAliasingOptions));
+                antiAliasing.value = _selectedAntiAliasingIndex;
             }
+            else SetChoiceValueText(_dropdownAA, AntiAliasingOptions, _selectedAntiAliasingIndex);
         }
 
         private void PopulateGameplay()
@@ -336,11 +492,17 @@ namespace Sol.HUD
             Slider sensitivity = SliderRef(ref _sliderSensitivity, "Slider_Sensitivity");
             Toggle invertY = ToggleRef(ref _toggleInvertY, "Toggle_InvertY");
             Slider fov = SliderRef(ref _sliderFOV, "Slider_FOV");
+            Slider fovThirdPerson = SliderRef(ref _sliderFOVThirdPerson, "Slider_FOV_ThirdPerson");
             Toggle crosshair = ToggleRef(ref _toggleCrosshair, "Toggle_Crosshair");
+            Slider fishSpawnCount = SliderRef(ref _sliderFishSpawnCount, "Slider_FishSpawnCount");
+            ResolveGameplayFov(_workingCopy, out float firstPersonFov, out float thirdPersonFov);
             if (sensitivity != null) { sensitivity.minValue = 0.01f; sensitivity.maxValue = 2f; sensitivity.value = _workingCopy.MouseSensitivity; }
             if (invertY != null) invertY.isOn = _workingCopy.InvertYAxis;
-            if (fov != null) { fov.minValue = 60f; fov.maxValue = 120f; fov.value = _workingCopy.FieldOfView; }
+            if (fov != null) { fov.minValue = GameplayFovMin; fov.maxValue = GameplayFppFovMax; fov.value = Mathf.Clamp(firstPersonFov, fov.minValue, fov.maxValue); }
+            if (fovThirdPerson != null) { fovThirdPerson.minValue = GameplayFovMin; fovThirdPerson.maxValue = GameplayTppFovMax; fovThirdPerson.value = Mathf.Clamp(thirdPersonFov, fovThirdPerson.minValue, fovThirdPerson.maxValue); }
             if (crosshair != null) crosshair.isOn = _workingCopy.ShowCrosshair;
+            if (fishSpawnCount != null) { fishSpawnCount.minValue = 0f; fishSpawnCount.maxValue = 500f; fishSpawnCount.wholeNumbers = true; fishSpawnCount.value = _workingCopy.FishSpawnCount; }
+            UpdateGameplayValueLabels();
         }
 
         private void PopulateControls()
@@ -376,18 +538,25 @@ namespace Sol.HUD
             TMP_Dropdown subtitle = DropdownRef(ref _dropdownSubtitleSize, "Dropdown_SubtitleSize");
             TMP_Dropdown colorblind = DropdownRef(ref _dropdownColorblind, "Dropdown_Colorblind");
             if (uiScale != null) { uiScale.minValue = 0.75f; uiScale.maxValue = 1.5f; uiScale.value = _workingCopy.UIScale; }
+            _selectedSubtitleSizeIndex = Mathf.Clamp(_workingCopy.SubtitleSize, 0, SubtitleSizeOptions.Length - 1);
             if (subtitle != null)
             {
                 subtitle.ClearOptions();
-                subtitle.AddOptions(new List<string> { "Small", "Medium", "Large" });
-                subtitle.value = Mathf.Clamp(_workingCopy.SubtitleSize, 0, 2);
+                subtitle.AddOptions(new List<string>(SubtitleSizeOptions));
+                subtitle.value = _selectedSubtitleSizeIndex;
             }
+            else SetChoiceValueText(_dropdownSubtitleSize, SubtitleSizeOptions, _selectedSubtitleSizeIndex);
+
+            _selectedColorblindModeIndex = Mathf.Clamp(_workingCopy.ColorblindMode, 0, ColorblindModeOptions.Length - 1);
             if (colorblind != null)
             {
                 colorblind.ClearOptions();
-                colorblind.AddOptions(new List<string> { "None", "Protanopia", "Deuteranopia", "Tritanopia" });
-                colorblind.value = Mathf.Clamp(_workingCopy.ColorblindMode, 0, 3);
+                colorblind.AddOptions(new List<string>(ColorblindModeOptions));
+                colorblind.value = _selectedColorblindModeIndex;
             }
+            else SetChoiceValueText(_dropdownColorblind, ColorblindModeOptions, _selectedColorblindModeIndex);
+
+            UpdateAccessibilityValueLabels();
         }
 
         private void ActivateTab(string key)
@@ -419,6 +588,10 @@ namespace Sol.HUD
             LocomotionInputManager.Instance?.Controls?.asset.RemoveAllBindingOverrides();
             _workingCopy = new SettingsData();
             PopulateAllControls();
+            ApplyAudioSettings(_workingCopy);
+            ApplyGraphicsSettings(_workingCopy);
+            ApplyGameplaySettings(_workingCopy);
+            ApplyAccessibilitySettings(_workingCopy);
             ActivateTab("audio");
         }
 
@@ -437,7 +610,9 @@ namespace Sol.HUD
             Slider sensitivity = SliderRef(ref _sliderSensitivity, "Slider_Sensitivity");
             Toggle invertY = ToggleRef(ref _toggleInvertY, "Toggle_InvertY");
             Slider fov = SliderRef(ref _sliderFOV, "Slider_FOV");
+            Slider fovThirdPerson = SliderRef(ref _sliderFOVThirdPerson, "Slider_FOV_ThirdPerson");
             Toggle crosshair = ToggleRef(ref _toggleCrosshair, "Toggle_Crosshair");
+            Slider fishSpawnCount = SliderRef(ref _sliderFishSpawnCount, "Slider_FishSpawnCount");
             Slider uiScale = SliderRef(ref _sliderUIScale, "Slider_UIScale");
             TMP_Dropdown subtitle = DropdownRef(ref _dropdownSubtitleSize, "Dropdown_SubtitleSize");
             TMP_Dropdown colorblind = DropdownRef(ref _dropdownColorblind, "Dropdown_Colorblind");
@@ -454,6 +629,13 @@ namespace Sol.HUD
                 _workingCopy.ResolutionHeight = selected.height;
                 _workingCopy.RefreshRate = selected.refreshRateRatio.value;
             }
+            else if (_filteredResolutions.Count > 0)
+            {
+                Resolution selected = _filteredResolutions[Mathf.Clamp(_selectedResolutionIndex, 0, _filteredResolutions.Count - 1)];
+                _workingCopy.ResolutionWidth = selected.width;
+                _workingCopy.ResolutionHeight = selected.height;
+                _workingCopy.RefreshRate = selected.refreshRateRatio.value;
+            }
 
             if (displayMode != null)
             {
@@ -465,18 +647,37 @@ namespace Sol.HUD
                     _ => (int)FullScreenMode.FullScreenWindow
                 };
             }
+            else
+            {
+                _workingCopy.FullscreenMode = _selectedDisplayModeIndex switch
+                {
+                    0 => (int)FullScreenMode.ExclusiveFullScreen,
+                    1 => (int)FullScreenMode.FullScreenWindow,
+                    2 => (int)FullScreenMode.Windowed,
+                    _ => (int)FullScreenMode.FullScreenWindow
+                };
+            }
 
             if (quality != null) _workingCopy.QualityLevel = quality.value;
+            else _workingCopy.QualityLevel = _selectedQualityIndex;
             if (vSync != null) _workingCopy.VSyncCount = vSync.isOn ? 1 : 0;
+            else _workingCopy.VSyncCount = _selectedVSync ? 1 : 0;
             if (shadows != null) _workingCopy.ShadowQuality = shadows.value;
+            else _workingCopy.ShadowQuality = _selectedShadowIndex;
             if (antiAliasing != null) _workingCopy.AntiAliasing = antiAliasing.value switch { 0 => 0, 1 => 2, 2 => 4, 3 => 8, _ => 2 };
+            else _workingCopy.AntiAliasing = AntiAliasingValues[Mathf.Clamp(_selectedAntiAliasingIndex, 0, AntiAliasingValues.Length - 1)];
             if (sensitivity != null) _workingCopy.MouseSensitivity = sensitivity.value;
             if (invertY != null) _workingCopy.InvertYAxis = invertY.isOn;
-            if (fov != null) _workingCopy.FieldOfView = fov.value;
+            if (fov != null) _workingCopy.FirstPersonFieldOfView = fov.value;
+            if (fovThirdPerson != null) _workingCopy.ThirdPersonFieldOfView = fovThirdPerson.value;
+            if (fov != null) _workingCopy.FieldOfView = _workingCopy.FirstPersonFieldOfView;
             if (crosshair != null) _workingCopy.ShowCrosshair = crosshair.isOn;
+            if (fishSpawnCount != null) _workingCopy.FishSpawnCount = Mathf.RoundToInt(fishSpawnCount.value);
             if (uiScale != null) _workingCopy.UIScale = uiScale.value;
             if (subtitle != null) _workingCopy.SubtitleSize = subtitle.value;
+            else _workingCopy.SubtitleSize = _selectedSubtitleSizeIndex;
             if (colorblind != null) _workingCopy.ColorblindMode = colorblind.value;
+            else _workingCopy.ColorblindMode = _selectedColorblindModeIndex;
         }
 
         private void SaveControlOverrides()
@@ -651,22 +852,294 @@ namespace Sol.HUD
 
         private void WireUiEvents()
         {
-            MenuUiUtility.WireButton(_tabAudio, () => ActivateTab("audio"));
-            MenuUiUtility.WireButton(_tabGraphics, () => ActivateTab("graphics"));
-            MenuUiUtility.WireButton(_tabGameplay, () => ActivateTab("gameplay"));
-            MenuUiUtility.WireButton(_tabControls, () => ActivateTab("controls"));
-            MenuUiUtility.WireButton(_tabAccessibility, () => ActivateTab("accessibility"));
-            MenuUiUtility.WireButton(_applyButton, ApplyCurrentSettings);
-            MenuUiUtility.WireButton(_resetDefaultsButton, ResetDefaults);
-            MenuUiUtility.WireButton(_backButton, () => Close(_returnToPause));
+            WireButton(_tabAudio, () => ActivateTab("audio"));
+            WireButton(_tabGraphics, () => ActivateTab("graphics"));
+            WireButton(_tabGameplay, () => ActivateTab("gameplay"));
+            WireButton(_tabControls, () => ActivateTab("controls"));
+            WireButton(_tabAccessibility, () => ActivateTab("accessibility"));
+            WireButton(_applyButton, ApplyCurrentSettings);
+            WireButton(_resetDefaultsButton, ResetDefaults);
+            WireButton(_backButton, () => Close(_returnToPause));
             WireSlider(SliderRef(ref _sliderMaster, "Slider_Master"), PreviewAudio);
             WireSlider(SliderRef(ref _sliderMusic, "Slider_Music"), PreviewAudio);
             WireSlider(SliderRef(ref _sliderSFX, "Slider_SFX"), PreviewAudio);
             WireSlider(SliderRef(ref _sliderAmbient, "Slider_Ambient"), PreviewAudio);
+            WireDropdown(DropdownRef(ref _dropdownResolution, "Dropdown_Resolution"), OnGraphicsSelectionChanged);
+            WireDropdown(DropdownRef(ref _dropdownDisplayMode, "Dropdown_DisplayMode"), OnGraphicsSelectionChanged);
+            WireDropdown(DropdownRef(ref _dropdownQuality, "Dropdown_Quality"), OnGraphicsSelectionChanged);
+            WireToggle(ToggleRef(ref _toggleVSync, "Toggle_VSync"), OnGraphicsToggleChanged);
+            WireDropdown(DropdownRef(ref _dropdownShadows, "Dropdown_Shadows"), OnGraphicsSelectionChanged);
+            WireDropdown(DropdownRef(ref _dropdownAA, "Dropdown_AA"), OnGraphicsSelectionChanged);
+            WireSlider(SliderRef(ref _sliderSensitivity, "Slider_Sensitivity"), OnGameplaySliderChanged);
+            WireSlider(SliderRef(ref _sliderFOV, "Slider_FOV"), OnGameplaySliderChanged);
+            WireSlider(SliderRef(ref _sliderFOVThirdPerson, "Slider_FOV_ThirdPerson"), OnGameplaySliderChanged);
+            WireSlider(SliderRef(ref _sliderFishSpawnCount, "Slider_FishSpawnCount"), OnGameplaySliderChanged);
+            WireToggle(ToggleRef(ref _toggleInvertY, "Toggle_InvertY"), OnGameplayToggleChanged);
+            WireToggle(ToggleRef(ref _toggleCrosshair, "Toggle_Crosshair"), OnGameplayToggleChanged);
+            WireSlider(SliderRef(ref _sliderUIScale, "Slider_UIScale"), OnAccessibilitySliderChanged);
+            WireDropdown(DropdownRef(ref _dropdownSubtitleSize, "Dropdown_SubtitleSize"), OnAccessibilitySelectionChanged);
+            WireDropdown(DropdownRef(ref _dropdownColorblind, "Dropdown_Colorblind"), OnAccessibilitySelectionChanged);
+            WireGraphicFallbackControls();
+            WireAccessibilityFallbackControls();
         }
         #endregion
 
         #region Utility Helpers
+        private void UpdateAudioValueLabels()
+        {
+            Slider master = SliderRef(ref _sliderMaster, "Slider_Master");
+            Slider music = SliderRef(ref _sliderMusic, "Slider_Music");
+            Slider sfx = SliderRef(ref _sliderSFX, "Slider_SFX");
+            Slider ambient = SliderRef(ref _sliderAmbient, "Slider_Ambient");
+
+            if (master != null) SetChoiceValueText(_sliderMaster, $"{Mathf.RoundToInt(master.value)}%");
+            if (music != null) SetChoiceValueText(_sliderMusic, $"{Mathf.RoundToInt(music.value)}%");
+            if (sfx != null) SetChoiceValueText(_sliderSFX, $"{Mathf.RoundToInt(sfx.value)}%");
+            if (ambient != null) SetChoiceValueText(_sliderAmbient, $"{Mathf.RoundToInt(ambient.value)}%");
+        }
+
+        private void OnGraphicsSelectionChanged(int _) => PreviewNonAudioRuntime();
+        private void OnGraphicsToggleChanged(bool _) => PreviewNonAudioRuntime();
+
+        private void OnGameplaySliderChanged(float _)
+        {
+            UpdateGameplayValueLabels();
+            PreviewNonAudioRuntime();
+        }
+
+        private void OnGameplayToggleChanged(bool _)
+        {
+            UpdateGameplayValueLabels();
+            PreviewNonAudioRuntime();
+        }
+
+        private void OnAccessibilitySliderChanged(float _)
+        {
+            UpdateAccessibilityValueLabels();
+            PreviewNonAudioRuntime();
+        }
+
+        private void OnAccessibilitySelectionChanged(int _)
+        {
+            UpdateAccessibilityValueLabels();
+            PreviewNonAudioRuntime();
+        }
+
+        private void UpdateGameplayValueLabels()
+        {
+            Slider sensitivity = SliderRef(ref _sliderSensitivity, "Slider_Sensitivity");
+            Toggle invertY = ToggleRef(ref _toggleInvertY, "Toggle_InvertY");
+            Slider fov = SliderRef(ref _sliderFOV, "Slider_FOV");
+            Slider fovThirdPerson = SliderRef(ref _sliderFOVThirdPerson, "Slider_FOV_ThirdPerson");
+            Toggle crosshair = ToggleRef(ref _toggleCrosshair, "Toggle_Crosshair");
+            Slider fishSpawnCount = SliderRef(ref _sliderFishSpawnCount, "Slider_FishSpawnCount");
+
+            if (sensitivity != null) SetChoiceValueText(_sliderSensitivity, $"{sensitivity.value:0.00}");
+            if (invertY != null) SetChoiceValueText(_toggleInvertY, invertY.isOn ? "On" : "Off");
+            if (fov != null) SetChoiceValueText(_sliderFOV, $"{Mathf.RoundToInt(fov.value)}");
+            if (fovThirdPerson != null) SetChoiceValueText(_sliderFOVThirdPerson, $"{Mathf.RoundToInt(fovThirdPerson.value)}");
+            if (crosshair != null) SetChoiceValueText(_toggleCrosshair, crosshair.isOn ? "On" : "Off");
+            if (fishSpawnCount != null) SetChoiceValueText(_sliderFishSpawnCount, $"{Mathf.RoundToInt(fishSpawnCount.value)}");
+        }
+
+        private void UpdateAccessibilityValueLabels()
+        {
+            Slider uiScale = SliderRef(ref _sliderUIScale, "Slider_UIScale");
+            TMP_Dropdown subtitle = DropdownRef(ref _dropdownSubtitleSize, "Dropdown_SubtitleSize");
+            TMP_Dropdown colorblind = DropdownRef(ref _dropdownColorblind, "Dropdown_Colorblind");
+
+            if (uiScale != null) SetChoiceValueText(_sliderUIScale, $"{uiScale.value:0.00}x");
+            if (subtitle != null) SetChoiceValueText(_dropdownSubtitleSize, SubtitleSizeOptions, subtitle.value);
+            else SetChoiceValueText(_dropdownSubtitleSize, SubtitleSizeOptions, _selectedSubtitleSizeIndex);
+            if (colorblind != null) SetChoiceValueText(_dropdownColorblind, ColorblindModeOptions, colorblind.value);
+            else SetChoiceValueText(_dropdownColorblind, ColorblindModeOptions, _selectedColorblindModeIndex);
+        }
+
+        private void WireGraphicFallbackControls()
+        {
+            if (DropdownRef(ref _dropdownResolution, "Dropdown_Resolution") == null)
+                WireFallbackChoice(_dropdownResolution, () => CycleResolution(1));
+            if (DropdownRef(ref _dropdownDisplayMode, "Dropdown_DisplayMode") == null)
+                WireFallbackChoice(_dropdownDisplayMode, () => CycleDisplayMode(1));
+            if (DropdownRef(ref _dropdownQuality, "Dropdown_Quality") == null)
+                WireFallbackChoice(_dropdownQuality, () => CycleQuality(1));
+            if (ToggleRef(ref _toggleVSync, "Toggle_VSync") == null)
+                WireFallbackChoice(_toggleVSync, ToggleVSyncFallback);
+            if (DropdownRef(ref _dropdownShadows, "Dropdown_Shadows") == null)
+                WireFallbackChoice(_dropdownShadows, () => CycleShadows(1));
+            if (DropdownRef(ref _dropdownAA, "Dropdown_AA") == null)
+                WireFallbackChoice(_dropdownAA, () => CycleAntiAliasing(1));
+        }
+
+        private void WireAccessibilityFallbackControls()
+        {
+            if (DropdownRef(ref _dropdownSubtitleSize, "Dropdown_SubtitleSize") == null)
+                WireFallbackChoice(_dropdownSubtitleSize, () => CycleSubtitleSize(1));
+            if (DropdownRef(ref _dropdownColorblind, "Dropdown_Colorblind") == null)
+                WireFallbackChoice(_dropdownColorblind, () => CycleColorblindMode(1));
+        }
+
+        private void CycleResolution(int delta)
+        {
+            if (_filteredResolutions.Count == 0) BuildResolutionOptions(out _selectedResolutionIndex);
+            _selectedResolutionIndex = CycleIndex(_selectedResolutionIndex, _filteredResolutions.Count, delta);
+            SetChoiceValueText(_dropdownResolution, BuildResolutionLabels(), _selectedResolutionIndex);
+            PreviewNonAudioRuntime();
+        }
+
+        private void CycleDisplayMode(int delta)
+        {
+            _selectedDisplayModeIndex = CycleIndex(_selectedDisplayModeIndex, DisplayModeOptions.Length, delta);
+            SetChoiceValueText(_dropdownDisplayMode, DisplayModeOptions, _selectedDisplayModeIndex);
+            PreviewNonAudioRuntime();
+        }
+
+        private void CycleQuality(int delta)
+        {
+            string[] qualityOptions = QualitySettings.names != null && QualitySettings.names.Length > 0 ? QualitySettings.names : new[] { "Default" };
+            _selectedQualityIndex = CycleIndex(_selectedQualityIndex, qualityOptions.Length, delta);
+            SetChoiceValueText(_dropdownQuality, qualityOptions, _selectedQualityIndex);
+            PreviewNonAudioRuntime();
+        }
+
+        private void ToggleVSyncFallback()
+        {
+            _selectedVSync = !_selectedVSync;
+            SetChoiceValueText(_toggleVSync, _selectedVSync ? "On" : "Off");
+            PreviewNonAudioRuntime();
+        }
+
+        private void CycleShadows(int delta)
+        {
+            _selectedShadowIndex = CycleIndex(_selectedShadowIndex, ShadowOptions.Length, delta);
+            SetChoiceValueText(_dropdownShadows, ShadowOptions, _selectedShadowIndex);
+            PreviewNonAudioRuntime();
+        }
+
+        private void CycleAntiAliasing(int delta)
+        {
+            _selectedAntiAliasingIndex = CycleIndex(_selectedAntiAliasingIndex, AntiAliasingOptions.Length, delta);
+            SetChoiceValueText(_dropdownAA, AntiAliasingOptions, _selectedAntiAliasingIndex);
+            PreviewNonAudioRuntime();
+        }
+
+        private void CycleSubtitleSize(int delta)
+        {
+            _selectedSubtitleSizeIndex = CycleIndex(_selectedSubtitleSizeIndex, SubtitleSizeOptions.Length, delta);
+            SetChoiceValueText(_dropdownSubtitleSize, SubtitleSizeOptions, _selectedSubtitleSizeIndex);
+            PreviewNonAudioRuntime();
+        }
+
+        private void CycleColorblindMode(int delta)
+        {
+            _selectedColorblindModeIndex = CycleIndex(_selectedColorblindModeIndex, ColorblindModeOptions.Length, delta);
+            SetChoiceValueText(_dropdownColorblind, ColorblindModeOptions, _selectedColorblindModeIndex);
+            PreviewNonAudioRuntime();
+        }
+
+        private void PreviewNonAudioRuntime()
+        {
+            _workingCopy ??= new SettingsData(SettingsPersistence.Current);
+            ReadControlsIntoWorkingCopy();
+            ApplyGraphicsSettings(_workingCopy);
+            ApplyGameplaySettings(_workingCopy);
+            ApplyAccessibilitySettings(_workingCopy);
+        }
+
+        private List<string> BuildResolutionOptions(out int selected)
+        {
+            _filteredResolutions.Clear();
+            _availableResolutions = Screen.resolutions;
+
+            HashSet<string> seen = new();
+            if (_availableResolutions != null)
+            {
+                foreach (Resolution res in _availableResolutions)
+                {
+                    string key = $"{res.width}x{res.height}";
+                    if (res.width > 0 && res.height > 0 && seen.Add(key))
+                        _filteredResolutions.Add(res);
+                }
+            }
+
+            if (_filteredResolutions.Count == 0)
+            {
+                Resolution fallback = Screen.currentResolution;
+                if (fallback.width <= 0 || fallback.height <= 0)
+                {
+                    fallback.width = Mathf.Max(640, _workingCopy != null ? _workingCopy.ResolutionWidth : 1920);
+                    fallback.height = Mathf.Max(360, _workingCopy != null ? _workingCopy.ResolutionHeight : 1080);
+                    fallback.refreshRateRatio = new RefreshRate { numerator = 60, denominator = 1 };
+                }
+                _filteredResolutions.Add(fallback);
+            }
+
+            selected = 0;
+            for (int i = 0; i < _filteredResolutions.Count; i++)
+            {
+                Resolution res = _filteredResolutions[i];
+                if (_workingCopy != null && res.width == _workingCopy.ResolutionWidth && res.height == _workingCopy.ResolutionHeight)
+                    selected = i;
+            }
+
+            return BuildResolutionLabels();
+        }
+
+        private List<string> BuildResolutionLabels()
+        {
+            List<string> options = new();
+            for (int i = 0; i < _filteredResolutions.Count; i++)
+            {
+                Resolution res = _filteredResolutions[i];
+                options.Add($"{res.width} x {res.height}");
+            }
+            return options;
+        }
+
+        private static int CycleIndex(int current, int count, int delta)
+        {
+            if (count <= 0) return 0;
+            int next = (current + delta) % count;
+            return next < 0 ? next + count : next;
+        }
+
+        private static void WireFallbackChoice(UnityEngine.Object reference, UnityEngine.Events.UnityAction action)
+        {
+            GameObject row = GameObjectRef(reference);
+            if (row == null || action == null) return;
+
+            Graphic graphic = row.GetComponent<Graphic>();
+            if (graphic != null) graphic.raycastTarget = true;
+
+            Button button = row.GetComponent<Button>();
+            if (button == null)
+            {
+                Debug.LogWarning($"[SettingsMenuSystem] Setting row '{row.name}' needs a Button component in the prefab.", row);
+                return;
+            }
+
+            button.targetGraphic = graphic;
+            button.transition = Selectable.Transition.ColorTint;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(action);
+        }
+
+        private static void SetChoiceValueText(UnityEngine.Object rowReference, IReadOnlyList<string> options, int selected)
+        {
+            if (options == null || options.Count == 0) return;
+            SetChoiceValueText(rowReference, options[Mathf.Clamp(selected, 0, options.Count - 1)]);
+        }
+
+        private static void SetChoiceValueText(UnityEngine.Object rowReference, string value)
+        {
+            GameObject row = GameObjectRef(rowReference);
+            if (row == null) return;
+
+            TMP_Text valueText = MenuUiUtility.FindTextByNames(row.transform, "Value");
+            if (valueText != null)
+                valueText.text = value;
+        }
+
         private void PreviewAudio(float _)
         {
             _workingCopy ??= new SettingsData(SettingsPersistence.Current);
@@ -678,6 +1151,7 @@ namespace Sol.HUD
             if (music != null) _workingCopy.MusicVolume = music.value;
             if (sfx != null) _workingCopy.SFXVolume = sfx.value;
             if (ambient != null) _workingCopy.AmbientVolume = ambient.value;
+            UpdateAudioValueLabels();
             ApplyAudioSettings(_workingCopy);
         }
 
@@ -691,7 +1165,20 @@ namespace Sol.HUD
 
         private static void ApplyAudioSettings(SettingsData data)
         {
-            if (data != null) AudioListener.volume = Mathf.Clamp01(data.MasterVolume / 100f);
+            if (data == null) return;
+            AudioListener.volume = Mathf.Clamp01(data.MasterVolume / 100f);
+            AudioService.Instance?.ApplySettings(data);
+        }
+
+        private void RestorePersistedRuntimeSettings()
+        {
+            SettingsData data = SettingsPersistence.Current;
+            ApplyAudioSettings(data);
+            ApplyGraphicsSettings(data);
+            ApplyGameplaySettings(data);
+            ApplyAccessibilitySettings(data);
+            ApplyControlOverrides(data);
+            _workingCopy = new SettingsData(data);
         }
 
         private void AutoWire()
@@ -718,6 +1205,20 @@ namespace Sol.HUD
             }
             if (_controlsScrollRect != null && _bindRowParent == null)
                 _bindRowParent = _controlsScrollRect.content;
+
+            SliderRef(ref _sliderSensitivity, "Slider_Sensitivity");
+            ToggleRef(ref _toggleInvertY, "Toggle_InvertY");
+            SliderRef(ref _sliderFOV, "Slider_FOV");
+            SliderRef(ref _sliderFOVThirdPerson, "Slider_FOV_ThirdPerson");
+            ToggleRef(ref _toggleCrosshair, "Toggle_Crosshair");
+            SliderRef(ref _sliderFishSpawnCount, "Slider_FishSpawnCount");
+            SliderRef(ref _sliderUIScale, "Slider_UIScale");
+            DropdownRef(ref _dropdownSubtitleSize, "Dropdown_SubtitleSize");
+            DropdownRef(ref _dropdownColorblind, "Dropdown_Colorblind");
+            SliderRef(ref _sliderMaster, "Slider_Master");
+            SliderRef(ref _sliderMusic, "Slider_Music");
+            SliderRef(ref _sliderSFX, "Slider_SFX");
+            SliderRef(ref _sliderAmbient, "Slider_Ambient");
         }
 
         private static void WireSlider(Slider slider, UnityEngine.Events.UnityAction<float> action)
@@ -725,6 +1226,27 @@ namespace Sol.HUD
             if (slider == null) return;
             slider.onValueChanged.RemoveListener(action);
             slider.onValueChanged.AddListener(action);
+        }
+
+        private static void WireToggle(Toggle toggle, UnityEngine.Events.UnityAction<bool> action)
+        {
+            if (toggle == null) return;
+            toggle.onValueChanged.RemoveListener(action);
+            toggle.onValueChanged.AddListener(action);
+        }
+
+        private static void WireDropdown(TMP_Dropdown dropdown, UnityEngine.Events.UnityAction<int> action)
+        {
+            if (dropdown == null) return;
+            dropdown.onValueChanged.RemoveListener(action);
+            dropdown.onValueChanged.AddListener(action);
+        }
+
+        private static void WireButton(Button button, UnityEngine.Events.UnityAction action)
+        {
+            if (button == null || action == null) return;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(action);
         }
 
         private Slider SliderRef(ref UnityEngine.Object reference, string name) => ComponentRef<Slider>(ref reference, name);
@@ -781,6 +1303,39 @@ namespace Sol.HUD
             return false;
         }
 
+        private static bool TryResolvePlayerLocomotion(out LocomotionController locomotion)
+        {
+            locomotion = null;
+
+            if (TryResolvePlayerRoot(out GameObject playerRoot))
+                locomotion = playerRoot.GetComponent<LocomotionController>();
+
+            if (locomotion == null)
+            {
+                LocomotionController[] controllers = FindObjectsByType<LocomotionController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+                for (int i = 0; i < controllers.Length; i++)
+                {
+                    LocomotionController candidate = controllers[i];
+                    if (candidate != null && candidate.IsPlayerControlled())
+                    {
+                        locomotion = candidate;
+                        break;
+                    }
+                }
+            }
+
+            return locomotion != null;
+        }
+
+        private static void ResolveGameplayFov(SettingsData data, out float firstPersonFov, out float thirdPersonFov)
+        {
+            float legacy = data != null && data.FieldOfView > 1f ? data.FieldOfView : 70f;
+            firstPersonFov = data != null && data.FirstPersonFieldOfView > 1f ? data.FirstPersonFieldOfView : legacy;
+            thirdPersonFov = data != null && data.ThirdPersonFieldOfView > 1f ? data.ThirdPersonFieldOfView : firstPersonFov;
+            firstPersonFov = Mathf.Clamp(firstPersonFov, GameplayFovMin, GameplayFppFovMax);
+            thirdPersonFov = Mathf.Clamp(thirdPersonFov, GameplayFovMin, GameplayTppFovMax);
+        }
+
         private static FullScreenMode NormalizeFullscreenMode(int fullscreenMode)
         {
             return fullscreenMode switch
@@ -816,7 +1371,10 @@ namespace Sol.Settings
         public float MouseSensitivity = 0.15f;
         public bool InvertYAxis;
         public float FieldOfView = 70f;
+        public float FirstPersonFieldOfView = 70f;
+        public float ThirdPersonFieldOfView = 70f;
         public bool ShowCrosshair = true;
+        public int FishSpawnCount = 8;
         public string ControlOverridesJson = string.Empty;
         public float UIScale = 1f;
         public int SubtitleSize = 1;
@@ -842,7 +1400,10 @@ namespace Sol.Settings
             MouseSensitivity = other.MouseSensitivity;
             InvertYAxis = other.InvertYAxis;
             FieldOfView = other.FieldOfView;
+            FirstPersonFieldOfView = other.FirstPersonFieldOfView;
+            ThirdPersonFieldOfView = other.ThirdPersonFieldOfView;
             ShowCrosshair = other.ShowCrosshair;
+            FishSpawnCount = other.FishSpawnCount;
             ControlOverridesJson = other.ControlOverridesJson;
             UIScale = other.UIScale;
             SubtitleSize = other.SubtitleSize;
@@ -890,6 +1451,11 @@ namespace Sol.Settings
                     SettingsData data = JsonUtility.FromJson<SettingsData>(json);
                     if (data != null)
                     {
+                        if (data.FirstPersonFieldOfView <= 1f)
+                            data.FirstPersonFieldOfView = data.FieldOfView > 1f ? data.FieldOfView : 70f;
+                        if (data.ThirdPersonFieldOfView <= 1f)
+                            data.ThirdPersonFieldOfView = data.FirstPersonFieldOfView;
+                        data.FieldOfView = data.FirstPersonFieldOfView;
                         _current = data;
                         return data;
                     }

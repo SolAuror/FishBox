@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1024755778251632975}
   m_Layer: 3
-  m_Name: TacklePoint
+  m_Name: LurePoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -270,6 +270,9 @@ MonoBehaviour:
   _equipBone: l_handSocket
   _equipOffset: {x: 0, y: 0, z: 0}
   _equipRotation: {x: 0, y: 0, z: 0}
+  _equipDomain: 2
+  _weaponHanding: 1
+  _allowedEquipSlots: []
   _pickupGrip: {fileID: 0}
 --- !u!114 &8849054592141372318
 MonoBehaviour:
@@ -283,14 +286,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 394b854ef09aeb3478b1c446f51bf5b0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Fishing.FishingRodItem
-  _tacklePoint: {fileID: 1024755778251632975}
+  _lurePoint: {fileID: 1024755778251632975}
   _lineOrigin: {fileID: 1647655707072209482}
-  _restingTackleVisual: {fileID: 0}
-  _castTacklePrefab: {fileID: 9075445031357625527, guid: 9e2204f85b278a44dbb7eb33424e8caa, type: 3}
+  _restingLureVisual: {fileID: 0}
+  _castLurePrefab: {fileID: 9075445031357625527, guid: 9e2204f85b278a44dbb7eb33424e8caa, type: 3}
   _lineMaterial: {fileID: 2100000, guid: d004b726d3c305543b36f19a9952b809, type: 2}
   _defaultBait: {fileID: 0}
   _loadedBaitItem: {fileID: 0}
-  _loadedTackleItem: {fileID: 3572990517528342952, guid: 72ad4809316ce34419daca094798d08e, type: 3}
+  _loadedLureItem: {fileID: 3572990517528342952, guid: 72ad4809316ce34419daca094798d08e, type: 3}
   _caughtFishLocalEulerAngles: {x: -90, y: 0, z: 0}
   _caughtFishHangPadding: 0.015
   _maxCastDistance: 25
@@ -313,7 +316,7 @@ MonoBehaviour:
   _floatSettleSpeed: 4.5
   _floatTensionStrength: 8
   _baitlessInterestMultiplier: 0.35
-  _tackleInterestRadius: 6
+  _lureInterestRadius: 6
   _lineSegments: 16
   _lineWidth: 0.1
   _lineSlack: 0.2

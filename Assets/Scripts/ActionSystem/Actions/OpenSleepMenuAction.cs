@@ -8,12 +8,12 @@ namespace Sol.Actions
     /// </summary>
     public sealed class OpenSleepMenuAction : InteractionAction
     {
-        private readonly BedSleepInteractable _bed;
+        private readonly SleepInteractable _bed;
         private readonly Interactor _interactor;
 
         public bool Succeeded { get; private set; }
 
-        public OpenSleepMenuAction(BedSleepInteractable bed, Interactor interactor)
+        public OpenSleepMenuAction(SleepInteractable bed, Interactor interactor)
         {
             _bed = bed;
             _interactor = interactor;

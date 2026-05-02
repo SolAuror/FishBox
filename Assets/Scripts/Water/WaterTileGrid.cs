@@ -29,14 +29,14 @@ using UnityEngine;
 ///   1. Create an empty GameObject, add WaterTileGrid.
 ///   2. Assign a Sol/Water material (Ocean type recommended).
 ///   3. Set Tile Size, Grid Radius, and Mode.
-/// 4. Press Play - tiles generate automatically.
+///   4. Press Play - tiles generate automatically.
 ///   5. In the Inspector click "Rebuild Tiles" to refresh without Play.
 ///
 /// TIPS
-/// - Set gridRadius = 1 for a simple 3-3 grid (e.g. a lake).
+/// - Set gridRadius = 1 for a simple 3x3 grid (e.g. a lake).
 /// - Set gridRadius = 8 + followCamera = true for an open ocean.
 /// - Tile Size should match the wave frequency scale in your profile
-///     (larger tiles ? reduce Normal Tiling to keep texel density).
+///     (larger tiles usually need lower Normal Tiling to keep texel density).
 /// - One shared WaterVolume covering the whole grid is enough for
 /// gameplay / buoyancy - no need for per-tile volumes.
 /// ---------------------------------------------------------------------------
@@ -123,16 +123,20 @@ public class WaterTileGrid : MonoBehaviour
     // Pool of inactive tile GameObjects for reuse.
     readonly Queue<GameObject> _tilePool = new();
 
+    // Reused during grid shifts to avoid per-shift GC allocations.
+    readonly HashSet<Vector2Int> _desiredTiles = new();
+    readonly List<Vector2Int> _tilesToRemove = new();
+
     // Parent transform to keep hierarchy clean.
     Transform _tileRoot;
 
     // Cached meshes per resolution to avoid re-generating each frame.
     readonly Dictionary<int, Mesh> _meshCache = new();
 
- // Last snapped centre position - used to detect when the grid needs to shift.
+    // Last snapped centre position - used to detect when the grid needs to shift.
     Vector2Int _lastCentre = new Vector2Int(int.MaxValue, int.MaxValue);
 
- // Managed WaterVolume - created/destroyed by this component.
+    // Managed WaterVolume - created/destroyed by this component.
     WaterVolume _managedVolume;
 
     // --- Unity Messages ---------------------------------------------------
@@ -156,7 +160,7 @@ public class WaterTileGrid : MonoBehaviour
         minTileResolution = Mathf.Min(minTileResolution, tileResolution);
         fullDetailRings    = Mathf.Clamp(fullDetailRings, 1, gridRadius + 1);
 
- // AddComponent is forbidden during OnValidate - defer to next editor tick.
+        // AddComponent is forbidden during OnValidate - defer to next editor tick.
         _rebuildPending = true;
     }
 
@@ -262,8 +266,10 @@ public class WaterTileGrid : MonoBehaviour
 
     void DestroyManagedVolume()
     {
-        if (_managedVolume == null) return;
-        DestroyImmediate(_managedVolume.gameObject);
+        if (_managedVolume == null)
+            return;
+
+        DestroyUnityObject(_managedVolume.gameObject);
         _managedVolume = null;
     }
 
@@ -294,25 +300,25 @@ public class WaterTileGrid : MonoBehaviour
     void RefreshGrid(Vector2Int centre)
     {
         // Build set of cells the grid should occupy.
-        var desired = new HashSet<Vector2Int>();
+        _desiredTiles.Clear();
         for (int dx = -gridRadius; dx <= gridRadius; dx++)
         for (int dz = -gridRadius; dz <= gridRadius; dz++)
-            desired.Add(new Vector2Int(centre.x + dx, centre.y + dz));
+            _desiredTiles.Add(new Vector2Int(centre.x + dx, centre.y + dz));
 
         // Return tiles that are no longer needed to the pool.
-        var toRemove = new List<Vector2Int>();
+        _tilesToRemove.Clear();
         foreach (var kv in _activeTiles)
         {
-            if (!desired.Contains(kv.Key))
+            if (!_desiredTiles.Contains(kv.Key))
             {
                 ReturnToPool(kv.Value);
-                toRemove.Add(kv.Key);
+                _tilesToRemove.Add(kv.Key);
             }
         }
-        foreach (var k in toRemove) _activeTiles.Remove(k);
+        foreach (var k in _tilesToRemove) _activeTiles.Remove(k);
 
         // Spawn tiles for new cells.
-        foreach (var cell in desired)
+        foreach (var cell in _desiredTiles)
         {
             if (_activeTiles.ContainsKey(cell)) continue;
 
@@ -373,7 +379,7 @@ public class WaterTileGrid : MonoBehaviour
         {
             var t = _tilePool.Dequeue();
             if (t != null)
-                DestroyImmediate(t);
+                DestroyUnityObject(t);
         }
     }
 
@@ -426,7 +432,7 @@ public class WaterTileGrid : MonoBehaviour
             int idx = z * vertsPerSide + x;
             float u = (float)x / resolution;
             float v = (float)z / resolution;
- // Centred on origin, scaled to 1-1 - WaterTileGrid positions it via transform.
+            // Centred on origin, scaled to 1x1. WaterTileGrid scales it via transform.
             vertices[idx] = new Vector3(u - 0.5f, 0f, v - 0.5f);
             uvs[idx]      = new Vector2(u, v);
         }
@@ -473,7 +479,7 @@ public class WaterTileGrid : MonoBehaviour
         if (existing != null)
         {
             for (int i = existing.childCount - 1; i >= 0; i--)
-                DestroyImmediate(existing.GetChild(i).gameObject);
+                DestroyUnityObject(existing.GetChild(i).gameObject);
             _tileRoot = existing;
             // Force a full rebuild since we cleared the stale tiles.
             _activeTiles.Clear();
@@ -513,5 +519,16 @@ public class WaterTileGrid : MonoBehaviour
                 pos,
                 new Vector3(tileSize, 0.01f, tileSize));
         }
+    }
+
+    static void DestroyUnityObject(Object obj)
+    {
+        if (obj == null)
+            return;
+
+        if (Application.isPlaying)
+            Destroy(obj);
+        else
+            DestroyImmediate(obj);
     }
 }

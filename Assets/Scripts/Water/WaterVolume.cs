@@ -70,10 +70,10 @@ public class WaterVolume : MonoBehaviour
     {
         foreach (var v in s_Volumes)
         {
-            if (v == null || v._col == null)
+            if (v == null || !v.TryGetWaterCollider(out BoxCollider col))
                 continue;
 
-            Bounds bounds = v._col.bounds;
+            Bounds bounds = col.bounds;
             if (worldPos.x < bounds.min.x || worldPos.x > bounds.max.x ||
                 worldPos.z < bounds.min.z || worldPos.z > bounds.max.z)
                 continue;
@@ -92,10 +92,10 @@ public class WaterVolume : MonoBehaviour
     {
         foreach (var v in s_Volumes)
         {
-            if (v == null || v._col == null)
+            if (v == null || !v.TryGetWaterCollider(out BoxCollider col))
                 continue;
 
-            Bounds bounds = v._col.bounds;
+            Bounds bounds = col.bounds;
             if (worldPos.x < bounds.min.x || worldPos.x > bounds.max.x ||
                 worldPos.z < bounds.min.z || worldPos.z > bounds.max.z)
                 continue;
@@ -113,10 +113,10 @@ public class WaterVolume : MonoBehaviour
         for (int i = 0; i < s_Volumes.Count; i++)
         {
             WaterVolume volume = s_Volumes[i];
-            if (volume == null || volume._col == null)
+            if (volume == null || !volume.TryGetWaterCollider(out BoxCollider col))
                 continue;
 
-            Bounds bounds = volume._col.bounds;
+            Bounds bounds = col.bounds;
             float dx = 0f;
             if (worldPos.x < bounds.min.x)
                 dx = bounds.min.x - worldPos.x;
@@ -139,10 +139,10 @@ public class WaterVolume : MonoBehaviour
 
     void OnEnable()
     {
-        s_Volumes.Add(this);
         _col = GetComponent<BoxCollider>();
+        s_Volumes.Add(this);
 
-        if (!_col.isTrigger)
+        if (_col != null && !_col.isTrigger)
         {
             _col.isTrigger = true;
             Debug.LogWarning($"[WaterVolume] {name}: BoxCollider.isTrigger forced to true.", this);
@@ -214,48 +214,25 @@ public class WaterVolume : MonoBehaviour
     {
         get
         {
+            if (!TryGetWaterCollider(out BoxCollider col))
+                return transform.position.y + surfaceOffset;
+
             Vector3 scale = transform.lossyScale;
             return transform.position.y
-                   + _col.center.y * scale.y
-                   + _col.size.y * 0.5f * scale.y
+                   + col.center.y * scale.y
+                   + col.size.y * 0.5f * scale.y
                    + surfaceOffset;
         }
     }
 
     public float GetSurfaceHeight(Vector3 worldPos)
     {
-        SolWaterManager manager = SolWaterManager.Instance;
-        float time = manager != null ? manager.WaveTime : Time.time;
-        float windStrength = manager != null ? manager.windStrength : 0f;
-        Vector3 windDirection = manager != null ? manager.WindDirectionNormalized : Vector3.right;
-        float globalSpeed = manager != null ? Mathf.Max(manager.globalWaveSpeedMultiplier, 0.001f) : 1f;
-
-        Vector2 windXZ = new Vector2(windDirection.x, windDirection.z);
-        Vector2 dir1 = (wave1Dir + windXZ * windStrength * 0.3f).normalized;
-        Vector2 dir2 = (wave2Dir + windXZ * windStrength * 0.15f).normalized;
-        if (dir1.sqrMagnitude <= 0f) dir1 = Vector2.right;
-        if (dir2.sqrMagnitude <= 0f) dir2 = new Vector2(0.496f, 0.868f);
-
-        float d1 = dir1.x * worldPos.x + dir1.y * worldPos.z;
-        float d2 = dir2.x * worldPos.x + dir2.y * worldPos.z;
-        float phase1 = d1 * waveFrequency + time * waveSpeed * globalSpeed;
-        float phase2 = d2 * waveFrequency * 1.3f + time * waveSpeed * 0.8f * globalSpeed;
-
-        float amp = waveAmplitude * (1f + windStrength * 0.2f);
-        float raw1 = Mathf.Sin(phase1);
-        float raw2 = Mathf.Sin(phase2);
-        float wave1 = Mathf.Sign(raw1) * Mathf.Pow(Mathf.Abs(raw1), 1.5f) * amp;
-        float wave2 = (Mathf.Pow(raw2 * 0.5f + 0.5f, 2f) * 2f - 1f) * amp * wave2Scale;
-
-        float swellPhase = (swellDir.x * worldPos.x + swellDir.y * worldPos.z) + time * swellSpeed;
-        float swell = Mathf.Sin(swellPhase) * swellAmplitude;
-
-        return SurfaceY + wave1 + wave2 + swell;
+        return SolWaterSurfaceSampler.GetSurfaceHeight(this, worldPos);
     }
 
     public bool ContainsPoint(Vector3 worldPos)
     {
-        return _col != null && _col.bounds.Contains(worldPos);
+        return TryGetWaterCollider(out BoxCollider col) && col.bounds.Contains(worldPos);
     }
 
     public bool IsUnderwater(Vector3 worldPos)
@@ -294,6 +271,15 @@ public class WaterVolume : MonoBehaviour
         }
     }
 
+    bool TryGetWaterCollider(out BoxCollider waterCollider)
+    {
+        if (_col == null)
+            _col = GetComponent<BoxCollider>();
+
+        waterCollider = _col;
+        return waterCollider != null;
+    }
+
 #if UNITY_EDITOR
     void OnDrawGizmos()
     {
@@ -316,4 +302,95 @@ public class WaterVolume : MonoBehaviour
         Gizmos.DrawWireCube(centre, size);
     }
 #endif
+}
+
+public static class SolWaterSurfaceSampler
+{
+    static readonly Vector2 DefaultWave2Direction = new(0.496f, 0.868f);
+
+    public static float GetSurfaceHeight(WaterVolume volume, Vector3 worldPos)
+    {
+        if (volume == null)
+            return worldPos.y;
+
+        SolWaterManager manager = SolWaterManager.Instance;
+        float time = manager != null ? manager.WaveTime : Time.time;
+        float windStrength = manager != null ? manager.windStrength : 0f;
+        Vector3 windDirection = manager != null ? manager.WindDirectionNormalized : Vector3.right;
+
+        float waveHeight = GetWaveHeight(
+            worldPos,
+            time,
+            volume.waveAmplitude,
+            volume.waveFrequency,
+            volume.waveSpeed,
+            volume.wave1Dir,
+            volume.wave2Dir,
+            volume.wave2Scale,
+            volume.swellAmplitude,
+            volume.swellSpeed,
+            volume.swellDir,
+            windDirection,
+            windStrength);
+
+        return volume.SurfaceY + waveHeight;
+    }
+
+    public static float GetWaveHeight(
+        Vector3 worldPos,
+        float waveTime,
+        float waveAmplitude,
+        float waveFrequency,
+        float waveSpeed,
+        Vector2 wave1Dir,
+        Vector2 wave2Dir,
+        float wave2Scale,
+        float swellAmplitude,
+        float swellSpeed,
+        Vector2 swellDir,
+        Vector3 windDirection,
+        float windStrength)
+    {
+        Vector2 windXZ = new(windDirection.x, windDirection.z);
+        Vector2 dir1 = NormalizeOrFallback(wave1Dir + windXZ * windStrength * 0.3f, Vector2.right);
+        Vector2 dir2 = NormalizeOrFallback(wave2Dir + windXZ * windStrength * 0.15f, DefaultWave2Direction);
+
+        float d1 = dir1.x * worldPos.x + dir1.y * worldPos.z;
+        float d2 = dir2.x * worldPos.x + dir2.y * worldPos.z;
+        float phase1 = d1 * waveFrequency + waveTime * waveSpeed;
+        float phase2 = d2 * waveFrequency * 1.3f + waveTime * waveSpeed * 0.8f;
+
+        float amp = waveAmplitude * (1f + windStrength * 0.2f);
+        float raw1 = Mathf.Sin(phase1);
+        float raw2 = Mathf.Sin(phase2);
+        float wave1 = Mathf.Sign(raw1) * Mathf.Pow(Mathf.Abs(raw1), 1.5f) * amp;
+        float wave2 = (Mathf.Pow(raw2 * 0.5f + 0.5f, 2f) * 2f - 1f) * amp * wave2Scale;
+
+        float swellPhase = (swellDir.x * worldPos.x + swellDir.y * worldPos.z) + waveTime * swellSpeed;
+        float swell = Mathf.Sin(swellPhase) * swellAmplitude;
+
+        return wave1 + wave2 + swell;
+    }
+
+    public static Vector3 GetSurfaceDriftVelocity(WaterVolume volume)
+    {
+        SolWaterManager manager = SolWaterManager.Instance;
+        if (manager == null)
+            return Vector3.zero;
+
+        Vector3 windDirection = manager.WindDirectionNormalized;
+        windDirection.y = 0f;
+        if (windDirection.sqrMagnitude <= 0.0001f)
+            return Vector3.zero;
+
+        float windStrength = Mathf.Max(0f, manager.windStrength);
+        float waveAmplitude = volume != null ? Mathf.Max(0f, volume.waveAmplitude) : 0.3f;
+        float driftSpeed = (0.015f + windStrength * 0.025f) * Mathf.Lerp(0.6f, 1.4f, Mathf.Clamp01(waveAmplitude));
+        return windDirection.normalized * driftSpeed;
+    }
+
+    static Vector2 NormalizeOrFallback(Vector2 value, Vector2 fallback)
+    {
+        return value.sqrMagnitude > 0.000001f ? value.normalized : fallback.normalized;
+    }
 }

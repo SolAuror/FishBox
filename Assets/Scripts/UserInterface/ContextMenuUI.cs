@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -45,7 +45,7 @@ namespace Sol.HUD
         {
             Take,
             TakeAll,
-            AddToRod,
+            AddLureToRod,
             HookToRod,
             UnhookBait,
             DetachLure,
@@ -317,13 +317,13 @@ namespace Sol.HUD
             bool canDrop = interactor != null
                 && interactor.IsPlayer
                 && ItemActionSystem.CanExecute(ItemActionType.Drop, slot, _activeInventory, interactor);
-            bool canAddToRod = false;
+            bool canAddLureToRod = false;
             bool canHookToRod = false;
             bool canUnhookBait = false;
             bool canDetachLure = false;
             if (interactor?.Owner != null && interactor.Owner.TryGetComponent<FishingState>(out var fishingState))
             {
-                canAddToRod = item.GetComponent<FishingTackleItem>() != null && fishingState.CanLoadTackle(item);
+                canAddLureToRod = item.GetComponent<FishingLureItem>() != null && fishingState.CanLoadLure(item);
                 canHookToRod = fishingState.CanLoadBait(item);
 
                 bool isEquippedRod = item.GetComponent<FishingRodItem>() != null
@@ -333,13 +333,13 @@ namespace Sol.HUD
                 if (isEquippedRod)
                 {
                     canUnhookBait = fishingState.CanDetachBait();
-                    canDetachLure = fishingState.CanDetachTackle();
+                    canDetachLure = fishingState.CanDetachLure();
                 }
             }
             bool isStack = slot.Count > 1;
 
-            if (canAddToRod)
-                entries.Add(new MenuEntry("Add to Rod", ContextMenuAction.AddToRod));
+            if (canAddLureToRod)
+                entries.Add(new MenuEntry("Add Lure to Rod", ContextMenuAction.AddLureToRod));
 
             if (canHookToRod)
                 entries.Add(new MenuEntry("Hook to Rod", ContextMenuAction.HookToRod));
@@ -386,11 +386,11 @@ namespace Sol.HUD
                 case ContextMenuAction.TakeAll:
                     ExecuteLootTransfers(_activeSlot?.Count ?? 0);
                     break;
-                case ContextMenuAction.AddToRod:
+                case ContextMenuAction.AddLureToRod:
                     if (_activeInteractor?.Owner == null || _activeSlot == null || _activeInventory == null)
                         return;
                     if (_activeInteractor.Owner.TryGetComponent<FishingState>(out var fishingState))
-                        fishingState.TryLoadTackle(_activeSlot, _activeInventory);
+                        fishingState.TryLoadLure(_activeSlot, _activeInventory);
                     break;
                 case ContextMenuAction.HookToRod:
                     if (_activeInteractor?.Owner == null || _activeSlot == null || _activeInventory == null)
@@ -408,7 +408,7 @@ namespace Sol.HUD
                     if (_activeInteractor?.Owner == null || _activeInventory == null)
                         return;
                     if (_activeInteractor.Owner.TryGetComponent<FishingState>(out fishingState))
-                        fishingState.TryDetachTackle(_activeInventory);
+                        fishingState.TryDetachLure(_activeInventory);
                     break;
                 case ContextMenuAction.Use:
                     if (_activeInteractor == null) return;

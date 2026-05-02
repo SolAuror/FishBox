@@ -39,6 +39,8 @@ namespace Sol.Quests
     [Serializable]
     public class QuestObjective
     {
+        public const string GoldItemId = "ITM00003";
+
         public QuestObjectiveType Type = QuestObjectiveType.CatchCount;
 
         [Tooltip("Human-readable description shown in the HUD tracker (e.g. 'Catch 5 fish').")]
@@ -75,6 +77,22 @@ namespace Sol.Quests
         [Tooltip("For DeliverItem / TalkToNpc: NPC owner id (OWN#####).")]
         [NpcIdDropdown]
         public string NpcName = string.Empty;
+
+        public bool IsGoldPaymentObjective()
+        {
+            return Type == QuestObjectiveType.DeliverItem && GetRequiredGoldPaymentAmount() > 0;
+        }
+
+        public int GetRequiredGoldPaymentAmount()
+        {
+            if (Type != QuestObjectiveType.DeliverItem)
+                return 0;
+
+            if (GoldAmount > 0)
+                return Mathf.Max(1, GoldAmount);
+
+            return MatchesAnyAcceptableItemId(GoldItemId) ? Mathf.Max(1, Count) : 0;
+        }
 
         public bool HasAnyAcceptableItemId()
         {
@@ -117,4 +135,3 @@ namespace Sol.Quests
         }
     }
 }
-

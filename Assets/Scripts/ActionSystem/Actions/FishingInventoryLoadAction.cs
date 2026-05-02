@@ -1,10 +1,10 @@
-﻿using Sol.Fishing;
+using Sol.Fishing;
 using Sol.Grab;
 
 namespace Sol.Actions
 {
     /// <summary>
-    /// Treat bait and tackle like rod-bound equippables from inventory:
+    /// Treat bait and lure like rod-bound equippables from inventory:
     /// left-click loads them onto the first compatible rod instead of using or dropping them.
     /// </summary>
     public sealed class FishingInventoryLoadAction : ItemAction
@@ -27,7 +27,7 @@ namespace Sol.Actions
             if (item == null)
                 return false;
 
-            return item.GetComponent<FishingTackleItem>() != null || FishingBaitItem.IsSupportedBait(item);
+            return item.GetComponent<FishingLureItem>() != null || FishingBaitItem.IsSupportedBait(item);
         }
 
         public override bool CanExecute()
@@ -81,8 +81,8 @@ namespace Sol.Actions
             if (slot?.Item == null || inventory == null || fishingState == null || fishingState.HasLineOut)
                 return false;
 
-            if (slot.Item.GetComponent<FishingTackleItem>() != null)
-                return fishingState.TryLoadTackle(slot, inventory);
+            if (slot.Item.GetComponent<FishingLureItem>() != null)
+                return fishingState.TryLoadLure(slot, inventory);
 
             if (FishingBaitItem.IsSupportedBait(slot.Item))
                 return fishingState.TryLoadBait(slot, inventory);
@@ -118,11 +118,11 @@ namespace Sol.Actions
             if (rod == null || item == null)
                 return false;
 
-            if (item.GetComponent<FishingTackleItem>() != null)
-                return rod.LoadedBaitItem == null;
+            if (item.GetComponent<FishingLureItem>() != null)
+                return rod.LoadedLureItem == null;
 
             if (FishingBaitItem.IsSupportedBait(item))
-                return rod.LoadedTackleItem != null;
+                return rod.LoadedLureItem != null;
 
             return false;
         }
