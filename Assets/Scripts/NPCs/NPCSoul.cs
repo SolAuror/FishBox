@@ -13,6 +13,41 @@ namespace Sol.AI
     }
 
     /// <summary>
+    /// Authoring template applied via the NPC Database window. Drives default component
+    /// setup and validation hints. Mirrors <see cref="Sol.Grab.ItemAuthoringTemplate"/>.
+    /// </summary>
+    public enum NPCAuthoringTemplate
+    {
+        None = 0,
+        Civilian = 1,
+        Patroller = 2,
+        Trader = 3,
+        QuestGiver = 4
+    }
+
+    /// <summary>
+    /// Section visibility rules for the NPC authoring inspector. Centralizes the
+    /// "Civilians don't need a Trader section" logic so the drawer stays small.
+    /// All NPCs share Identity/Vitals/AI/Inventory; Trader is the template-gated section.
+    /// </summary>
+    public static class NPCTemplateRules
+    {
+        public static bool ShowAISection(NPCAuthoringTemplate template, bool hasComponent) => true;
+
+        public static bool ShowInventorySection(NPCAuthoringTemplate template, bool hasComponent) => true;
+
+        public static bool ShowTraderSection(NPCAuthoringTemplate template, bool hasComponent)
+        {
+            if (hasComponent)
+                return true;
+
+            return template == NPCAuthoringTemplate.None
+                || template == NPCAuthoringTemplate.Trader
+                || template == NPCAuthoringTemplate.QuestGiver;
+        }
+    }
+
+    /// <summary>
     /// Unified runtime stats for actors (player, NPC, enemy).
     /// </summary>
     public class NPCSoul : MonoBehaviour
@@ -64,7 +99,15 @@ namespace Sol.AI
         [SerializeField] private float _maxStamina = 100f;
         [HideInInspector]
         [SerializeField] private bool _soulStatsMigrated;
+
+        [Header("Authoring")]
+        [SerializeField] private NPCAuthoringTemplate _authoringTemplate = NPCAuthoringTemplate.None;
+        [TextArea(2, 6)]
+        [SerializeField] private string _authoringNotes = string.Empty;
         #endregion
+
+        public NPCAuthoringTemplate AuthoringTemplate => _authoringTemplate;
+        public string AuthoringNotes => _authoringNotes;
 
         public float MaxHealth
         {

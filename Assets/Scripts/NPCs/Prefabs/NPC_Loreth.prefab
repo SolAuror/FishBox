@@ -148,7 +148,7 @@ MonoBehaviour:
   _greetingLine: What can I do for you?
   _tradeOptionLabel: Trade
   _goodbyeOptionLabel: Goodbye
-  _speakerIcon: {fileID: 0}
+  _speakerIcon: {fileID: 21300000, guid: 25ff09a0e5b724c47b65aa3602603efc, type: 3}
   _goldLootItemTemplate: {fileID: 0}
   _maxGoldItemizeAttemptsPerOpen: 2000
 --- !u!114 &5059792995562570820
@@ -164,6 +164,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.AI_NPC
   config: {fileID: 11400000, guid: c68c8bbfbee74db438c3a68072420ff1, type: 2}
+  patrolRoot: {fileID: 0}
+  autoUsePatrolRootChildren: 1
+  patrolPoints: []
+  patrolPointNavMeshSnapDistance: 2
+  patrolSplineOverride: {fileID: 0}
   soul: {fileID: 1114985480798751693}
   animator: {fileID: 6426206577485632570}
   fakeCam: {fileID: 0}
@@ -186,26 +191,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.NPCSoul
   _soulType: 0
   _characterName: Loreth
+  _ownerId: OWN00005
+  _healthStat:
+    _current: 100
+    _max: 100
+  _staminaStat:
+    _current: 100
+    _max: 100
   _health: 100
-  MaxHealth: 100
---- !u!114 &2201453678901234569
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 325812429563024634}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: acd6b96f0f2e4ac5a33079a9f68c83b2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.Combat.HitReaction
-  _animator: {fileID: 6426206577485632570}
-  _hitClip: {fileID: 7400000, guid: 1bad9627f8f541c40aaffa59f179343e, type: 2}
-  _fallbackRoot: {fileID: 1138940119935520320}
-  _fallbackDuration: 0.18
-  _fallbackLeanDegrees: 8
-  _fallbackSettleSpeed: 18
+  _maxHealth: 100
+  _stamina: 100
+  _maxStamina: 100
+  _soulStatsMigrated: 1
+  _authoringTemplate: 1
+  _authoringNotes: 
 --- !u!114 &5873582968478298247
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -395,7 +394,9 @@ MonoBehaviour:
   _capacity: 99
   _gold: 1000
   _containerType: 0
-  _inspectorContents: []
+  _inspectorContents:
+  - Item: {fileID: 0}
+    Quantity: 1
   _owner: {fileID: 0}
   _ownerId: 
   _isLocked: 0
@@ -415,6 +416,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed11ff3d19f6cb84593e4e1886fe3de3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Equipment
+  _authoredEquippedItems: []
+  _runtimeEquippedItems: []
 --- !u!82 &3164412454844107210
 AudioSource:
   m_ObjectHideFlags: 0
@@ -529,6 +532,24 @@ MonoBehaviour:
   _sprintVolumeScale: 1.5
   _landingVolumeScale: 2
   _minInterval: 0.15
+--- !u!114 &2201453678901234569
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 325812429563024634}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: acd6b96f0f2e4ac5a33079a9f68c83b2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Combat.HitReaction
+  _animator: {fileID: 6426206577485632570}
+  _hitClip: {fileID: 7400000, guid: 1bad9627f8f541c40aaffa59f179343e, type: 2}
+  _fallbackRoot: {fileID: 1138940119935520320}
+  _fallbackDuration: 0.18
+  _fallbackLeanDegrees: 8
+  _fallbackSettleSpeed: 18
 --- !u!1 &390930411455353718
 GameObject:
   m_ObjectHideFlags: 0

@@ -80,6 +80,7 @@ namespace Sol
         public const string NpcPrefix = "NPC";
         public const string ContainerPrefix = "CNT";
         public const string OwnerPrefix = "OWN";
+        public const string QuestPrefix = "QST";
         public const string DefaultPlayerOwnerId = "PLY00001";
 
         private const int CodeWidth = 5;
@@ -113,7 +114,7 @@ namespace Sol
             if (suffix.Length != CodeWidth || !int.TryParse(suffix, out int parsed))
                 return false;
 
-            if (parsed <= 0 || parsed > MaxCodeValue)
+            if (parsed < 0 || parsed > MaxCodeValue)
                 return false;
 
             numeric = parsed;
@@ -211,6 +212,28 @@ namespace Sol
         public static bool UsesWeaponStats(ItemType itemType) => itemType == ItemType.Weapon;
         public static bool UsesArmorStats(ItemType itemType) => itemType == ItemType.Armor;
         public static bool UsesEquipmentSettings(ItemType itemType) => IsEquipableType(itemType);
+
+        public static bool ShowConsumableFlag(ItemType itemType)
+        {
+            return !IsEquipableType(itemType)
+                && itemType != ItemType.Gold
+                && itemType != ItemType.Key
+                && itemType != ItemType.QuestItem;
+        }
+
+        public static bool ShowStackingFields(ItemType itemType)
+        {
+            return !IsEquipableType(itemType) && itemType != ItemType.Gold;
+        }
+
+        public static bool ShowUseSection(ItemType itemType, bool isConsumable, int existingEffectCount)
+        {
+            return isConsumable
+                || IsConsumableType(itemType)
+                || existingEffectCount > 0;
+        }
+
+        public static bool ShowEquipmentSection(ItemType itemType) => IsEquipableType(itemType);
 
         public static bool SupportsAction(ItemType itemType, bool isConsumable, ItemActionType actionType)
         {

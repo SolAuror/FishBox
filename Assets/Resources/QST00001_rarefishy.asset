@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0a367c0916aab854abc505c86c35732f, type: 3}
   m_Name: QST00001_rarefishy
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Quests.QuestDefinition
-  _questId: 
+  _questId: QST00001
   _title: A Rare fishy opportunity...
   _summary: Elvion wants a Rare fish, catch one for him...
   _giverNpcName: OWN00002
@@ -20,7 +20,8 @@ MonoBehaviour:
   - Type: 2
     DisplayText: Catch a Rare fish...
     Count: 1
-    ItemId: ITM10000
+    _legacySingleItemId: ITM10000
+    AcceptableItemIds: []
     ItemTag: 
     MatchSlot: 0
     Slot: 0
@@ -31,7 +32,8 @@ MonoBehaviour:
   - Type: 5
     DisplayText: Give the fish to Elvion...
     Count: 1
-    ItemId: ITM10000
+    _legacySingleItemId: ITM10000
+    AcceptableItemIds: []
     ItemTag: 
     MatchSlot: 0
     Slot: 0
@@ -53,3 +55,5 @@ MonoBehaviour:
   _repeatMode: 2
   _repeatAfterRealtimeSeconds: 0
   _repeatAfterInGameDays: 1
+  _authoringTemplate: 0
+  _authoringNotes: 

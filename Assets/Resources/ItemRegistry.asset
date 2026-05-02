@@ -13,10 +13,14 @@ MonoBehaviour:
   m_Name: ItemRegistry
   m_EditorClassIdentifier: Assembly-CSharp::Sol.ItemRegistry
   _entries:
+  - ItemId: ITM00001
+    Prefab: {fileID: 3792592766116284919, guid: f6007f08b0285444a81d1d05fd7f7c46, type: 3}
   - ItemId: ITM00005
     Prefab: {fileID: 437761895070354558, guid: 3df4c3c8e075ec54787b341d1046224c, type: 3}
   - ItemId: ITM10000
     Prefab: {fileID: 5327769213971343067, guid: 14599342bd47179479c8db4e19da5c73, type: 3}
+  - ItemId: ITM00031
+    Prefab: {fileID: 1262569981265340156, guid: 8ddd72c6ca73b7c48916e955f1cd83ad, type: 3}
   - ItemId: ITM00030
     Prefab: {fileID: 1181342812492980928, guid: cd1720ef9b3117f439a313b83d79c458, type: 3}
   - ItemId: ITM00018
@@ -29,8 +33,6 @@ MonoBehaviour:
     Prefab: {fileID: 1626935943008335794, guid: a27619cb9e03c9442b8c808f1837e823, type: 3}
   - ItemId: ITM00012
     Prefab: {fileID: 437761895070354558, guid: 4ebffe2a18b4c4b48a06144cd18adc57, type: 3}
-  - ItemId: ITM00031
-    Prefab: {fileID: 1262569981265340156, guid: 8ddd72c6ca73b7c48916e955f1cd83ad, type: 3}
   - ItemId: ITM00002
     Prefab: {fileID: 1312666679401494266, guid: 2c88d2e6f4ef79641b9411c18f411d9b, type: 3}
   - ItemId: ITM00019

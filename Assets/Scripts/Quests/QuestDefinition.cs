@@ -12,6 +12,19 @@ namespace Sol.Quests
     }
 
     /// <summary>
+    /// Authoring template applied via the Quest Database window. Drives default objective
+    /// setup and validation hints. Mirrors <see cref="Sol.Grab.ItemAuthoringTemplate"/>.
+    /// </summary>
+    public enum QuestAuthoringTemplate
+    {
+        None = 0,
+        FishCatch = 1,
+        Delivery = 2,
+        TalkTo = 3,
+        Collect = 4,
+    }
+
+    /// <summary>
     /// Authored quest definition. Runtime state lives in <see cref="QuestSaveData"/> owned by the QuestManager.
     /// </summary>
     [CreateAssetMenu(fileName = "QST00000_Quest", menuName = "Sol/Quests/Quest Definition")]
@@ -61,6 +74,10 @@ namespace Sol.Quests
         [Tooltip("Used when Repeat Mode is AfterInGameDays.")]
         [Min(0)]
         [SerializeField] private int _repeatAfterInGameDays = 0;
+
+        [SerializeField] private QuestAuthoringTemplate _authoringTemplate = QuestAuthoringTemplate.None;
+        [TextArea(2, 6)]
+        [SerializeField] private string _authoringNotes = string.Empty;
         #endregion
 
         public string QuestId => _questId;
@@ -78,5 +95,7 @@ namespace Sol.Quests
         public float RepeatAfterRealtimeSeconds => _repeatAfterRealtimeSeconds;
         public int RepeatAfterInGameDays => _repeatAfterInGameDays;
         public bool IsTimed => _timeLimitSeconds > 0f;
+        public QuestAuthoringTemplate AuthoringTemplate => _authoringTemplate;
+        public string AuthoringNotes => _authoringNotes;
     }
 }

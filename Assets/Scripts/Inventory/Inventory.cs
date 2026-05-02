@@ -11,10 +11,22 @@ namespace Sol
     [Serializable]
     public class InventorySeedEntry
     {
-        [Tooltip("Item prefab/reference to add to this inventory at startup.")]
+        [Tooltip("Item id (registry-backed) added to this inventory at startup.")]
+        [ItemIdDropdown]
+        [SerializeField] private string _itemId = string.Empty;
+
+        [HideInInspector]
+        [Obsolete("Use ItemId / _itemId. Retained for backward compatibility with existing prefabs.")]
         public ItemComponent Item;
+
         [Min(1)]
         public int Quantity = 1;
+
+        public string ItemId
+        {
+            get => _itemId;
+            set => _itemId = value;
+        }
     }
 
     public enum InventoryContainerType

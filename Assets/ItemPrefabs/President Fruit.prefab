@@ -142,12 +142,21 @@ MonoBehaviour:
   _isConsumable: 1
   _isTradeable: 1
   _maxStackSize: 99
+  _useOccasion: 1
+  _useEffects:
+  - _effectType: 0
+    _amount: 5
   _damage: 0
   _defense: 0
   _equipBone: 
   _equipOffset: {x: 0, y: 0, z: 0}
   _equipRotation: {x: 0, y: 0, z: 0}
+  _equipDomain: 0
+  _weaponHanding: 0
+  _allowedEquipSlots: 
   _pickupGrip: {fileID: 0}
+  _authoringTemplate: 0
+  _itemAuthoringNotes: 
 --- !u!114 &8687716146010162166
 MonoBehaviour:
   m_ObjectHideFlags: 0
