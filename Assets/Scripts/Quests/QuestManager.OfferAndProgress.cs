@@ -175,6 +175,46 @@ namespace Sol.Quests
                 if (obj == null || obj.Type != QuestObjectiveType.TalkToNpc)
                     continue;
 
+                // Topic-keyed objectives only advance via NotifyTalkedAboutTopic.
+                if (!string.IsNullOrWhiteSpace(obj.Topic))
+                    continue;
+
+                if (!NpcReferenceMatches(obj.NpcName, npcName))
+                    continue;
+
+                q.CurrentObjectiveProgress = 1;
+                OnQuestUpdated?.Invoke(q);
+                AdvanceIfComplete(q);
+            }
+        }
+
+
+        /// <summary>
+        /// Advance any active TalkToNpc objective whose Topic matches the supplied topic
+        /// (case-insensitive) and whose NpcName matches the speaker. Topic-less objectives
+        /// are NOT advanced by this call -- use <see cref="NotifyTalkedToNpc"/> for those.
+        /// </summary>
+        public void NotifyTalkedAboutTopic(string npcName, string topic)
+        {
+            if (string.IsNullOrWhiteSpace(npcName) || string.IsNullOrWhiteSpace(topic))
+                return;
+
+            for (int i = 0; i < _active.Count; i++)
+            {
+                QuestSaveData q = _active[i];
+                if (q.State != QuestState.Active)
+                    continue;
+
+                QuestObjective obj = CurrentObjective(q);
+                if (obj == null || obj.Type != QuestObjectiveType.TalkToNpc)
+                    continue;
+
+                if (string.IsNullOrWhiteSpace(obj.Topic))
+                    continue;
+
+                if (!string.Equals(obj.Topic.Trim(), topic.Trim(), System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 if (!NpcReferenceMatches(obj.NpcName, npcName))
                     continue;
 

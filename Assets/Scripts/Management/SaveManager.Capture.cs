@@ -238,7 +238,11 @@ namespace Sol.SaveLoad
                     Health = soul != null ? soul.Health : 0f,
                     MaxHealth = soul != null ? soul.MaxHealth : 0f,
                     Stamina = soul != null ? soul.Stamina : 0f,
-                    MaxStamina = soul != null ? soul.MaxStamina : 0f
+                    MaxStamina = soul != null ? soul.MaxStamina : 0f,
+                    HasRuntimeFlags = true,
+                    CanTrade = soul != null && soul.CanTrade,
+                    IsHostile = soul != null && soul.IsHostile,
+                    ConversationFlags = npc.CollectConversationFlags()
                 };
 
                 Inventory npcInventory = npc.Inventory;

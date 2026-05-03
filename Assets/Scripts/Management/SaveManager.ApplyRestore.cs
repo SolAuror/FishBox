@@ -201,7 +201,16 @@ namespace Sol.SaveLoad
                         soul.MaxStamina = saved.MaxStamina;
                         soul.Stamina = saved.Stamina;
                     }
+
+                    if (saved.HasRuntimeFlags)
+                    {
+                        soul.CanTrade = saved.CanTrade;
+                        soul.IsHostile = saved.IsHostile;
+                    }
                 }
+
+                if (saved.HasRuntimeFlags)
+                    npc.ApplyConversationFlags(saved.ConversationFlags);
 
                 Inventory npcInventory = npc.Inventory;
                 if (npcInventory != null)

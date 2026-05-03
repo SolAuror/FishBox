@@ -78,6 +78,10 @@ namespace Sol.Quests
         [NpcIdDropdown]
         public string NpcName = string.Empty;
 
+        [Tooltip("For TalkToNpc: optional topic id. Empty = any conversation with the NPC counts. " +
+                 "When set, only NotifyTalkedAboutTopic events whose topic matches case-insensitively advance this objective.")]
+        public string Topic = string.Empty;
+
         public bool IsGoldPaymentObjective()
         {
             return Type == QuestObjectiveType.DeliverItem && GetRequiredGoldPaymentAmount() > 0;

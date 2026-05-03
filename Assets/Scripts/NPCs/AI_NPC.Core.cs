@@ -191,7 +191,9 @@ namespace Sol.AI
 
         public bool CanChasePlayer()
         {
-            return config != null
+            return soul != null
+                && soul.IsHostile
+                && config != null
                 && config.autoChasePlayer
                 && config.chaseRadius > 0f
                 && TryGetPlayerPosition(out Vector3 playerPosition)

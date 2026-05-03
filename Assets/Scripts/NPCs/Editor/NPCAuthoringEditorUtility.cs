@@ -10,18 +10,18 @@ namespace Sol.Editor
     {
         public const string DefaultNpcFolder = "Assets/Scripts/NPCs/Prefabs";
 
-        public static NPCSoul CreateNPCPrefab(NPCAuthoringTemplate template, string npcName = null)
+        public static NPCSoul CreateNPCPrefab(NPCArchetype archetype, string npcName = null)
         {
             EnsureDefaultFolder();
 
             string resolvedName = string.IsNullOrWhiteSpace(npcName)
-                ? DefaultNameFor(template)
+                ? DefaultNameFor(archetype)
                 : npcName.Trim();
 
             GameObject npcObject = new(resolvedName);
             NPCSoul soul = npcObject.AddComponent<NPCSoul>();
-            EnsureCanonicalComponents(soul, template);
-            ApplyTemplate(soul, template, resolvedName, assignNewId: true);
+            EnsureCanonicalComponents(soul, archetype);
+            ApplyArchetype(soul, archetype, resolvedName, assignNewId: true);
 
             string path = AssetDatabase.GenerateUniqueAssetPath($"{DefaultNpcFolder}/{resolvedName}.prefab");
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(npcObject, path);
@@ -68,13 +68,13 @@ namespace Sol.Editor
             return duplicatedSoul;
         }
 
-        public static void ApplyTemplate(NPCSoul soul, NPCAuthoringTemplate template, string npcName = null, bool assignNewId = false)
+        public static void ApplyArchetype(NPCSoul soul, NPCArchetype archetype, string npcName = null, bool assignNewId = false)
         {
             if (soul == null)
                 return;
 
-            Undo.RecordObject(soul, "Apply NPC Template");
-            EnsureCanonicalComponents(soul, template);
+            Undo.RecordObject(soul, "Apply NPC Archetype");
+            EnsureCanonicalComponents(soul, archetype);
 
             SerializedObject serializedObject = new(soul);
             serializedObject.Update();
@@ -86,26 +86,31 @@ namespace Sol.Editor
             if (ownerId != null && (assignNewId || string.IsNullOrWhiteSpace(ownerId.stringValue)))
                 ownerId.stringValue = NextOwnerId();
 
-            SetEnum(serializedObject, "_authoringTemplate", (int)template);
-            SetEnum(serializedObject, "_soulType", (int)SoulType.NPC);
+            SetEnum(serializedObject, "_npcArchetype", (int)archetype);
+            SetEnum(serializedObject, "_entityType", (int)EntityType.NPC);
+            SetBool(serializedObject, "_isHostile", archetype == NPCArchetype.Bandit);
+            SetBool(serializedObject, "_identityMigratedV2", true);
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(soul);
             PrefabUtility.RecordPrefabInstancePropertyModifications(soul);
         }
 
-        public static void FillMissingTemplateDefaults(NPCSoul soul, NPCAuthoringTemplate template, string npcName = null)
+        public static void FillMissingArchetypeDefaults(NPCSoul soul, NPCArchetype archetype, string npcName = null)
         {
-            if (soul == null || template == NPCAuthoringTemplate.None)
+            if (soul == null || archetype == NPCArchetype.None)
                 return;
 
-            Undo.RecordObject(soul, "Fill NPC Template Defaults");
-            EnsureCanonicalComponents(soul, template);
+            Undo.RecordObject(soul, "Fill NPC Archetype Defaults");
+            EnsureCanonicalComponents(soul, archetype);
 
             SerializedObject serializedObject = new(soul);
             serializedObject.Update();
 
-            SetEnum(serializedObject, "_authoringTemplate", (int)template);
+            SetEnum(serializedObject, "_npcArchetype", (int)archetype);
+            if (archetype == NPCArchetype.Bandit)
+                SetBool(serializedObject, "_isHostile", true);
+            SetBool(serializedObject, "_identityMigratedV2", true);
 
             SerializedProperty ownerId = serializedObject.FindProperty("_ownerId");
             if (ownerId != null && string.IsNullOrWhiteSpace(ownerId.stringValue))
@@ -124,27 +129,31 @@ namespace Sol.Editor
             PrefabUtility.RecordPrefabInstancePropertyModifications(soul);
         }
 
-        public static List<string> BuildTemplateOverwritePreview(NPCAuthoringTemplate template)
+        public static List<string> BuildArchetypeOverwritePreview(NPCArchetype archetype)
         {
             List<string> changes = new();
-            changes.Add("Authoring template marker");
-            changes.Add("Soul type");
+            changes.Add("NPC archetype marker");
+            changes.Add("Entity type");
 
-            switch (template)
+            switch (archetype)
             {
-                case NPCAuthoringTemplate.Civilian:
+                case NPCArchetype.Civilian:
                     changes.Add("Ensure AI_NPC + Inventory components");
                     break;
-                case NPCAuthoringTemplate.Patroller:
+                case NPCArchetype.Guard:
                     changes.Add("Ensure AI_NPC + Inventory components");
                     changes.Add("Auto-patrol root expected");
                     break;
-                case NPCAuthoringTemplate.Trader:
-                    changes.Add("Ensure AI_NPC + Inventory + NpcTrader components");
+                case NPCArchetype.Bandit:
+                    changes.Add("Ensure AI_NPC + Inventory components");
+                    changes.Add("Hostile checkbox enabled");
                     break;
-                case NPCAuthoringTemplate.QuestGiver:
-                    changes.Add("Ensure AI_NPC + Inventory + NpcTrader components");
+                case NPCArchetype.QuestGiver:
+                    changes.Add("Ensure AI_NPC + Inventory components");
                     changes.Add("Quest-giver setup expected");
+                    break;
+                case NPCArchetype.Unique:
+                    changes.Add("Ensure AI_NPC + Inventory components");
                     break;
             }
 
@@ -210,19 +219,20 @@ namespace Sol.Editor
                 AssetDatabase.CreateFolder(parent, leaf);
         }
 
-        private static string DefaultNameFor(NPCAuthoringTemplate template)
+        private static string DefaultNameFor(NPCArchetype archetype)
         {
-            return template switch
+            return archetype switch
             {
-                NPCAuthoringTemplate.Civilian => "NPC_NewCivilian",
-                NPCAuthoringTemplate.Patroller => "NPC_NewPatroller",
-                NPCAuthoringTemplate.Trader => "NPC_NewTrader",
-                NPCAuthoringTemplate.QuestGiver => "NPC_NewQuestGiver",
+                NPCArchetype.Civilian => "NPC_NewCivilian",
+                NPCArchetype.Guard => "NPC_NewGuard",
+                NPCArchetype.Bandit => "NPC_NewBandit",
+                NPCArchetype.QuestGiver => "NPC_NewQuestGiver",
+                NPCArchetype.Unique => "NPC_NewUnique",
                 _ => "NPC_New"
             };
         }
 
-        private static void EnsureCanonicalComponents(NPCSoul soul, NPCAuthoringTemplate template)
+        private static void EnsureCanonicalComponents(NPCSoul soul, NPCArchetype archetype)
         {
             GameObject go = soul.gameObject;
 
@@ -232,12 +242,6 @@ namespace Sol.Editor
 
             if (go.GetComponent<Sol.Inventory>() == null)
                 Undo.AddComponent<Sol.Inventory>(go);
-
-            if (template == NPCAuthoringTemplate.Trader || template == NPCAuthoringTemplate.QuestGiver)
-            {
-                if (go.GetComponent<Sol.NpcTrader>() == null)
-                    Undo.AddComponent<Sol.NpcTrader>(go);
-            }
 
             EditorUtility.SetDirty(go);
         }
@@ -254,6 +258,13 @@ namespace Sol.Editor
             SerializedProperty property = serializedObject.FindProperty(propertyName);
             if (property != null)
                 property.enumValueIndex = value;
+        }
+
+        private static void SetBool(SerializedObject serializedObject, string propertyName, bool value)
+        {
+            SerializedProperty property = serializedObject.FindProperty(propertyName);
+            if (property != null)
+                property.boolValue = value;
         }
     }
 }

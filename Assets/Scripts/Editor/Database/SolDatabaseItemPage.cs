@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Sol.Editor
 {
-    public sealed class ItemDatabaseWindow : EditorWindow
+    internal sealed class SolDatabaseItemPage : SolDatabasePageBase
     {
         internal enum ItemFilter
         {
@@ -24,7 +24,7 @@ namespace Sol.Editor
             Value
         }
 
-        internal sealed class ItemDatabaseRow
+        internal sealed class ItemRow
         {
             public ItemComponent Item;
             public string ItemId;
@@ -42,18 +42,11 @@ namespace Sol.Editor
             public bool MissingIcon;
         }
 
-        private const float LeftPaneWidth = 380f;
-        private const float RowHeight = 58f;
-        private const float RowPadding = 4f;
-        private const float IconSize = 32f;
-
         private readonly List<ItemComponent> _items = new();
-        private readonly List<ItemDatabaseRow> _rows = new();
-        private readonly List<ItemDatabaseRow> _filteredRows = new();
+        private readonly List<ItemRow> _rows = new();
+        private readonly List<ItemRow> _filteredRows = new();
         private readonly Dictionary<ItemComponent, List<ItemAuthoringWarning>> _warningCache = new();
-        private Vector2 _listScroll;
-        private Vector2 _detailScroll;
-        private string _search = string.Empty;
+
         private string _lastFilterSearch = null;
         private ItemFilter _filter = ItemFilter.All;
         private ItemFilter _lastFilter = (ItemFilter)(-1);
@@ -68,49 +61,11 @@ namespace Sol.Editor
         private ItemComponent _selectedItem;
         private SerializedObject _selectedSerializedObject;
 
-        [MenuItem("Window/Sol/Item Database")]
-        public static void Open()
-        {
-            SolDatabaseWindow.Open(SolDatabaseTab.Items);
-        }
+        public override SolDatabaseTab Tab => SolDatabaseTab.Items;
+        public override string DisplayName => "Items";
 
-        public static void SelectByItemId(string itemId)
+        public override void DrawToolbar()
         {
-            if (string.IsNullOrWhiteSpace(itemId))
-                return;
-
-            SolDatabaseWindow.Open(SolDatabaseTab.Items, itemId.Trim());
-        }
-
-        private void SelectItemIdInternal(string itemId)
-        {
-            for (int i = 0; i < _items.Count; i++)
-            {
-                ItemComponent item = _items[i];
-                if (item == null)
-                    continue;
-                if (string.Equals(item.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    SelectItem(item);
-                    return;
-                }
-            }
-        }
-
-        private void OnEnable()
-        {
-            RefreshIndex();
-        }
-
-        private void OnProjectChange()
-        {
-            RefreshIndex();
-            Repaint();
-        }
-
-        private void OnGUI()
-        {
-            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
             if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
                 CreateNewItem();
             _newTemplate = (ItemAuthoringTemplate)EditorGUILayout.EnumPopup(_newTemplate, EditorStyles.toolbarPopup, GUILayout.Width(120f));
@@ -123,169 +78,19 @@ namespace Sol.Editor
                 if (GUILayout.Button("Select", EditorStyles.toolbarButton, GUILayout.Width(54f)))
                     SelectCurrentPrefab();
             }
-            if (GUILayout.Button("Refresh Index", EditorStyles.toolbarButton, GUILayout.Width(94f)))
-                RefreshIndex();
             if (GUILayout.Button("Rebuild Registry", EditorStyles.toolbarButton, GUILayout.Width(108f)))
                 RebuildRegistry();
-            if (GUILayout.Button("Validate All", EditorStyles.toolbarButton, GUILayout.Width(82f)))
-                ValidateAll();
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
+        }
 
+        public override void DrawPage()
+        {
             EditorGUILayout.BeginHorizontal();
             DrawLeftPane();
             DrawRightPane();
             EditorGUILayout.EndHorizontal();
         }
 
-        private void DrawLeftPane()
-        {
-            EditorGUILayout.BeginVertical(GUILayout.Width(LeftPaneWidth));
-
-            EditorGUI.BeginChangeCheck();
-            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-            _search = GUILayout.TextField(_search, GUI.skin.FindStyle("ToolbarSearchTextField"), GUILayout.MinWidth(120f));
-            if (GUILayout.Button(GUIContent.none, GUI.skin.FindStyle("ToolbarSearchCancelButton")))
-            {
-                _search = string.Empty;
-                GUI.FocusControl(null);
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            _filter = (ItemFilter)EditorGUILayout.EnumPopup(_filter);
-            _useTypeFilter = EditorGUILayout.ToggleLeft("Type", _useTypeFilter, GUILayout.Width(48f));
-            using (new EditorGUI.DisabledScope(!_useTypeFilter))
-                _typeFilter = (ItemType)EditorGUILayout.EnumPopup(_typeFilter);
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Sort", GUILayout.Width(32f));
-            _sort = (ItemSort)EditorGUILayout.EnumPopup(_sort);
-            EditorGUILayout.EndHorizontal();
-            if (EditorGUI.EndChangeCheck())
-                _filteredRowsDirty = true;
-
-            RebuildFilteredRowsIfNeeded();
-            DrawVirtualizedRows();
-            EditorGUILayout.EndVertical();
-        }
-
-        private void DrawVirtualizedRows()
-        {
-            float viewportHeight = Mathf.Max(120f, position.height - 78f);
-            _listScroll = EditorGUILayout.BeginScrollView(_listScroll);
-
-            if (_filteredRows.Count == 0)
-            {
-                EditorGUILayout.HelpBox("No items match the current filters.", MessageType.Info);
-                EditorGUILayout.EndScrollView();
-                return;
-            }
-
-            int firstRow = Mathf.Clamp(Mathf.FloorToInt(_listScroll.y / RowHeight), 0, Mathf.Max(0, _filteredRows.Count - 1));
-            int visibleCount = Mathf.CeilToInt(viewportHeight / RowHeight) + 2;
-            int lastRowExclusive = Mathf.Min(_filteredRows.Count, firstRow + visibleCount);
-
-            float topSpace = firstRow * RowHeight;
-            float bottomSpace = (_filteredRows.Count - lastRowExclusive) * RowHeight;
-            if (topSpace > 0f)
-                GUILayout.Space(topSpace);
-
-            for (int i = firstRow; i < lastRowExclusive; i++)
-            {
-                Rect rowRect = EditorGUILayout.GetControlRect(false, RowHeight);
-                DrawItemRow(rowRect, _filteredRows[i]);
-            }
-
-            if (bottomSpace > 0f)
-                GUILayout.Space(bottomSpace);
-
-            EditorGUILayout.EndScrollView();
-        }
-
-        private void DrawItemRow(Rect rowRect, ItemDatabaseRow row)
-        {
-            Event evt = Event.current;
-            bool selected = row.Item == _selectedItem;
-            bool hover = rowRect.Contains(evt.mousePosition);
-            if (selected)
-                EditorGUI.DrawRect(rowRect, new Color(0.22f, 0.44f, 0.68f, 0.28f));
-            else if (hover)
-                EditorGUI.DrawRect(rowRect, new Color(1f, 1f, 1f, 0.06f));
-
-            if (evt.type == EventType.MouseDown && evt.button == 0 && rowRect.Contains(evt.mousePosition))
-            {
-                SelectItem(row.Item);
-                evt.Use();
-            }
-
-            Rect iconRect = new(rowRect.x + RowPadding, rowRect.y + (RowHeight - IconSize) * 0.5f, IconSize, IconSize);
-            if (row.Icon != null)
-                GUI.DrawTexture(iconRect, row.Icon, ScaleMode.ScaleToFit);
-            else
-                EditorGUI.DrawRect(iconRect, new Color(0f, 0f, 0f, 0.18f));
-
-            float textX = iconRect.xMax + RowPadding;
-            Rect titleRect = new(textX, rowRect.y + 5f, rowRect.width - textX - 44f, EditorGUIUtility.singleLineHeight);
-            Rect metaRect = new(textX, titleRect.yMax + 1f, titleRect.width, EditorGUIUtility.singleLineHeight);
-            Rect pathRect = new(textX, metaRect.yMax + 1f, titleRect.width, EditorGUIUtility.singleLineHeight);
-
-            GUI.Label(titleRect, $"{row.ItemName} ({row.ItemId})", EditorStyles.boldLabel);
-            GUI.Label(metaRect, $"{row.TypeName}  Value {row.Value}", EditorStyles.miniLabel);
-            GUI.Label(pathRect, row.PrefabPath, EditorStyles.miniLabel);
-
-            if (row.WarningCount > 0)
-            {
-                Rect warningRect = new(rowRect.xMax - 38f, rowRect.y + 6f, 34f, EditorGUIUtility.singleLineHeight);
-                GUI.Label(warningRect, $"! {row.WarningCount}", EditorStyles.miniBoldLabel);
-            }
-        }
-
-        private void DrawRightPane()
-        {
-            EditorGUILayout.BeginVertical();
-            if (_selectedItem == null)
-            {
-                EditorGUILayout.HelpBox("Select an item prefab from the database list.", MessageType.Info);
-                EditorGUILayout.EndVertical();
-                return;
-            }
-
-            if (_selectedSerializedObject == null || _selectedSerializedObject.targetObject != _selectedItem)
-                _selectedSerializedObject = new SerializedObject(_selectedItem);
-
-            _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll);
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField(_selectedItem.ItemName, EditorStyles.largeLabel);
-            GUILayout.FlexibleSpace();
-            using (new EditorGUI.DisabledScope(_selectedItem.AuthoringTemplate == ItemAuthoringTemplate.None))
-            {
-                if (GUILayout.Button("Fill Missing Defaults", GUILayout.Width(140f)))
-                    FillMissingDefaultsForSelectedItem();
-
-                if (GUILayout.Button("Reapply...", GUILayout.Width(84f)))
-                    ReapplyTemplateForSelectedItem();
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.LabelField(ItemAuthoringEditorUtility.GetPrefabPath(_selectedItem), EditorStyles.miniLabel);
-            EditorGUILayout.Space(4f);
-
-            _selectedSerializedObject.Update();
-            ItemComponentEditorUtility.DrawItemInspector(_selectedSerializedObject, _selectedItem);
-            if (_selectedSerializedObject.ApplyModifiedProperties())
-            {
-                EditorUtility.SetDirty(_selectedItem);
-                ItemRegistry.ScheduleEditorSync();
-                RefreshRow(_selectedItem);
-            }
-
-            EditorGUILayout.EndScrollView();
-            EditorGUILayout.EndVertical();
-        }
-
-        private void RefreshIndex()
+        public override void RefreshIndex()
         {
             _items.Clear();
             _rows.Clear();
@@ -311,7 +116,146 @@ namespace Sol.Editor
                 SelectItem(null);
         }
 
-        private ItemDatabaseRow BuildRow(ItemComponent item)
+        public override bool SelectById(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return false;
+
+            RefreshIndex();
+            for (int i = 0; i < _items.Count; i++)
+            {
+                ItemComponent item = _items[i];
+                if (item == null)
+                    continue;
+                if (string.Equals(item.ItemId, id, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    SelectItem(item);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public override List<SolDatabaseIssue> CollectIssues()
+        {
+            List<SolDatabaseIssue> issues = new();
+            ItemRegistry registry = ItemRegistry.Get();
+            List<ItemAuthoringWarning> registryWarnings = ItemAuthoringValidator.ValidateRegistry(registry);
+            for (int i = 0; i < registryWarnings.Count; i++)
+            {
+                ItemAuthoringWarning warning = registryWarnings[i];
+                issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, string.Empty, "Item Registry", warning.Message, registry));
+            }
+
+            for (int i = 0; i < _items.Count; i++)
+            {
+                ItemComponent item = _items[i];
+                if (item == null)
+                    continue;
+
+                List<ItemAuthoringWarning> warnings = GetWarnings(item);
+                for (int j = 0; j < warnings.Count; j++)
+                {
+                    ItemAuthoringWarning warning = warnings[j];
+                    issues.Add(new SolDatabaseIssue(
+                        MapIssueSeverity(warning.Severity),
+                        Tab,
+                        item.ItemId,
+                        string.IsNullOrWhiteSpace(item.ItemName) ? item.name : item.ItemName,
+                        warning.Message,
+                        item));
+                }
+            }
+
+            return issues;
+        }
+
+        private void DrawLeftPane()
+        {
+            EditorGUILayout.BeginVertical(GUILayout.Width(DefaultLeftPaneWidth));
+
+            DrawSearchField(() => _filteredRowsDirty = true);
+
+            EditorGUI.BeginChangeCheck();
+            EditorGUILayout.BeginHorizontal();
+            _filter = (ItemFilter)EditorGUILayout.EnumPopup(_filter);
+            _useTypeFilter = EditorGUILayout.ToggleLeft("Type", _useTypeFilter, GUILayout.Width(48f));
+            using (new EditorGUI.DisabledScope(!_useTypeFilter))
+                _typeFilter = (ItemType)EditorGUILayout.EnumPopup(_typeFilter);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Sort", GUILayout.Width(32f));
+            _sort = (ItemSort)EditorGUILayout.EnumPopup(_sort);
+            EditorGUILayout.EndHorizontal();
+            if (EditorGUI.EndChangeCheck())
+                _filteredRowsDirty = true;
+
+            RebuildFilteredRowsIfNeeded();
+            DrawVirtualizedRows(_filteredRows.Count, "No items match the current filters.", (rect, index) => DrawItemRow(rect, _filteredRows[index]));
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawItemRow(Rect rowRect, ItemRow row)
+        {
+            DrawRowChrome(rowRect, row.Item == _selectedItem, () => SelectItem(row.Item));
+            DrawIcon(rowRect, row.Icon);
+
+            Rect textRect = TextColumnRect(rowRect);
+            Rect titleRect = new(textRect.x, rowRect.y + 5f, textRect.width, EditorGUIUtility.singleLineHeight);
+            Rect metaRect = new(textRect.x, titleRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
+            Rect pathRect = new(textRect.x, metaRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
+
+            GUI.Label(titleRect, $"{row.ItemName} ({row.ItemId})", EditorStyles.boldLabel);
+            GUI.Label(metaRect, $"{row.TypeName}  Value {row.Value}", EditorStyles.miniLabel);
+            GUI.Label(pathRect, row.PrefabPath, EditorStyles.miniLabel);
+            DrawWarningBadge(rowRect, row.WarningCount);
+        }
+
+        private void DrawRightPane()
+        {
+            EditorGUILayout.BeginVertical();
+            if (_selectedItem == null)
+            {
+                EditorGUILayout.HelpBox("Select an item prefab from the database list.", MessageType.Info);
+                EditorGUILayout.EndVertical();
+                return;
+            }
+
+            if (_selectedSerializedObject == null || _selectedSerializedObject.targetObject != _selectedItem)
+                _selectedSerializedObject = new SerializedObject(_selectedItem);
+
+            DetailScroll = EditorGUILayout.BeginScrollView(DetailScroll);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(_selectedItem.ItemName, EditorStyles.largeLabel);
+            GUILayout.FlexibleSpace();
+            using (new EditorGUI.DisabledScope(_selectedItem.AuthoringTemplate == ItemAuthoringTemplate.None))
+            {
+                if (GUILayout.Button("Fill Missing Defaults", GUILayout.Width(140f)))
+                    FillMissingDefaultsForSelectedItem();
+                if (GUILayout.Button("Reapply...", GUILayout.Width(84f)))
+                    ReapplyTemplateForSelectedItem();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.LabelField(ItemAuthoringEditorUtility.GetPrefabPath(_selectedItem), EditorStyles.miniLabel);
+            EditorGUILayout.Space(4f);
+
+            _selectedSerializedObject.Update();
+            ItemComponentEditorUtility.DrawItemInspector(_selectedSerializedObject, _selectedItem);
+            if (_selectedSerializedObject.ApplyModifiedProperties())
+            {
+                EditorUtility.SetDirty(_selectedItem);
+                ItemRegistry.ScheduleEditorSync();
+                RefreshRow(_selectedItem);
+            }
+
+            EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
+        }
+
+        private ItemRow BuildRow(ItemComponent item)
         {
             string path = ItemAuthoringEditorUtility.GetPrefabPath(item);
             List<ItemAuthoringWarning> warnings = GetWarnings(item);
@@ -322,7 +266,7 @@ namespace Sol.Editor
             string itemId = string.IsNullOrWhiteSpace(item.ItemId) ? "<missing>" : item.ItemId.Trim();
             string typeName = item.TypeDisplayName;
 
-            return new ItemDatabaseRow
+            return new ItemRow
             {
                 Item = item,
                 ItemId = itemId,
@@ -347,7 +291,7 @@ namespace Sol.Editor
                 return;
 
             InvalidateWarningCache(item);
-            ItemDatabaseRow row = BuildRow(item);
+            ItemRow row = BuildRow(item);
             for (int i = 0; i < _rows.Count; i++)
             {
                 if (_rows[i].Item != item)
@@ -363,12 +307,7 @@ namespace Sol.Editor
             _filteredRowsDirty = true;
         }
 
-        internal static bool RowMatchesFilters(
-            ItemDatabaseRow row,
-            string search,
-            ItemFilter filter,
-            bool useTypeFilter,
-            ItemType typeFilter)
+        internal static bool RowMatchesFilters(ItemRow row, string search, ItemFilter filter, bool useTypeFilter, ItemType typeFilter)
         {
             if (row == null || row.Item == null)
                 return false;
@@ -397,7 +336,7 @@ namespace Sol.Editor
         private void RebuildFilteredRowsIfNeeded()
         {
             if (!_filteredRowsDirty
-                && string.Equals(_lastFilterSearch, _search, System.StringComparison.Ordinal)
+                && string.Equals(_lastFilterSearch, Search, System.StringComparison.Ordinal)
                 && _lastFilter == _filter
                 && _lastUseTypeFilter == _useTypeFilter
                 && _lastTypeFilter == _typeFilter
@@ -409,21 +348,19 @@ namespace Sol.Editor
             _filteredRows.Clear();
             for (int i = 0; i < _rows.Count; i++)
             {
-                ItemDatabaseRow row = _rows[i];
-                if (RowMatchesFilters(row, _search, _filter, _useTypeFilter, _typeFilter))
+                ItemRow row = _rows[i];
+                if (RowMatchesFilters(row, Search, _filter, _useTypeFilter, _typeFilter))
                     _filteredRows.Add(row);
             }
 
             SortFilteredRows(_sort);
 
-            _lastFilterSearch = _search;
+            _lastFilterSearch = Search;
             _lastFilter = _filter;
             _lastUseTypeFilter = _useTypeFilter;
             _lastTypeFilter = _typeFilter;
             _lastSort = _sort;
             _filteredRowsDirty = false;
-            float maxScrollY = Mathf.Max(0f, _filteredRows.Count * RowHeight - Mathf.Max(120f, position.height - 78f));
-            _listScroll.y = Mathf.Min(_listScroll.y, maxScrollY);
         }
 
         private void SortFilteredRows(ItemSort sort)
@@ -449,13 +386,8 @@ namespace Sol.Editor
         private void SelectItem(ItemComponent item)
         {
             _selectedItem = item;
-            RefreshSelectedSerializedObject();
-            Repaint();
-        }
-
-        private void RefreshSelectedSerializedObject()
-        {
             _selectedSerializedObject = _selectedItem != null ? new SerializedObject(_selectedItem) : null;
+            Window?.Repaint();
         }
 
         private void CreateNewItem()
@@ -496,36 +428,6 @@ namespace Sol.Editor
             RefreshIndex();
         }
 
-        private void ValidateAll()
-        {
-            InvalidateWarningCache();
-            int warningCount = 0;
-            ItemRegistry registry = ItemRegistry.Get();
-            List<ItemAuthoringWarning> registryWarnings = ItemAuthoringValidator.ValidateRegistry(registry);
-            for (int i = 0; i < registryWarnings.Count; i++)
-            {
-                Debug.LogWarning($"[Item Database] {registryWarnings[i].Message}");
-                warningCount++;
-            }
-
-            for (int i = 0; i < _items.Count; i++)
-            {
-                ItemComponent item = _items[i];
-                List<ItemAuthoringWarning> warnings = GetWarnings(item);
-                for (int j = 0; j < warnings.Count; j++)
-                {
-                    Debug.LogWarning($"[Item Database] {item.ItemName} ({item.ItemId}): {warnings[j].Message}", item);
-                    warningCount++;
-                }
-            }
-
-            RefreshIndex();
-            string message = warningCount == 0
-                ? "No item authoring warnings found."
-                : $"Found {warningCount} item authoring warning(s). See Console for details.";
-            EditorUtility.DisplayDialog("Validate Item Database", message, "OK");
-        }
-
         private List<ItemAuthoringWarning> GetWarnings(ItemComponent item)
         {
             if (item == null)
@@ -556,12 +458,9 @@ namespace Sol.Editor
             if (_selectedItem == null || _selectedItem.AuthoringTemplate == ItemAuthoringTemplate.None)
                 return;
 
-            ItemAuthoringEditorUtility.FillMissingTemplateDefaults(
-                _selectedItem,
-                _selectedItem.AuthoringTemplate,
-                _selectedItem.ItemName);
+            ItemAuthoringEditorUtility.FillMissingTemplateDefaults(_selectedItem, _selectedItem.AuthoringTemplate, _selectedItem.ItemName);
             RefreshRow(_selectedItem);
-            RefreshSelectedSerializedObject();
+            _selectedSerializedObject = new SerializedObject(_selectedItem);
             ItemRegistry.ScheduleEditorSync();
         }
 
@@ -575,17 +474,13 @@ namespace Sol.Editor
                 + string.Join("\n- ", changes)
                 + "\n\nUse Fill Missing Defaults for the non-destructive path.";
 
-            bool confirmed = EditorUtility.DisplayDialog(
-                "Reapply Item Template",
-                message,
-                "Overwrite Fields",
-                "Cancel");
+            bool confirmed = EditorUtility.DisplayDialog("Reapply Item Template", message, "Overwrite Fields", "Cancel");
             if (!confirmed)
                 return;
 
             ItemAuthoringEditorUtility.ApplyTemplate(_selectedItem, _selectedItem.AuthoringTemplate, _selectedItem.ItemName);
             RefreshRow(_selectedItem);
-            RefreshSelectedSerializedObject();
+            _selectedSerializedObject = new SerializedObject(_selectedItem);
             ItemRegistry.ScheduleEditorSync();
         }
     }

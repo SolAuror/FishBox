@@ -18,7 +18,8 @@ namespace Sol.AI
     [RequireComponent(typeof(LocomotionAnimation))]
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NavMeshAgent))]
-    public partial class AI_NPC : MonoBehaviour, Shared.AI.ILocomotionIntentProvider
+    [RequireComponent(typeof(Sol.Inventory))]
+    public partial class AI_NPC : MonoBehaviour, Shared.AI.ILocomotionIntentProvider, Sol.IInteractable
     {
         /// <summary>True if this NPC is currently in a conversation (suppresses rotation).</summary>
         public bool IsConversing { get; private set; } = false;

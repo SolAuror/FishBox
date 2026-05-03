@@ -119,10 +119,33 @@ namespace Sol.Editor
 
             if (EditorGUI.DropdownButton(buttonRect, new GUIContent(buttonText), FocusType.Keyboard))
             {
+                // Capture target + path; the SerializedProperty itself may be invalidated
+                // (especially for array element rows) before AdvancedDropdown fires its
+                // async ItemSelected callback. Re-resolve against a fresh SerializedObject
+                // each time so the write actually lands on the prefab/asset.
+                UnityEngine.Object target = idProp.serializedObject != null
+                    ? idProp.serializedObject.targetObject
+                    : null;
+                string path = idProp.propertyPath;
+
                 ShowDropdown(buttonRect, kind, allowEmpty, current, selectedId =>
                 {
-                    idProp.stringValue = selectedId ?? string.Empty;
-                    idProp.serializedObject.ApplyModifiedProperties();
+                    if (target == null || string.IsNullOrEmpty(path))
+                        return;
+
+                    SerializedObject freshSO = new SerializedObject(target);
+                    SerializedProperty freshProp = freshSO.FindProperty(path);
+                    if (freshProp == null || freshProp.propertyType != SerializedPropertyType.String)
+                        return;
+
+                    string newValue = selectedId ?? string.Empty;
+                    if (string.Equals(freshProp.stringValue, newValue, StringComparison.Ordinal))
+                        return;
+
+                    Undo.RecordObject(target, "Set Reference Id");
+                    freshProp.stringValue = newValue;
+                    freshSO.ApplyModifiedProperties();
+                    EditorUtility.SetDirty(target);
                 });
             }
 

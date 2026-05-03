@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Sol.Editor
 {
-    public sealed class NPCDatabaseWindow : EditorWindow
+    internal sealed class SolDatabaseNPCPage : SolDatabasePageBase
     {
         internal enum NPCFilter
         {
@@ -26,7 +26,7 @@ namespace Sol.Editor
             EntityType
         }
 
-        internal sealed class NPCDatabaseRow
+        internal sealed class NPCRow
         {
             public NPCSoul Soul;
             public string OwnerId;
@@ -42,18 +42,11 @@ namespace Sol.Editor
             public bool MissingAIConfig;
         }
 
-        private const float LeftPaneWidth = 380f;
-        private const float RowHeight = 58f;
-        private const float RowPadding = 4f;
-        private const float IconSize = 32f;
-
         private readonly List<NPCSoul> _souls = new();
-        private readonly List<NPCDatabaseRow> _rows = new();
-        private readonly List<NPCDatabaseRow> _filteredRows = new();
+        private readonly List<NPCRow> _rows = new();
+        private readonly List<NPCRow> _filteredRows = new();
         private readonly Dictionary<NPCSoul, List<NPCAuthoringWarning>> _warningCache = new();
-        private Vector2 _listScroll;
-        private Vector2 _detailScroll;
-        private string _search = string.Empty;
+
         private string _lastFilterSearch = null;
         private NPCFilter _filter = NPCFilter.All;
         private NPCFilter _lastFilter = (NPCFilter)(-1);
@@ -64,49 +57,11 @@ namespace Sol.Editor
         private NPCSoul _selectedSoul;
         private SerializedObject _selectedSerializedObject;
 
-        [MenuItem("Window/Sol/NPC Database")]
-        public static void Open()
-        {
-            SolDatabaseWindow.Open(SolDatabaseTab.NPCs);
-        }
+        public override SolDatabaseTab Tab => SolDatabaseTab.NPCs;
+        public override string DisplayName => "NPCs";
 
-        public static void SelectByOwnerId(string ownerId)
+        public override void DrawToolbar()
         {
-            if (string.IsNullOrWhiteSpace(ownerId))
-                return;
-
-            SolDatabaseWindow.Open(SolDatabaseTab.NPCs, ownerId.Trim());
-        }
-
-        private void SelectOwnerInternal(string ownerId)
-        {
-            for (int i = 0; i < _souls.Count; i++)
-            {
-                NPCSoul soul = _souls[i];
-                if (soul == null)
-                    continue;
-                if (string.Equals(soul.OwnerId, ownerId, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    SelectSoul(soul);
-                    return;
-                }
-            }
-        }
-
-        private void OnEnable()
-        {
-            RefreshIndex();
-        }
-
-        private void OnProjectChange()
-        {
-            RefreshIndex();
-            Repaint();
-        }
-
-        private void OnGUI()
-        {
-            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
             if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
                 CreateNewNPC();
             _newArchetype = DrawArchetypeToolbarPopup(_newArchetype, GUILayout.Width(120f));
@@ -119,173 +74,19 @@ namespace Sol.Editor
                 if (GUILayout.Button("Select", EditorStyles.toolbarButton, GUILayout.Width(54f)))
                     SelectCurrentPrefab();
             }
-            if (GUILayout.Button("Refresh Index", EditorStyles.toolbarButton, GUILayout.Width(94f)))
-                RefreshIndex();
             if (GUILayout.Button("Rebuild Registry", EditorStyles.toolbarButton, GUILayout.Width(108f)))
                 RebuildRegistry();
-            if (GUILayout.Button("Validate All", EditorStyles.toolbarButton, GUILayout.Width(82f)))
-                ValidateAll();
-            GUILayout.FlexibleSpace();
-            EditorGUILayout.EndHorizontal();
+        }
 
+        public override void DrawPage()
+        {
             EditorGUILayout.BeginHorizontal();
             DrawLeftPane();
             DrawRightPane();
             EditorGUILayout.EndHorizontal();
         }
 
-        private void DrawLeftPane()
-        {
-            EditorGUILayout.BeginVertical(GUILayout.Width(LeftPaneWidth));
-
-            EditorGUI.BeginChangeCheck();
-            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
-            _search = GUILayout.TextField(_search, GUI.skin.FindStyle("ToolbarSearchTextField"), GUILayout.MinWidth(120f));
-            if (GUILayout.Button(GUIContent.none, GUI.skin.FindStyle("ToolbarSearchCancelButton")))
-            {
-                _search = string.Empty;
-                GUI.FocusControl(null);
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            _filter = (NPCFilter)EditorGUILayout.EnumPopup(_filter);
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Sort", GUILayout.Width(32f));
-            _sort = (NPCSort)EditorGUILayout.EnumPopup(_sort);
-            EditorGUILayout.EndHorizontal();
-            if (EditorGUI.EndChangeCheck())
-                _filteredRowsDirty = true;
-
-            RebuildFilteredRowsIfNeeded();
-            DrawVirtualizedRows();
-            EditorGUILayout.EndVertical();
-        }
-
-        private void DrawVirtualizedRows()
-        {
-            float viewportHeight = Mathf.Max(120f, position.height - 78f);
-            _listScroll = EditorGUILayout.BeginScrollView(_listScroll);
-
-            if (_filteredRows.Count == 0)
-            {
-                EditorGUILayout.HelpBox("No NPCs match the current filters.", MessageType.Info);
-                EditorGUILayout.EndScrollView();
-                return;
-            }
-
-            int firstRow = Mathf.Clamp(Mathf.FloorToInt(_listScroll.y / RowHeight), 0, Mathf.Max(0, _filteredRows.Count - 1));
-            int visibleCount = Mathf.CeilToInt(viewportHeight / RowHeight) + 2;
-            int lastRowExclusive = Mathf.Min(_filteredRows.Count, firstRow + visibleCount);
-
-            float topSpace = firstRow * RowHeight;
-            float bottomSpace = (_filteredRows.Count - lastRowExclusive) * RowHeight;
-            if (topSpace > 0f)
-                GUILayout.Space(topSpace);
-
-            for (int i = firstRow; i < lastRowExclusive; i++)
-            {
-                Rect rowRect = EditorGUILayout.GetControlRect(false, RowHeight);
-                DrawNPCRow(rowRect, _filteredRows[i]);
-            }
-
-            if (bottomSpace > 0f)
-                GUILayout.Space(bottomSpace);
-
-            EditorGUILayout.EndScrollView();
-        }
-
-        private void DrawNPCRow(Rect rowRect, NPCDatabaseRow row)
-        {
-            Event evt = Event.current;
-            bool selected = row.Soul == _selectedSoul;
-            bool hover = rowRect.Contains(evt.mousePosition);
-            if (selected)
-                EditorGUI.DrawRect(rowRect, new Color(0.22f, 0.44f, 0.68f, 0.28f));
-            else if (hover)
-                EditorGUI.DrawRect(rowRect, new Color(1f, 1f, 1f, 0.06f));
-
-            if (evt.type == EventType.MouseDown && evt.button == 0 && rowRect.Contains(evt.mousePosition))
-            {
-                SelectSoul(row.Soul);
-                evt.Use();
-            }
-
-            Rect iconRect = new(rowRect.x + RowPadding, rowRect.y + (RowHeight - IconSize) * 0.5f, IconSize, IconSize);
-            if (row.Icon != null)
-                GUI.DrawTexture(iconRect, row.Icon, ScaleMode.ScaleToFit);
-            else
-                EditorGUI.DrawRect(iconRect, new Color(0f, 0f, 0f, 0.18f));
-
-            float textX = iconRect.xMax + RowPadding;
-            Rect titleRect = new(textX, rowRect.y + 5f, rowRect.width - textX - 44f, EditorGUIUtility.singleLineHeight);
-            Rect metaRect = new(textX, titleRect.yMax + 1f, titleRect.width, EditorGUIUtility.singleLineHeight);
-            Rect pathRect = new(textX, metaRect.yMax + 1f, titleRect.width, EditorGUIUtility.singleLineHeight);
-
-            string displayName = string.IsNullOrWhiteSpace(row.CharacterName) ? "<unnamed>" : row.CharacterName;
-            GUI.Label(titleRect, $"{displayName} ({row.OwnerId})", EditorStyles.boldLabel);
-            string traderTag = row.HasTrader ? "  Trader" : string.Empty;
-            string hostileTag = row.IsHostile ? "  Hostile" : string.Empty;
-            string archetypeTag = row.Archetype != NPCArchetype.None ? $"  [{FormatArchetype(row.Archetype)}]" : string.Empty;
-            GUI.Label(metaRect, $"{row.EntityKind}{traderTag}{hostileTag}{archetypeTag}", EditorStyles.miniLabel);
-            GUI.Label(pathRect, row.PrefabPath, EditorStyles.miniLabel);
-
-            if (row.WarningCount > 0)
-            {
-                Rect warningRect = new(rowRect.xMax - 38f, rowRect.y + 6f, 34f, EditorGUIUtility.singleLineHeight);
-                GUI.Label(warningRect, $"! {row.WarningCount}", EditorStyles.miniBoldLabel);
-            }
-        }
-
-        private void DrawRightPane()
-        {
-            EditorGUILayout.BeginVertical();
-            if (_selectedSoul == null)
-            {
-                EditorGUILayout.HelpBox("Select an NPC prefab from the database list.", MessageType.Info);
-                EditorGUILayout.EndVertical();
-                return;
-            }
-
-            if (_selectedSerializedObject == null || _selectedSerializedObject.targetObject != _selectedSoul)
-                _selectedSerializedObject = new SerializedObject(_selectedSoul);
-
-            _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll);
-            EditorGUILayout.BeginHorizontal();
-            string headerName = string.IsNullOrWhiteSpace(_selectedSoul.CharacterName)
-                ? _selectedSoul.gameObject.name
-                : _selectedSoul.CharacterName;
-            EditorGUILayout.LabelField(headerName, EditorStyles.largeLabel);
-            GUILayout.FlexibleSpace();
-            using (new EditorGUI.DisabledScope(_selectedSoul.Archetype == NPCArchetype.None))
-            {
-                if (GUILayout.Button("Fill Missing Defaults", GUILayout.Width(140f)))
-                    FillMissingDefaultsForSelected();
-
-                if (GUILayout.Button("Reapply...", GUILayout.Width(84f)))
-                    ReapplyArchetypeForSelected();
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.LabelField(NPCAuthoringEditorUtility.GetPrefabPath(_selectedSoul), EditorStyles.miniLabel);
-            EditorGUILayout.Space(4f);
-
-            _selectedSerializedObject.Update();
-            NPCAuthoringDrawerUtility.DrawNPCInspector(_selectedSerializedObject, _selectedSoul);
-            if (_selectedSerializedObject.ApplyModifiedProperties())
-            {
-                EditorUtility.SetDirty(_selectedSoul);
-                NPCRegistry.ScheduleEditorSync();
-                RefreshRow(_selectedSoul);
-            }
-
-            EditorGUILayout.EndScrollView();
-            EditorGUILayout.EndVertical();
-        }
-
-        private void RefreshIndex()
+        public override void RefreshIndex()
         {
             _souls.Clear();
             _rows.Clear();
@@ -311,7 +112,148 @@ namespace Sol.Editor
                 SelectSoul(null);
         }
 
-        private NPCDatabaseRow BuildRow(NPCSoul soul)
+        public override bool SelectById(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return false;
+
+            RefreshIndex();
+            for (int i = 0; i < _souls.Count; i++)
+            {
+                NPCSoul soul = _souls[i];
+                if (soul == null)
+                    continue;
+                if (string.Equals(soul.OwnerId, id, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    SelectSoul(soul);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public override List<SolDatabaseIssue> CollectIssues()
+        {
+            List<SolDatabaseIssue> issues = new();
+            NPCRegistry registry = NPCRegistry.Get();
+            List<NPCAuthoringWarning> registryWarnings = NPCAuthoringValidator.ValidateRegistry(registry);
+            for (int i = 0; i < registryWarnings.Count; i++)
+            {
+                NPCAuthoringWarning warning = registryWarnings[i];
+                issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, string.Empty, "NPC Registry", warning.Message, registry));
+            }
+
+            ItemRegistry itemRegistry = ItemRegistry.Get();
+            for (int i = 0; i < _souls.Count; i++)
+            {
+                NPCSoul soul = _souls[i];
+                if (soul == null)
+                    continue;
+
+                string label = string.IsNullOrWhiteSpace(soul.CharacterName) ? soul.gameObject.name : soul.CharacterName;
+                List<NPCAuthoringWarning> warnings = GetWarnings(soul);
+                for (int j = 0; j < warnings.Count; j++)
+                {
+                    NPCAuthoringWarning warning = warnings[j];
+                    issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, soul.OwnerId, label, warning.Message, soul));
+                }
+
+                CollectInventorySeedIssues(soul, label, itemRegistry, issues);
+            }
+
+            return issues;
+        }
+
+        private void DrawLeftPane()
+        {
+            EditorGUILayout.BeginVertical(GUILayout.Width(DefaultLeftPaneWidth));
+
+            DrawSearchField(() => _filteredRowsDirty = true);
+
+            EditorGUI.BeginChangeCheck();
+            EditorGUILayout.BeginHorizontal();
+            _filter = (NPCFilter)EditorGUILayout.EnumPopup(_filter);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Sort", GUILayout.Width(32f));
+            _sort = (NPCSort)EditorGUILayout.EnumPopup(_sort);
+            EditorGUILayout.EndHorizontal();
+            if (EditorGUI.EndChangeCheck())
+                _filteredRowsDirty = true;
+
+            RebuildFilteredRowsIfNeeded();
+            DrawVirtualizedRows(_filteredRows.Count, "No NPCs match the current filters.", (rect, index) => DrawNPCRow(rect, _filteredRows[index]));
+            EditorGUILayout.EndVertical();
+        }
+
+        private void DrawNPCRow(Rect rowRect, NPCRow row)
+        {
+            DrawRowChrome(rowRect, row.Soul == _selectedSoul, () => SelectSoul(row.Soul));
+            DrawIcon(rowRect, row.Icon);
+
+            Rect textRect = TextColumnRect(rowRect);
+            Rect titleRect = new(textRect.x, rowRect.y + 5f, textRect.width, EditorGUIUtility.singleLineHeight);
+            Rect metaRect = new(textRect.x, titleRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
+            Rect pathRect = new(textRect.x, metaRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
+
+            string displayName = string.IsNullOrWhiteSpace(row.CharacterName) ? "<unnamed>" : row.CharacterName;
+            GUI.Label(titleRect, $"{displayName} ({row.OwnerId})", EditorStyles.boldLabel);
+            string traderTag = row.HasTrader ? "  Trader" : string.Empty;
+            string hostileTag = row.IsHostile ? "  Hostile" : string.Empty;
+            string archetypeTag = row.Archetype != NPCArchetype.None ? $"  [{FormatArchetype(row.Archetype)}]" : string.Empty;
+            GUI.Label(metaRect, $"{row.EntityKind}{traderTag}{hostileTag}{archetypeTag}", EditorStyles.miniLabel);
+            GUI.Label(pathRect, row.PrefabPath, EditorStyles.miniLabel);
+            DrawWarningBadge(rowRect, row.WarningCount);
+        }
+
+        private void DrawRightPane()
+        {
+            EditorGUILayout.BeginVertical();
+            if (_selectedSoul == null)
+            {
+                EditorGUILayout.HelpBox("Select an NPC prefab from the database list.", MessageType.Info);
+                EditorGUILayout.EndVertical();
+                return;
+            }
+
+            if (_selectedSerializedObject == null || _selectedSerializedObject.targetObject != _selectedSoul)
+                _selectedSerializedObject = new SerializedObject(_selectedSoul);
+
+            DetailScroll = EditorGUILayout.BeginScrollView(DetailScroll);
+            EditorGUILayout.BeginHorizontal();
+            string headerName = string.IsNullOrWhiteSpace(_selectedSoul.CharacterName)
+                ? _selectedSoul.gameObject.name
+                : _selectedSoul.CharacterName;
+            EditorGUILayout.LabelField(headerName, EditorStyles.largeLabel);
+            GUILayout.FlexibleSpace();
+            using (new EditorGUI.DisabledScope(_selectedSoul.Archetype == NPCArchetype.None))
+            {
+                if (GUILayout.Button("Fill Missing Defaults", GUILayout.Width(140f)))
+                    FillMissingDefaultsForSelected();
+                if (GUILayout.Button("Reapply...", GUILayout.Width(84f)))
+                    ReapplyArchetypeForSelected();
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.LabelField(NPCAuthoringEditorUtility.GetPrefabPath(_selectedSoul), EditorStyles.miniLabel);
+            EditorGUILayout.Space(4f);
+
+            _selectedSerializedObject.Update();
+            NPCAuthoringDrawerUtility.DrawNPCInspector(_selectedSerializedObject, _selectedSoul);
+            if (_selectedSerializedObject.ApplyModifiedProperties())
+            {
+                EditorUtility.SetDirty(_selectedSoul);
+                NPCRegistry.ScheduleEditorSync();
+                RefreshRow(_selectedSoul);
+            }
+
+            EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
+        }
+
+        private NPCRow BuildRow(NPCSoul soul)
         {
             string path = NPCAuthoringEditorUtility.GetPrefabPath(soul);
             List<NPCAuthoringWarning> warnings = GetWarnings(soul);
@@ -323,7 +265,7 @@ namespace Sol.Editor
             string name = string.IsNullOrWhiteSpace(soul.CharacterName) ? soul.gameObject.name : soul.CharacterName.Trim();
             string ownerId = string.IsNullOrWhiteSpace(soul.OwnerId) ? "<missing>" : soul.OwnerId.Trim();
 
-            return new NPCDatabaseRow
+            return new NPCRow
             {
                 Soul = soul,
                 OwnerId = ownerId,
@@ -355,7 +297,7 @@ namespace Sol.Editor
                 return;
 
             InvalidateWarningCache(soul);
-            NPCDatabaseRow row = BuildRow(soul);
+            NPCRow row = BuildRow(soul);
             for (int i = 0; i < _rows.Count; i++)
             {
                 if (_rows[i].Soul != soul)
@@ -371,7 +313,7 @@ namespace Sol.Editor
             _filteredRowsDirty = true;
         }
 
-        internal static bool RowMatchesFilters(NPCDatabaseRow row, string search, NPCFilter filter)
+        internal static bool RowMatchesFilters(NPCRow row, string search, NPCFilter filter)
         {
             if (row == null || row.Soul == null)
                 return false;
@@ -399,7 +341,7 @@ namespace Sol.Editor
         private void RebuildFilteredRowsIfNeeded()
         {
             if (!_filteredRowsDirty
-                && string.Equals(_lastFilterSearch, _search, System.StringComparison.Ordinal)
+                && string.Equals(_lastFilterSearch, Search, System.StringComparison.Ordinal)
                 && _lastFilter == _filter
                 && _lastSort == _sort)
             {
@@ -409,19 +351,16 @@ namespace Sol.Editor
             _filteredRows.Clear();
             for (int i = 0; i < _rows.Count; i++)
             {
-                NPCDatabaseRow row = _rows[i];
-                if (RowMatchesFilters(row, _search, _filter))
+                NPCRow row = _rows[i];
+                if (RowMatchesFilters(row, Search, _filter))
                     _filteredRows.Add(row);
             }
 
             SortFilteredRows(_sort);
-
-            _lastFilterSearch = _search;
+            _lastFilterSearch = Search;
             _lastFilter = _filter;
             _lastSort = _sort;
             _filteredRowsDirty = false;
-            float maxScrollY = Mathf.Max(0f, _filteredRows.Count * RowHeight - Mathf.Max(120f, position.height - 78f));
-            _listScroll.y = Mathf.Min(_listScroll.y, maxScrollY);
         }
 
         private void SortFilteredRows(NPCSort sort)
@@ -447,13 +386,8 @@ namespace Sol.Editor
         private void SelectSoul(NPCSoul soul)
         {
             _selectedSoul = soul;
-            RefreshSelectedSerializedObject();
-            Repaint();
-        }
-
-        private void RefreshSelectedSerializedObject()
-        {
             _selectedSerializedObject = _selectedSoul != null ? new SerializedObject(_selectedSoul) : null;
+            Window?.Repaint();
         }
 
         private static NPCArchetype DrawArchetypeToolbarPopup(NPCArchetype current, params GUILayoutOption[] options)
@@ -526,37 +460,6 @@ namespace Sol.Editor
             RefreshIndex();
         }
 
-        private void ValidateAll()
-        {
-            InvalidateWarningCache();
-            int warningCount = 0;
-            NPCRegistry registry = NPCRegistry.Get();
-            List<NPCAuthoringWarning> registryWarnings = NPCAuthoringValidator.ValidateRegistry(registry);
-            for (int i = 0; i < registryWarnings.Count; i++)
-            {
-                Debug.LogWarning($"[NPC Database] {registryWarnings[i].Message}");
-                warningCount++;
-            }
-
-            for (int i = 0; i < _souls.Count; i++)
-            {
-                NPCSoul soul = _souls[i];
-                List<NPCAuthoringWarning> warnings = GetWarnings(soul);
-                for (int j = 0; j < warnings.Count; j++)
-                {
-                    string label = string.IsNullOrWhiteSpace(soul.CharacterName) ? soul.gameObject.name : soul.CharacterName;
-                    Debug.LogWarning($"[NPC Database] {label} ({soul.OwnerId}): {warnings[j].Message}", soul);
-                    warningCount++;
-                }
-            }
-
-            RefreshIndex();
-            string message = warningCount == 0
-                ? "No NPC authoring warnings found."
-                : $"Found {warningCount} NPC authoring warning(s). See Console for details.";
-            EditorUtility.DisplayDialog("Validate NPC Database", message, "OK");
-        }
-
         private List<NPCAuthoringWarning> GetWarnings(NPCSoul soul)
         {
             if (soul == null)
@@ -587,12 +490,9 @@ namespace Sol.Editor
             if (_selectedSoul == null || _selectedSoul.Archetype == NPCArchetype.None)
                 return;
 
-            NPCAuthoringEditorUtility.FillMissingArchetypeDefaults(
-                _selectedSoul,
-                _selectedSoul.Archetype,
-                _selectedSoul.CharacterName);
+            NPCAuthoringEditorUtility.FillMissingArchetypeDefaults(_selectedSoul, _selectedSoul.Archetype, _selectedSoul.CharacterName);
             RefreshRow(_selectedSoul);
-            RefreshSelectedSerializedObject();
+            _selectedSerializedObject = new SerializedObject(_selectedSoul);
             NPCRegistry.ScheduleEditorSync();
         }
 
@@ -606,18 +506,59 @@ namespace Sol.Editor
                 + string.Join("\n- ", changes)
                 + "\n\nUse Fill Missing Defaults for the non-destructive path.";
 
-            bool confirmed = EditorUtility.DisplayDialog(
-                "Reapply NPC Archetype",
-                message,
-                "Apply",
-                "Cancel");
+            bool confirmed = EditorUtility.DisplayDialog("Reapply NPC Archetype", message, "Apply", "Cancel");
             if (!confirmed)
                 return;
 
             NPCAuthoringEditorUtility.ApplyArchetype(_selectedSoul, _selectedSoul.Archetype, _selectedSoul.CharacterName);
             RefreshRow(_selectedSoul);
-            RefreshSelectedSerializedObject();
+            _selectedSerializedObject = new SerializedObject(_selectedSoul);
             NPCRegistry.ScheduleEditorSync();
+        }
+
+        private void CollectInventorySeedIssues(NPCSoul soul, string label, ItemRegistry itemRegistry, List<SolDatabaseIssue> issues)
+        {
+            Sol.Inventory inventory = soul.GetComponent<Sol.Inventory>();
+            if (inventory == null)
+                return;
+
+            SerializedObject invSO = new(inventory);
+            SerializedProperty contents = invSO.FindProperty("_inspectorContents");
+            if (contents == null)
+                return;
+
+            for (int i = 0; i < contents.arraySize; i++)
+            {
+                SerializedProperty element = contents.GetArrayElementAtIndex(i);
+                SerializedProperty itemIdProp = element.FindPropertyRelative("_itemId");
+                SerializedProperty quantityProp = element.FindPropertyRelative("Quantity");
+                string itemId = itemIdProp?.stringValue;
+
+                if (quantityProp != null && quantityProp.intValue <= 0)
+                {
+                    issues.Add(new SolDatabaseIssue(
+                        SolDatabaseIssueSeverity.Warning,
+                        Tab,
+                        soul.OwnerId,
+                        label,
+                        $"Inventory seed item {i + 1} has non-positive quantity.",
+                        soul));
+                }
+
+                if (string.IsNullOrWhiteSpace(itemId))
+                    continue;
+
+                if (itemRegistry != null && itemRegistry.GetPrefab(itemId) == null)
+                {
+                    issues.Add(new SolDatabaseIssue(
+                        SolDatabaseIssueSeverity.Warning,
+                        Tab,
+                        soul.OwnerId,
+                        label,
+                        $"Inventory seed item '{itemId}' is not in the item registry.",
+                        soul));
+                }
+            }
         }
     }
 }

@@ -21,7 +21,7 @@ public class QuestObjectiveDrawer : PropertyDrawer
     private static readonly string[] CatchByPrefixFields = { nameof(QuestObjective.PrefixRequirements) };
     private static readonly string[] CollectItemFields = { nameof(QuestObjective.AcceptableItemIds), nameof(QuestObjective.Count) };
     private static readonly string[] DeliverItemFields = { nameof(QuestObjective.AcceptableItemIds), nameof(QuestObjective.Count), nameof(QuestObjective.GoldAmount), nameof(QuestObjective.NpcName) };
-    private static readonly string[] TalkToNpcFields = { nameof(QuestObjective.NpcName) };
+    private static readonly string[] TalkToNpcFields = { nameof(QuestObjective.NpcName), nameof(QuestObjective.Topic) };
     private static readonly string[] EquipItemFields = { nameof(QuestObjective.AcceptableItemIds), nameof(QuestObjective.ItemTag), nameof(QuestObjective.MatchSlot) };
 
     public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)

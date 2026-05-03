@@ -40,7 +40,7 @@ namespace Sol.HUD
         public bool IsVisible => gameObject.activeInHierarchy && _panelRoot != null && _panelRoot.gameObject.activeSelf;
 
         private readonly List<Button> _spawnedOptionButtons = new();
-        private Action<int> _onOptionSelected;
+        private Func<int, bool> _onOptionSelected;
         private Action _onClosed;
         private Transform _speakerTransform;
         private Transform _listenerTransform;
@@ -115,7 +115,7 @@ namespace Sol.HUD
             string speakerName,
             string dialogueLine,
             IReadOnlyList<string> options,
-            Action<int> onOptionSelected,
+            Func<int, bool> onOptionSelected,
             Action onClosed = null,
             Sprite speakerIcon = null,
             Transform speakerTransform = null,
@@ -234,8 +234,11 @@ namespace Sol.HUD
 
         private void SelectOption(int optionIndex)
         {
-            Action<int> callback = _onOptionSelected;
-            callback?.Invoke(optionIndex);
+            Func<int, bool> callback = _onOptionSelected;
+            bool shouldClose = callback?.Invoke(optionIndex) ?? true;
+
+            if (shouldClose)
+                Hide();
         }
 
         private void ClearSpawnedOptions()

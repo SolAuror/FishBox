@@ -1957,7 +1957,6 @@ GameObject:
   - component: {fileID: 3484338788260103175}
   - component: {fileID: 8107389295099550566}
   - component: {fileID: 637130161396194400}
-  - component: {fileID: 8647951620702010339}
   - component: {fileID: 1586391552197703178}
   - component: {fileID: 5376140220061540952}
   - component: {fileID: 5083089871566594419}
@@ -2044,28 +2043,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &8647951620702010339
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5795271249710339576}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 88a241b90aa2c9c459c3ca5c32032da4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Sol.NpcTradeInteractable
-  _prompt: Trade
-  _lootPrompt: Loot
-  _useConversationWindow: 1
-  _talkPrompt: Talk
-  _greetingLine: What can I do for you?
-  _tradeOptionLabel: Trade
-  _goodbyeOptionLabel: Goodbye
-  _speakerIcon: {fileID: 21300000, guid: 055c0cc2bc686c94d899f0fa0e9fd7df, type: 3}
-  _goldLootItemTemplate: {fileID: 0}
-  _maxGoldItemizeAttemptsPerOpen: 2000
 --- !u!114 &1586391552197703178
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2078,6 +2055,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd8c6c5c5cd37245a6e151d600b1c53, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.AI_NPC
+  _prompt: Trade
+  _lootPrompt: Loot
+  _talkPrompt: Talk
+  _useConversationWindow: 1
+  _greetingLine: What can I do for you?
+  _tradeOptionLabel: Trade
+  _goodbyeOptionLabel: Goodbye
+  _speakerIcon: {fileID: 21300000, guid: 055c0cc2bc686c94d899f0fa0e9fd7df, type: 3}
+  _dialogueGraph:
+    RootNodeId: root
+    Nodes: []
   config: {fileID: 11400000, guid: c68c8bbfbee74db438c3a68072420ff1, type: 2}
   patrolRoot: {fileID: 0}
   autoUsePatrolRootChildren: 1
@@ -2092,6 +2080,9 @@ MonoBehaviour:
   deathAnimDuration: 2
   deathHoldNormalizedTime: 0.82
   ragdollAfterDeath: 1
+  _goldLootItemId: 
+  _goldLootItemTemplate: {fileID: 0}
+  _maxGoldItemizeAttemptsPerOpen: 2000
 --- !u!114 &5376140220061540952
 MonoBehaviour:
   m_ObjectHideFlags: 0

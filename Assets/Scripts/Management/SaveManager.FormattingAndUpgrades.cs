@@ -90,6 +90,11 @@ namespace Sol.SaveLoad
             data.CaughtFish ??= new List<CaughtFishData>();
             data.WorldItems ??= new List<WorldItemSaveData>();
             data.Quests ??= new List<Sol.Quests.QuestSaveData>();
+            for (int i = 0; i < data.NPCs.Count; i++)
+            {
+                if (data.NPCs[i] != null)
+                    data.NPCs[i].ConversationFlags ??= new List<string>();
+            }
 
             switch (data.SaveVersion)
             {

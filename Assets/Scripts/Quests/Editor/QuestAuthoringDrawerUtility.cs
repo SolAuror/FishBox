@@ -14,6 +14,7 @@ namespace Sol.Editor
         private static readonly Dictionary<int, ReorderableList> _objectiveListCache = new();
         private static readonly Dictionary<int, ReorderableList> _rewardListCache = new();
         private static readonly Dictionary<int, ReorderableList> _prereqListCache = new();
+        private const string FoldoutPrefPrefix = "Sol.QuestEditor.Section.";
 
         public static int FocusedObjectiveIndex { get; private set; } = -1;
 
@@ -64,9 +65,23 @@ namespace Sol.Editor
             FocusedObjectiveIndex = -1;
         }
 
+        // ----- Section: Identity -----
+
         private static void DrawIdentitySection(SerializedObject serializedObject, QuestDefinition quest)
         {
-            DrawHeader("Identity");
+            if (!BeginSection("Identity", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
+            SerializedProperty titleProp = serializedObject.FindProperty("_title");
+            if (titleProp != null)
+            {
+                EditorGUILayout.LabelField("Title", EditorStyles.miniLabel);
+                GUIStyle bigField = new GUIStyle(EditorStyles.textField) { fontSize = 14, fixedHeight = 22f };
+                titleProp.stringValue = EditorGUILayout.TextField(titleProp.stringValue ?? string.Empty, bigField);
+            }
 
             using (new EditorGUI.DisabledScope(true))
                 DrawProperty(serializedObject, "_questId");
@@ -80,7 +95,6 @@ namespace Sol.Editor
             }
             EditorGUILayout.EndHorizontal();
 
-            DrawProperty(serializedObject, "_title");
             DrawProperty(serializedObject, "_summary");
             DrawProperty(serializedObject, "_autoOffer");
             DrawProperty(serializedObject, "_repeatable");
@@ -95,6 +109,8 @@ namespace Sol.Editor
 
             DrawProperty(serializedObject, "_timeLimitSeconds");
             DrawProperty(serializedObject, "_retryAfterSeconds");
+
+            EndSection();
         }
 
         private static void RegenerateQuestId(SerializedObject serializedObject)
@@ -114,12 +130,22 @@ namespace Sol.Editor
             QuestRegistry.ScheduleEditorSync();
         }
 
+        // ----- Section: Giver -----
+
         private static void DrawGiverSection(SerializedObject serializedObject)
         {
-            DrawHeader("Giver");
+            if (!BeginSection("Giver", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
             SerializedProperty giverProp = serializedObject.FindProperty("_giverNpcName");
             if (giverProp == null)
+            {
+                EndSection();
                 return;
+            }
 
             EditorGUILayout.PropertyField(giverProp);
 
@@ -132,14 +158,26 @@ namespace Sol.Editor
                     NPCDatabaseWindow.SelectByOwnerId(giver);
                 EditorGUILayout.EndHorizontal();
             }
+
+            EndSection();
         }
+
+        // ----- Section: Prerequisites -----
 
         private static void DrawPrerequisitesSection(SerializedObject serializedObject, QuestDefinition quest)
         {
-            DrawHeader("Prerequisites");
+            if (!BeginSection("Prerequisites", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
             SerializedProperty prereqProp = serializedObject.FindProperty("_prerequisiteQuestIds");
             if (prereqProp == null)
+            {
+                EndSection();
                 return;
+            }
 
             int key = serializedObject.targetObject != null
                 ? serializedObject.targetObject.GetInstanceID()
@@ -154,6 +192,8 @@ namespace Sol.Editor
 
             if (quest != null && QuestAuthoringValidator.HasPrerequisiteCycle(quest))
                 EditorGUILayout.HelpBox("Prerequisite cycle detected — at least one prereq chain loops back to this quest.", MessageType.Error);
+
+            EndSection();
         }
 
         private static ReorderableList BuildPrerequisitesList(SerializedProperty prereqProp)
@@ -172,7 +212,7 @@ namespace Sol.Editor
             {
                 SerializedProperty element = prereqProp.GetArrayElementAtIndex(index);
                 Rect fieldRect = new(rect.x, rect.y + 2f, rect.width - 32f, EditorGUIUtility.singleLineHeight);
-                EditorGUI.PropertyField(fieldRect, element, GUIContent.none);
+                ReferenceDropdown.DrawQuest(fieldRect, GUIContent.none, element);
 
                 Rect openRect = new(rect.xMax - 28f, rect.y + 2f, 26f, EditorGUIUtility.singleLineHeight);
                 using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(element.stringValue)))
@@ -184,12 +224,22 @@ namespace Sol.Editor
             return list;
         }
 
+        // ----- Section: Objectives -----
+
         private static void DrawObjectivesSection(SerializedObject serializedObject)
         {
-            DrawHeader("Objectives");
+            if (!BeginSection("Objectives", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
             SerializedProperty objectivesProp = serializedObject.FindProperty("_objectives");
             if (objectivesProp == null)
+            {
+                EndSection();
                 return;
+            }
 
             int key = serializedObject.targetObject != null
                 ? serializedObject.targetObject.GetInstanceID()
@@ -207,6 +257,8 @@ namespace Sol.Editor
             }
 
             list.DoLayoutList();
+
+            EndSection();
         }
 
         private static ReorderableList BuildObjectivesList(SerializedProperty objectivesProp)
@@ -244,12 +296,22 @@ namespace Sol.Editor
             return list;
         }
 
+        // ----- Section: Reward -----
+
         private static void DrawRewardSection(SerializedObject serializedObject)
         {
-            DrawHeader("Reward");
+            if (!BeginSection("Reward", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
             SerializedProperty rewardProp = serializedObject.FindProperty("_reward");
             if (rewardProp == null)
+            {
+                EndSection();
                 return;
+            }
 
             SerializedProperty goldProp = rewardProp.FindPropertyRelative("Gold");
             SerializedProperty itemsProp = rewardProp.FindPropertyRelative("Items");
@@ -257,7 +319,10 @@ namespace Sol.Editor
                 EditorGUILayout.PropertyField(goldProp);
 
             if (itemsProp == null)
+            {
+                EndSection();
                 return;
+            }
 
             int key = serializedObject.targetObject != null
                 ? serializedObject.targetObject.GetInstanceID()
@@ -269,6 +334,8 @@ namespace Sol.Editor
             }
 
             list.DoLayoutList();
+
+            EndSection();
         }
 
         private static ReorderableList BuildRewardList(SerializedProperty itemsProp)
@@ -282,7 +349,7 @@ namespace Sol.Editor
                 displayRemoveButton: true);
 
             list.drawHeaderCallback = rect => GUI.Label(rect, "Reward Items");
-            list.elementHeight = EditorGUIUtility.singleLineHeight * 2f + 8f;
+            list.elementHeight = EditorGUIUtility.singleLineHeight + 6f;
             list.drawElementCallback = (rect, index, isActive, isFocused) =>
             {
                 if (index < 0 || index >= itemsProp.arraySize)
@@ -291,38 +358,76 @@ namespace Sol.Editor
                 SerializedProperty itemId = element.FindPropertyRelative("ItemId");
                 SerializedProperty count = element.FindPropertyRelative("Count");
 
-                Rect idRect = new(rect.x, rect.y + 2f, rect.width - 32f, EditorGUIUtility.singleLineHeight);
-                EditorGUI.PropertyField(idRect, itemId);
+                Rect row = new(rect.x, rect.y + 3f, rect.width, EditorGUIUtility.singleLineHeight);
+                float openWidth = 26f;
+                float countWidth = 60f;
+                float gap = 4f;
+                float idWidth = row.width - openWidth - countWidth - gap * 2f;
 
-                Rect openRect = new(rect.xMax - 28f, rect.y + 2f, 26f, EditorGUIUtility.singleLineHeight);
+                Rect idRect = new(row.x, row.y, idWidth, row.height);
+                Rect openRect = new(idRect.xMax + gap, row.y, openWidth, row.height);
+                Rect countRect = new(openRect.xMax + gap, row.y, countWidth, row.height);
+
+                if (itemId != null)
+                    ReferenceDropdown.DrawItem(idRect, GUIContent.none, itemId);
+
                 using (new EditorGUI.DisabledScope(itemId == null || string.IsNullOrWhiteSpace(itemId.stringValue)))
                 {
                     if (GUI.Button(openRect, new GUIContent("→", "Select reward item")))
                         ItemDatabaseWindow.SelectByItemId(itemId.stringValue);
                 }
 
-                Rect countRect = new(rect.x, idRect.yMax + 2f, rect.width, EditorGUIUtility.singleLineHeight);
-                EditorGUI.PropertyField(countRect, count);
+                if (count != null)
+                    EditorGUI.PropertyField(countRect, count, GUIContent.none);
             };
             return list;
         }
 
+        // ----- Section: Authoring -----
+
         private static void DrawAuthoringSection(SerializedObject serializedObject)
         {
-            DrawHeader("Authoring");
+            if (!BeginSection("Authoring", defaultOpen: false))
+            {
+                EndSection();
+                return;
+            }
+
             DrawProperty(serializedObject, "_authoringTemplate");
             DrawProperty(serializedObject, "_authoringNotes");
+
+            EndSection();
         }
 
-        private static void DrawHeader(string label)
+        // ----- Section helpers -----
+
+        private static bool BeginSection(string title, bool defaultOpen)
         {
-            EditorGUILayout.Space(8f);
-            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            EditorGUILayout.Space(6f);
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            string key = FoldoutPrefPrefix + title;
+            bool stored = EditorPrefs.GetBool(key, defaultOpen);
+
+            GUIStyle style = new GUIStyle(EditorStyles.foldout)
+            {
+                fontStyle = FontStyle.Bold
+            };
+            bool open = EditorGUILayout.Foldout(stored, title, true, style);
+            if (open != stored)
+                EditorPrefs.SetBool(key, open);
+
+            return open;
         }
 
-        private static void DrawProperty(SerializedObject serializedObject, string propertyName, bool includeChildren = false)
+        private static void EndSection()
         {
-            SerializedProperty property = serializedObject.FindProperty(propertyName);
+            EditorGUILayout.EndVertical();
+        }
+
+        private static void DrawProperty(SerializedObject serializedObject, string propertyName, bool includeChildren = true)
+        {
+            SerializedProperty property = serializedObject?.FindProperty(propertyName);
             if (property != null)
                 EditorGUILayout.PropertyField(property, includeChildren);
         }

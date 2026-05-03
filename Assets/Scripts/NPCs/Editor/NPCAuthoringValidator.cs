@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Sol.AI;
+using Sol.Quests;
 using UnityEngine;
 
 namespace Sol.Editor
@@ -56,19 +57,18 @@ namespace Sol.Editor
             if (go.GetComponent<Sol.Inventory>() == null)
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "No Inventory component — trade and corpse loot will not work."));
 
-            NpcTrader trader = go.GetComponent<NpcTrader>();
-            switch (soul.AuthoringTemplate)
+            switch (soul.Archetype)
             {
-                case NPCAuthoringTemplate.Trader:
-                case NPCAuthoringTemplate.QuestGiver:
-                    if (trader == null)
-                        warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Template '{soul.AuthoringTemplate}' expects an NpcTrader component."));
-                    break;
-                case NPCAuthoringTemplate.Patroller:
+                case NPCArchetype.Guard:
                     if (aiNpc != null && aiNpc.Config == null)
-                        warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Info, "Patroller template typically uses an AIConfig with patrol settings."));
+                        warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Info, "Guard archetype typically uses an AIConfig with patrol settings."));
+                    break;
+                case NPCArchetype.QuestGiver:
+                    ValidateQuestGiver(aiNpc, warnings);
                     break;
             }
+
+            ValidateDialogue(aiNpc, warnings);
 
             if (soul.MaxHealth <= 0f)
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Max health is 0 — this NPC will be considered dead immediately."));
@@ -76,6 +76,85 @@ namespace Sol.Editor
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Info, "Max stamina is 0."));
 
             return warnings;
+        }
+
+        private static void ValidateQuestGiver(AI_NPC aiNpc, List<NPCAuthoringWarning> warnings)
+        {
+            if (aiNpc == null)
+                return;
+
+            DialogueGraph graph = aiNpc.DialogueGraph;
+            if (graph == null || graph.Nodes == null || graph.Nodes.Count == 0)
+                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Info, "QuestGiver archetype has no authored dialogue graph yet."));
+        }
+
+        private static void ValidateDialogue(AI_NPC aiNpc, List<NPCAuthoringWarning> warnings)
+        {
+            DialogueGraph graph = aiNpc?.DialogueGraph;
+            if (graph?.Nodes == null)
+                return;
+
+            QuestRegistry questRegistry = QuestRegistry.Get();
+            HashSet<string> nodeIds = new(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < graph.Nodes.Count; i++)
+            {
+                DialogueNode node = graph.Nodes[i];
+                if (node == null || string.IsNullOrWhiteSpace(node.NodeId))
+                    continue;
+                if (!nodeIds.Add(node.NodeId.Trim()))
+                    warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Dialogue node id '{node.NodeId}' is duplicated."));
+            }
+
+            for (int n = 0; n < graph.Nodes.Count; n++)
+            {
+                DialogueNode node = graph.Nodes[n];
+                if (node?.Options == null)
+                    continue;
+
+                for (int o = 0; o < node.Options.Count; o++)
+                {
+                    DialogueOption option = node.Options[o];
+                    if (option == null)
+                        continue;
+
+                    if (option.Action == DialogueOptionAction.OpenTrade && !aiNpc.IsTrader)
+                        warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Dialogue option '{DisplayOption(option)}' opens trade, but Trader is unchecked."));
+
+                    if (RequiresQuest(option.Action) && !QuestExists(questRegistry, option.QuestId))
+                        warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Dialogue option '{DisplayOption(option)}' references missing quest '{option.QuestId}'."));
+
+                    DialogueOptionVisibility visibility = option.Visibility;
+                    if (visibility != null && IsQuestVisibility(visibility.Rule) && !QuestExists(questRegistry, visibility.QuestId))
+                        warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Dialogue option '{DisplayOption(option)}' visibility references missing quest '{visibility.QuestId}'."));
+                }
+            }
+        }
+
+        private static bool RequiresQuest(DialogueOptionAction action)
+        {
+            return action == DialogueOptionAction.OfferQuest
+                || action == DialogueOptionAction.TurnInQuest;
+        }
+
+        private static bool IsQuestVisibility(DialogueVisibilityRule rule)
+        {
+            return rule == DialogueVisibilityRule.QuestActive
+                || rule == DialogueVisibilityRule.QuestNotStarted
+                || rule == DialogueVisibilityRule.QuestReadyToTurnIn
+                || rule == DialogueVisibilityRule.QuestCompleted
+                || rule == DialogueVisibilityRule.QuestOnObjective;
+        }
+
+        private static bool QuestExists(QuestRegistry registry, string questId)
+        {
+            return !string.IsNullOrWhiteSpace(questId)
+                && registry != null
+                && registry.Find(questId) != null;
+        }
+
+        private static string DisplayOption(DialogueOption option)
+        {
+            return string.IsNullOrWhiteSpace(option.Label) ? option.Action.ToString() : option.Label.Trim();
         }
 
         public static List<NPCAuthoringWarning> ValidateRegistry(NPCRegistry registry)

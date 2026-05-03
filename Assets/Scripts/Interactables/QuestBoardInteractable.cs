@@ -85,10 +85,10 @@ namespace Sol.Quests
             return false;
         }
 
-        private void HandleOptionSelected(IReadOnlyList<OptionId> ids, int optionIndex)
+        private bool HandleOptionSelected(IReadOnlyList<OptionId> ids, int optionIndex)
         {
             if (ids == null || optionIndex < 0 || optionIndex >= ids.Count)
-                return;
+                return true;
 
             switch (ids[optionIndex])
             {
@@ -99,6 +99,8 @@ namespace Sol.Quests
                     TurnInReady();
                     break;
             }
+
+            return true;
         }
 
         private void OfferNext()

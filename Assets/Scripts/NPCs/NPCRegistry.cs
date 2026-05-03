@@ -267,7 +267,7 @@ namespace Sol.AI
                     if (soul == null)
                         continue;
 
-                    if (soul.SoulKind != SoulType.NPC && soul.SoulKind != SoulType.Enemy)
+                    if (soul.EntityKind != EntityType.NPC)
                         continue;
 
                     discovered.Add(new DiscoveredNPC

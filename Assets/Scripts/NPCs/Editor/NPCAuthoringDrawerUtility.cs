@@ -9,7 +9,6 @@ namespace Sol.Editor
 {
     public static class NPCAuthoringDrawerUtility
     {
-        private static readonly HashSet<int> _traderRevealOverrides = new();
         private const string FoldoutPrefPrefix = "Sol.NPCEditor.Section.";
 
         // ReorderableList caches keyed by inventory instanceId.
@@ -27,6 +26,7 @@ namespace Sol.Editor
             DrawAIMovementSection(soul);
             DrawInventorySection(soul);
             DrawDialogueAndTradingSection(serializedObject, soul);
+            DrawConversationSection(soul);
             DrawDeathAndLootSection(serializedObject, soul);
             DrawReferencesSection(serializedObject, soul);
             DrawDebugSection(serializedObject, soul);
@@ -71,7 +71,7 @@ namespace Sol.Editor
                 nameProp.stringValue = EditorGUILayout.TextField(nameProp.stringValue ?? string.Empty, bigField);
             }
 
-            DrawProperty(serializedObject, "_soulType");
+            DrawProperty(serializedObject, "_entityType", label: "Entity Type");
 
             using (new EditorGUI.DisabledScope(true))
                 DrawProperty(serializedObject, "_ownerId");
@@ -91,7 +91,9 @@ namespace Sol.Editor
             DrawProperty(serializedObject, "_staminaStat", includeChildren: true);
 
             EditorGUILayout.Space(4f);
-            DrawProperty(serializedObject, "_authoringTemplate");
+            DrawArchetype(serializedObject);
+            DrawProperty(serializedObject, "_canTrade", label: "Trader");
+            DrawProperty(serializedObject, "_isHostile", label: "Hostile");
             DrawProperty(serializedObject, "_authoringNotes");
 
             EndSection();
@@ -258,89 +260,91 @@ namespace Sol.Editor
 
         private static void DrawDialogueAndTradingSection(SerializedObject serializedObject, NPCSoul soul)
         {
-            if (soul == null)
-            {
-                if (BeginSection("Dialogue & Trading", defaultOpen: true)) { /* nothing */ }
-                EndSection();
-                return;
-            }
-
-            NpcTrader trader = soul.GetComponent<NpcTrader>();
-            NPCAuthoringTemplate template = GetTemplate(serializedObject);
-            bool hasComponent = trader != null;
-            bool sectionApplies = NPCTemplateRules.ShowTraderSection(template, hasComponent);
-
-            if (!sectionApplies)
-            {
-                if (hasComponent && !IsTraderRevealed(serializedObject))
-                {
-                    if (BeginSection("Dialogue & Trading", defaultOpen: true))
-                    {
-                        DrawHiddenSectionNotice(
-                            $"This NPC has an NpcTrader component but the '{template}' template hides the Trader section.",
-                            () => SetTraderRevealed(serializedObject, true),
-                            () => SetTemplate(serializedObject, NPCAuthoringTemplate.Trader));
-                    }
-                    EndSection();
-                    return;
-                }
-
-                if (!IsTraderRevealed(serializedObject))
-                    return;
-            }
-            else
-            {
-                SetTraderRevealed(serializedObject, false);
-            }
-
             if (!BeginSection("Dialogue & Trading", defaultOpen: true))
             {
                 EndSection();
                 return;
             }
 
-            if (trader == null)
+            if (soul == null)
             {
-                EditorGUILayout.HelpBox("No NpcTrader component. Add one to enable trade, conversation, and corpse-loot prompts.", MessageType.Info);
-                if (GUILayout.Button("Add NpcTrader Component"))
-                {
-                    if (soul.GetComponent<Sol.Inventory>() == null)
-                        Undo.AddComponent<Sol.Inventory>(soul.gameObject);
-                    Undo.AddComponent<NpcTrader>(soul.gameObject);
-                }
                 EndSection();
                 return;
             }
 
-            SerializedObject traderSO = new(trader);
-            traderSO.Update();
-            DrawProperty(traderSO, "_useConversationWindow");
-            DrawProperty(traderSO, "_talkPrompt");
-            DrawProperty(traderSO, "_prompt");
-            DrawProperty(traderSO, "_tradeOptionLabel");
-            DrawProperty(traderSO, "_goodbyeOptionLabel");
-            DrawProperty(traderSO, "_greetingLine");
-            DrawProperty(traderSO, "_speakerIcon");
-            traderSO.ApplyModifiedProperties();
-
-            EditorGUILayout.Space(4f);
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Remove NpcTrader", GUILayout.Width(160f)))
+            AI_NPC aiNpc = soul.GetComponent<AI_NPC>();
+            if (aiNpc == null)
             {
-                if (EditorUtility.DisplayDialog(
-                        "Remove NpcTrader",
-                        "Remove the NpcTrader component from this prefab? Trade and corpse-loot interactions will be disabled.",
-                        "Remove",
-                        "Cancel"))
-                {
-                    Undo.DestroyObjectImmediate(trader);
-                    EditorGUILayout.EndHorizontal();
-                    EndSection();
-                    return;
-                }
+                EditorGUILayout.HelpBox("No AI_NPC component on this prefab. Trade, conversation, and corpse-loot prompts live on AI_NPC.", MessageType.Info);
+                if (GUILayout.Button("Add AI_NPC Component"))
+                    Undo.AddComponent<AI_NPC>(soul.gameObject);
+                EndSection();
+                return;
             }
-            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.HelpBox(
+                aiNpc.IsTrader
+                    ? "Trader checkbox enables trade options."
+                    : "Trader checkbox is off. Trade-related conversation options are hidden until this NPC can trade.",
+                aiNpc.IsTrader ? MessageType.None : MessageType.Info);
+
+            SerializedObject aiSO = new(aiNpc);
+            aiSO.Update();
+            DrawProperty(aiSO, "_useConversationWindow");
+            DrawProperty(aiSO, "_talkPrompt");
+            DrawProperty(aiSO, "_prompt");
+            DrawProperty(aiSO, "_tradeOptionLabel");
+            DrawProperty(aiSO, "_goodbyeOptionLabel");
+            DrawProperty(aiSO, "_greetingLine");
+            DrawProperty(aiSO, "_speakerIcon");
+            aiSO.ApplyModifiedProperties();
+
+#pragma warning disable CS0618
+            NpcTrader legacy = soul.GetComponent<NpcTrader>();
+#pragma warning restore CS0618
+            if (legacy != null)
+            {
+                EditorGUILayout.Space(4f);
+                EditorGUILayout.HelpBox(
+                    "Legacy NpcTrader component still attached. Run Tools/Sol/NPCs/Migrate NpcTrader → AI_NPC to copy values onto AI_NPC and remove it.",
+                    MessageType.Warning);
+            }
+
+            EndSection();
+        }
+
+        // ----- Section: Conversation -----
+
+        private static void DrawConversationSection(NPCSoul soul)
+        {
+            if (!BeginSection("Conversation", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
+            if (soul == null)
+            {
+                EndSection();
+                return;
+            }
+
+            AI_NPC aiNpc = soul.GetComponent<AI_NPC>();
+            if (aiNpc == null)
+            {
+                EditorGUILayout.HelpBox("Add an AI_NPC component to author a dialogue graph.", MessageType.Info);
+                EndSection();
+                return;
+            }
+
+            SerializedObject aiSO = new(aiNpc);
+            aiSO.Update();
+            SerializedProperty graphProp = aiSO.FindProperty("_dialogueGraph");
+            if (graphProp != null)
+                DialogueGraphDrawer.Draw(graphProp, aiNpc.GetInstanceID().ToString());
+            else
+                EditorGUILayout.HelpBox("AI_NPC has no _dialogueGraph field — recompile required.", MessageType.Warning);
+            aiSO.ApplyModifiedProperties();
 
             EndSection();
         }
@@ -374,21 +378,21 @@ namespace Sol.Editor
                 aiSO.ApplyModifiedProperties();
             }
 
-            NpcTrader trader = soul.GetComponent<NpcTrader>();
-            if (trader != null)
+            if (aiNpc != null)
             {
                 EditorGUILayout.Space(4f);
                 EditorGUILayout.LabelField("Corpse Loot", EditorStyles.miniBoldLabel);
-                SerializedObject traderSO = new(trader);
-                traderSO.Update();
-                DrawProperty(traderSO, "_lootPrompt");
+                SerializedObject lootSO = new(aiNpc);
+                lootSO.Update();
+                DrawProperty(lootSO, "_lootPrompt");
 
-                SerializedProperty goldIdProp = traderSO.FindProperty("_goldLootItemId");
+                SerializedProperty goldIdProp = lootSO.FindProperty("_goldLootItemId");
                 if (goldIdProp != null)
                     ReferenceDropdown.DrawItemLayout(new GUIContent("Gold Loot Item Id"), goldIdProp);
 
-                DrawProperty(traderSO, "_goldLootItemTemplate");
-                traderSO.ApplyModifiedProperties();
+                DrawProperty(lootSO, "_goldLootItemTemplate");
+                DrawProperty(lootSO, "_maxGoldItemizeAttemptsPerOpen");
+                lootSO.ApplyModifiedProperties();
             }
 
             EndSection();
@@ -502,61 +506,50 @@ namespace Sol.Editor
             Selection.activeGameObject = instance;
         }
 
-        // ----- Trader-reveal helpers -----
+        // ----- Archetype helper -----
 
-        private static NPCAuthoringTemplate GetTemplate(SerializedObject serializedObject)
+        private static NPCArchetype GetArchetype(SerializedObject serializedObject)
         {
-            SerializedProperty templateProp = serializedObject?.FindProperty("_authoringTemplate");
-            return templateProp != null
-                ? (NPCAuthoringTemplate)templateProp.enumValueIndex
-                : NPCAuthoringTemplate.None;
+            SerializedProperty archetypeProp = serializedObject?.FindProperty("_npcArchetype");
+            return archetypeProp != null
+                ? (NPCArchetype)archetypeProp.enumValueIndex
+                : NPCArchetype.None;
         }
 
-        private static void SetTemplate(SerializedObject serializedObject, NPCAuthoringTemplate template)
+        private static void DrawArchetype(SerializedObject serializedObject)
         {
-            SerializedProperty templateProp = serializedObject?.FindProperty("_authoringTemplate");
-            if (templateProp == null)
+            SerializedProperty archetypeProp = serializedObject?.FindProperty("_npcArchetype");
+            if (archetypeProp == null)
                 return;
 
-            templateProp.enumValueIndex = (int)template;
-            serializedObject.ApplyModifiedProperties();
-        }
+            NPCArchetype current = (NPCArchetype)archetypeProp.enumValueIndex;
+            if (current == NPCArchetype.LegacyTrader)
+                current = NPCArchetype.Civilian;
 
-        private static bool IsTraderRevealed(SerializedObject serializedObject)
-        {
-            int id = GetTargetId(serializedObject);
-            return id != 0 && _traderRevealOverrides.Contains(id);
-        }
+            NPCArchetype[] options =
+            {
+                NPCArchetype.None,
+                NPCArchetype.Civilian,
+                NPCArchetype.Guard,
+                NPCArchetype.Bandit,
+                NPCArchetype.QuestGiver,
+                NPCArchetype.Unique
+            };
+            string[] labels = { "None", "Civilian", "Guard", "Bandit", "Quest Giver", "Unique" };
 
-        private static void SetTraderRevealed(SerializedObject serializedObject, bool revealed)
-        {
-            int id = GetTargetId(serializedObject);
-            if (id == 0)
-                return;
+            int currentIndex = 0;
+            for (int i = 0; i < options.Length; i++)
+            {
+                if (options[i] == current)
+                {
+                    currentIndex = i;
+                    break;
+                }
+            }
 
-            if (revealed)
-                _traderRevealOverrides.Add(id);
-            else
-                _traderRevealOverrides.Remove(id);
-        }
-
-        private static int GetTargetId(SerializedObject serializedObject)
-        {
-            return serializedObject != null && serializedObject.targetObject != null
-                ? serializedObject.targetObject.GetInstanceID()
-                : 0;
-        }
-
-        private static void DrawHiddenSectionNotice(string reason, Action onReveal, Action onChangeTemplate)
-        {
-            EditorGUILayout.HelpBox(reason, MessageType.Info);
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.FlexibleSpace();
-            if (GUILayout.Button("Reveal Section", GUILayout.Width(140f)))
-                onReveal?.Invoke();
-            if (onChangeTemplate != null && GUILayout.Button("Set Template: Trader", GUILayout.Width(170f)))
-                onChangeTemplate.Invoke();
-            EditorGUILayout.EndHorizontal();
+            int picked = EditorGUILayout.Popup("NPC Archetype", currentIndex, labels);
+            if (picked != currentIndex)
+                archetypeProp.enumValueIndex = (int)options[Mathf.Clamp(picked, 0, options.Length - 1)];
         }
 
         // ----- Foldout / section helpers -----
@@ -585,11 +578,16 @@ namespace Sol.Editor
             EditorGUILayout.EndVertical();
         }
 
-        private static void DrawProperty(SerializedObject serializedObject, string propertyName, bool includeChildren = true)
+        private static void DrawProperty(SerializedObject serializedObject, string propertyName, bool includeChildren = true, string label = null)
         {
             SerializedProperty property = serializedObject?.FindProperty(propertyName);
             if (property != null)
-                EditorGUILayout.PropertyField(property, includeChildren);
+            {
+                if (string.IsNullOrWhiteSpace(label))
+                    EditorGUILayout.PropertyField(property, includeChildren);
+                else
+                    EditorGUILayout.PropertyField(property, new GUIContent(label), includeChildren);
+            }
         }
     }
 }

@@ -5,67 +5,66 @@ using Sol;
 
 namespace Sol.AI
 {
-    public enum SoulType
+    public enum EntityType
     {
         NPC = 0,
-        Player = 1,
-        Enemy = 2
+        Player = 1
     }
 
     /// <summary>
-    /// Authoring template applied via the NPC Database window. Drives default component
-    /// setup and validation hints. Mirrors <see cref="Sol.Grab.ItemAuthoringTemplate"/>.
+    /// NPC archetype applied via the NPC Database window. Drives default component
+    /// setup and validation hints.
     /// </summary>
-    public enum NPCAuthoringTemplate
+    public enum NPCArchetype
     {
         None = 0,
         Civilian = 1,
-        Patroller = 2,
-        Trader = 3,
-        QuestGiver = 4
+        Guard = 2,
+        LegacyTrader = 3,
+        QuestGiver = 4,
+        Unique = 5,
+        Bandit = 6
     }
 
     /// <summary>
-    /// Section visibility rules for the NPC authoring inspector. Centralizes the
-    /// "Civilians don't need a Trader section" logic so the drawer stays small.
-    /// All NPCs share Identity/Vitals/AI/Inventory; Trader is the template-gated section.
+    /// Section visibility rules for the NPC authoring inspector.
     /// </summary>
-    public static class NPCTemplateRules
+    public static class NPCArchetypeRules
     {
-        public static bool ShowAISection(NPCAuthoringTemplate template, bool hasComponent) => true;
+        public static bool ShowAISection(NPCArchetype archetype, bool hasComponent) => true;
 
-        public static bool ShowInventorySection(NPCAuthoringTemplate template, bool hasComponent) => true;
+        public static bool ShowInventorySection(NPCArchetype archetype, bool hasComponent) => true;
 
-        public static bool ShowTraderSection(NPCAuthoringTemplate template, bool hasComponent)
+        public static bool ShowTradingSection(bool canTrade, bool hasComponent)
         {
-            if (hasComponent)
-                return true;
-
-            return template == NPCAuthoringTemplate.None
-                || template == NPCAuthoringTemplate.Trader
-                || template == NPCAuthoringTemplate.QuestGiver;
+            return hasComponent || canTrade;
         }
     }
 
     /// <summary>
-    /// Unified runtime stats for actors (player, NPC, enemy).
+    /// Unified runtime stats for actors (player and NPC).
     /// </summary>
     public class NPCSoul : MonoBehaviour
     {
         #region Inspector Settings
         [Header("Identity")]
-        [Tooltip("Inspector: tunes soul type.")]
-        [SerializeField] private SoulType _soulType = SoulType.NPC;
+        [Tooltip("Broad entity category. Hostility is controlled separately.")]
+        [FormerlySerializedAs("_soulType")]
+        [SerializeField] private EntityType _entityType = EntityType.NPC;
         [FormerlySerializedAs("NPCName")]
         [Tooltip("Inspector: tunes character name.")]
         [SerializeField] private string _characterName = string.Empty;
         [Tooltip("Stable owner id used by theft/trade/ownership systems (OWN#####).")]
         [SerializeField] private string _ownerId = string.Empty;
 
-        public SoulType SoulKind
+        public EntityType EntityKind
         {
-            get => _soulType;
-            set => _soulType = value;
+            get
+            {
+                EnsureIdentityMigration();
+                return _entityType;
+            }
+            set => _entityType = value;
         }
 
         public string CharacterName
@@ -101,12 +100,45 @@ namespace Sol.AI
         [SerializeField] private bool _soulStatsMigrated;
 
         [Header("Authoring")]
-        [SerializeField] private NPCAuthoringTemplate _authoringTemplate = NPCAuthoringTemplate.None;
+        [FormerlySerializedAs("_authoringTemplate")]
+        [SerializeField] private NPCArchetype _npcArchetype = NPCArchetype.None;
+        [SerializeField] private bool _canTrade;
+        [SerializeField] private bool _isHostile;
         [TextArea(2, 6)]
         [SerializeField] private string _authoringNotes = string.Empty;
+        [HideInInspector]
+        [SerializeField] private bool _identityMigratedV2;
         #endregion
 
-        public NPCAuthoringTemplate AuthoringTemplate => _authoringTemplate;
+        public NPCArchetype Archetype
+        {
+            get
+            {
+                EnsureIdentityMigration();
+                return _npcArchetype;
+            }
+        }
+
+        public bool CanTrade
+        {
+            get
+            {
+                EnsureIdentityMigration();
+                return _canTrade;
+            }
+            set => _canTrade = value;
+        }
+
+        public bool IsHostile
+        {
+            get
+            {
+                EnsureIdentityMigration();
+                return _isHostile;
+            }
+            set => _isHostile = value;
+        }
+
         public string AuthoringNotes => _authoringNotes;
 
         public float MaxHealth
@@ -214,6 +246,7 @@ namespace Sol.AI
 
         private void Awake()
         {
+            EnsureIdentityMigration();
             EnsureOwnerId();
             OwnerRegistry.Register(OwnerId, gameObject);
             ClampVitals();
@@ -221,6 +254,7 @@ namespace Sol.AI
 
         private void OnEnable()
         {
+            EnsureIdentityMigration();
             EnsureOwnerId();
             OwnerRegistry.Register(OwnerId, gameObject);
         }
@@ -288,6 +322,7 @@ namespace Sol.AI
 
         private void OnValidate()
         {
+            EnsureIdentityMigration();
             _characterName = _characterName?.Trim() ?? string.Empty;
             EnsureOwnerId();
             ClampVitals();
@@ -310,7 +345,7 @@ namespace Sol.AI
 
         private void EnsureOwnerId()
         {
-            if (_soulType == SoulType.Player || gameObject.CompareTag("Player"))
+            if (_entityType == EntityType.Player || gameObject.CompareTag("Player"))
             {
                 _ownerId = EntityCodeUtility.DefaultPlayerOwnerId;
                 return;
@@ -358,6 +393,31 @@ namespace Sol.AI
                 return EntityCodeUtility.DefaultPlayerOwnerId;
 
             return EntityCodeUtility.NormalizeOrEmpty(trimmed, EntityCodeUtility.OwnerPrefix);
+        }
+
+        private void EnsureIdentityMigration()
+        {
+            if ((int)_entityType == 2)
+            {
+                _entityType = EntityType.NPC;
+                _isHostile = true;
+            }
+
+            if (_npcArchetype == NPCArchetype.LegacyTrader)
+            {
+                _npcArchetype = NPCArchetype.Civilian;
+                _canTrade = true;
+            }
+
+            if (!_identityMigratedV2)
+            {
+                if (_npcArchetype == NPCArchetype.QuestGiver)
+                    _canTrade = true;
+                if (_npcArchetype == NPCArchetype.Bandit)
+                    _isHostile = true;
+
+                _identityMigratedV2 = true;
+            }
         }
     }
 }

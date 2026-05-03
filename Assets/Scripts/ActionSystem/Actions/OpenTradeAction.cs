@@ -72,7 +72,7 @@ namespace Sol.Actions
         private readonly string _speakerName;
         private readonly string _dialogueLine;
         private readonly IReadOnlyList<string> _options;
-        private readonly Action<int> _onOptionSelected;
+        private readonly Func<int, bool> _onOptionSelected;
         private readonly Action _onClosed;
         private readonly Sprite _speakerIcon;
 
@@ -82,7 +82,7 @@ namespace Sol.Actions
             string speakerName,
             string dialogueLine,
             IReadOnlyList<string> options,
-            Action<int> onOptionSelected,
+            Func<int, bool> onOptionSelected,
             Action onClosed = null,
             Sprite speakerIcon = null)
         {
@@ -113,7 +113,7 @@ namespace Sol.Actions
                 _speakerName,
                 _dialogueLine,
                 _options,
-                HandleOptionSelected,
+                _onOptionSelected,
                 _onClosed,
                 _speakerIcon,
                 Target != null ? Target.transform : null,
@@ -127,12 +127,6 @@ namespace Sol.Actions
             }
 
             Complete();
-        }
-
-        private void HandleOptionSelected(int optionIndex)
-        {
-            _onOptionSelected?.Invoke(optionIndex);
-            HUD.ConversationWindowSystem.Instance?.Hide();
         }
 
         private static HUD.ConversationWindowSystem ResolveConversationUi()
