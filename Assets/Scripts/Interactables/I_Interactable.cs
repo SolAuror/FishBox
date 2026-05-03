@@ -79,6 +79,7 @@ namespace Sol
         public const string ItemPrefix = "ITM";
         public const string NpcPrefix = "NPC";
         public const string ContainerPrefix = "CNT";
+        public const string InteractionPointPrefix = "INP";
         public const string OwnerPrefix = "OWN";
         public const string QuestPrefix = "QST";
         public const string DefaultPlayerOwnerId = "PLY00001";
@@ -492,4 +493,3 @@ namespace Sol
         GameAction GetInteraction(Interactor interactor);
     }
 }
-
