@@ -4,11 +4,45 @@ using Sol.AI;
 using Sol.Editor;
 using Sol.Grab;
 using Sol.Quests;
+using Sol.Rpg;
 using UnityEditor;
 using UnityEngine;
 
 public sealed class RpgDatabaseFoundationTests
 {
+    private sealed class ReferenceDropdownTarget : ScriptableObject
+    {
+        [SerializeField] private string _referenceId;
+
+        public string ReferenceId => _referenceId;
+    }
+
+    [Test]
+    public void ReferenceDropdownSelection_WritesToSerializedTarget()
+    {
+        ReferenceDropdownTarget target = ScriptableObject.CreateInstance<ReferenceDropdownTarget>();
+        try
+        {
+            SerializedObject serializedObject = new(target);
+            serializedObject.Update();
+
+            bool changed = ReferenceDropdown.ApplyReferenceSelection(
+                ReferenceDropdown.ReferenceKind.Item,
+                serializedObject,
+                target,
+                "_referenceId",
+                "ITM12345");
+
+            Assert.That(changed, Is.True);
+            Assert.That(target.ReferenceId, Is.EqualTo("ITM12345"));
+            Assert.That(serializedObject.FindProperty("_referenceId").stringValue, Is.EqualTo("ITM12345"));
+        }
+        finally
+        {
+            Object.DestroyImmediate(target);
+        }
+    }
+
     [Test]
     public void LegacyDatabaseSelectors_RouteToUnifiedHub()
     {
@@ -140,5 +174,85 @@ public sealed class RpgDatabaseFoundationTests
         Assert.That(errors, Is.EqualTo(1));
         Assert.That(warnings, Is.EqualTo(2));
         Assert.That(infos, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Phase2DefinitionIds_UseCategoryPrefixes()
+    {
+        RpgSkillDefinition skillOne = ScriptableObject.CreateInstance<RpgSkillDefinition>();
+        RpgSkillDefinition skillTwo = ScriptableObject.CreateInstance<RpgSkillDefinition>();
+        try
+        {
+            SetDefinitionIdentity(skillOne, "SKL00001", "One");
+            SetDefinitionIdentity(skillTwo, "SKL00003", "Three");
+
+            var definitions = new List<RpgDefinition> { skillOne, skillTwo };
+
+            Assert.That(RpgDefinitionEditorUtility.NextIdFromDefinitions(RpgDefinitionIds.SkillPrefix, definitions), Is.EqualTo("SKL00002"));
+            Assert.That(RpgDefinitionEditorUtility.NextIdFromDefinitions(RpgDefinitionIds.FactionPrefix, definitions), Is.EqualTo("FAC00001"));
+        }
+        finally
+        {
+            Object.DestroyImmediate(skillOne);
+            Object.DestroyImmediate(skillTwo);
+        }
+    }
+
+    [Test]
+    public void Phase2SkillValidation_CatchesMissingGoverningStat()
+    {
+        RpgSkillDefinition skill = ScriptableObject.CreateInstance<RpgSkillDefinition>();
+        try
+        {
+            SetDefinitionIdentity(skill, "SKL00001", "Lockpicking");
+            SerializedObject so = new(skill);
+            so.Update();
+            so.FindProperty("_governingStatId").stringValue = "STA99999";
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            List<RpgAuthoringWarning> warnings = RpgDefinitionValidator.Validate(skill, registry: null);
+
+            Assert.That(warnings.Exists(w => w.Message.Contains("Governing stat")), Is.True);
+        }
+        finally
+        {
+            Object.DestroyImmediate(skill);
+        }
+    }
+
+    [Test]
+    public void Phase2DefinitionRows_FilterBySearchAndWarnings()
+    {
+        RpgStatDefinition stat = ScriptableObject.CreateInstance<RpgStatDefinition>();
+        try
+        {
+            SetDefinitionIdentity(stat, "STA00007", "Endurance");
+            var row = new SolDatabaseRpgDefinitionPage<RpgStatDefinition>.DefinitionRow
+            {
+                Definition = stat,
+                Id = "STA00007",
+                DisplayName = "Endurance",
+                Subtitle = "Primary",
+                SearchText = "endurance sta00007 primary",
+                WarningCount = 1
+            };
+
+            Assert.That(SolDatabaseRpgDefinitionPage<RpgStatDefinition>.RowMatchesFilters(row, "endur", SolDatabaseRpgDefinitionPage<RpgStatDefinition>.DefinitionFilter.All), Is.True);
+            Assert.That(SolDatabaseRpgDefinitionPage<RpgStatDefinition>.RowMatchesFilters(row, "sta00007", SolDatabaseRpgDefinitionPage<RpgStatDefinition>.DefinitionFilter.HasWarnings), Is.True);
+            Assert.That(SolDatabaseRpgDefinitionPage<RpgStatDefinition>.RowMatchesFilters(row, "missing", SolDatabaseRpgDefinitionPage<RpgStatDefinition>.DefinitionFilter.All), Is.False);
+        }
+        finally
+        {
+            Object.DestroyImmediate(stat);
+        }
+    }
+
+    private static void SetDefinitionIdentity(RpgDefinition definition, string id, string displayName)
+    {
+        SerializedObject so = new(definition);
+        so.Update();
+        so.FindProperty("_id").stringValue = id;
+        so.FindProperty("_displayName").stringValue = displayName;
+        so.ApplyModifiedPropertiesWithoutUndo();
     }
 }

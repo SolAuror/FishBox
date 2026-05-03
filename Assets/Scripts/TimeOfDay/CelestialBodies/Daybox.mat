@@ -25,37 +25,37 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _CloudCoverage: 0.50819165
-    - _CloudDensity: 0.4983122
+    - _CloudCoverage: 0.45601872
+    - _CloudDensity: 0.42626393
     - _CloudHeight: 0.119
     - _CloudScale: 2
     - _CloudSpeed: 0.055833332
-    - _HazeIntensity: 0.04956972
-    - _HorizonBlend: 1.6977074
+    - _HazeIntensity: 0.05867927
+    - _HorizonBlend: 1.4575465
     - _LunarEclipseFactor: 0
     - _MoonDiscSize: 0.9993
     - _MoonSharpness: 3
-    - _NadirBlend: 0.15650128
+    - _NadirBlend: 0.115094215
     - _SolarEclipseFactor: 0
     - _StarHeight: 345
-    - _StarIntensity: 11.300255
+    - _StarIntensity: 3.018843
     - _StarPower: 48
     - _SunDiscSize: 0.9995
     - _SunGlowFalloff: 4
-    - _SunGlowIntensity: 0.6654835
-    - _ZenithBlend: 0.72040206
+    - _SunGlowIntensity: 1.2037752
+    - _ZenithBlend: 0.6541507
     m_Colors:
-    - _CloudColor: {r: 0.9508785, g: 0.6871777, b: 0.4884728, a: 1}
-    - _CloudShadowColor: {r: 0.19579387, g: 0.21754323, b: 0.32985827, a: 1}
+    - _CloudColor: {r: 0.8544411, g: 0.8583287, b: 0.8584906, a: 1}
+    - _CloudShadowColor: {r: 0.3454467, g: 0.38789958, b: 0.49118954, a: 1}
     - _CoronaColor: {r: 1.5, g: 0.4, b: 0.15, a: 1}
     - _EclipseTint: {r: 0.6, g: 0.15, b: 0.1, a: 1}
-    - _HorizonColor: {r: 0.8980979, g: 0.66156065, b: 0.45277026, a: 1}
+    - _HorizonColor: {r: 0.69803923, g: 0.88058126, b: 0.9490196, a: 1}
     - _MoonColor: {r: 0.85, g: 0.9, b: 1, a: 1}
     - _MoonDarkColor: {r: 0.01, g: 0.01, b: 0.02, a: 1}
-    - _MoonDirection: {r: -0, g: 0.8681122, b: 0.49636817, a: 0}
-    - _NadirColor: {r: 0.22879389, g: 0.2013944, b: 0.19659542, a: 1}
-    - _SunDirection: {r: -0, g: 0.40673664, b: -0.9135455, a: 0}
+    - _MoonDirection: {r: -0, g: 0.4530571, b: 0.8914815, a: 0}
+    - _NadirColor: {r: 0.42754778, g: 0.38358545, b: 0.34566084, a: 1}
+    - _SunDirection: {r: -0, g: 0.8415108, b: -0.5402403, a: 0}
     - _SunDiscColor: {r: 10, g: 9.5, b: 8, a: 10}
-    - _ZenithColor: {r: 0.2350419, g: 0.3156549, b: 0.64121896, a: 1}
+    - _ZenithColor: {r: 0.40876934, g: 0.5761858, b: 0.88341117, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

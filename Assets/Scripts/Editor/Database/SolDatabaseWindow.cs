@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Sol.AI;
 using Sol.Grab;
 using Sol.Quests;
+using Sol.Rpg;
 using UnityEditor;
 using UnityEngine;
 
@@ -13,7 +14,11 @@ namespace Sol.Editor
         Overview = 0,
         Items = 1,
         NPCs = 2,
-        Quests = 3
+        Quests = 3,
+        Stats = 4,
+        Skills = 5,
+        Factions = 6,
+        Shops = 7
     }
 
     internal enum SolDatabaseIssueSeverity
@@ -215,8 +220,12 @@ namespace Sol.Editor
         private readonly List<SolDatabaseTab> _tabOrder = new()
         {
             SolDatabaseTab.Overview,
+            SolDatabaseTab.Stats,
+            SolDatabaseTab.Skills,
+            SolDatabaseTab.Factions,
             SolDatabaseTab.Items,
             SolDatabaseTab.NPCs,
+            SolDatabaseTab.Shops,
             SolDatabaseTab.Quests
         };
 
@@ -314,8 +323,12 @@ namespace Sol.Editor
                 return;
 
             AddPage(new SolDatabaseOverviewPage());
+            AddPage(new SolDatabaseStatsPage());
+            AddPage(new SolDatabaseSkillsPage());
+            AddPage(new SolDatabaseFactionsPage());
             AddPage(new SolDatabaseItemPage());
             AddPage(new SolDatabaseNPCPage());
+            AddPage(new SolDatabaseShopsPage());
             AddPage(new SolDatabaseQuestPage());
         }
 

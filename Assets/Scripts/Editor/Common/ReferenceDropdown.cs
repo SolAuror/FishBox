@@ -119,33 +119,18 @@ namespace Sol.Editor
 
             if (EditorGUI.DropdownButton(buttonRect, new GUIContent(buttonText), FocusType.Keyboard))
             {
-                // Capture target + path; the SerializedProperty itself may be invalidated
-                // (especially for array element rows) before AdvancedDropdown fires its
-                // async ItemSelected callback. Re-resolve against a fresh SerializedObject
-                // each time so the write actually lands on the prefab/asset.
-                UnityEngine.Object target = idProp.serializedObject != null
-                    ? idProp.serializedObject.targetObject
+                // Capture the owning SerializedObject too. Database windows keep cached
+                // SerializedObjects, so writing through that object first prevents a stale
+                // cache from overwriting the delayed AdvancedDropdown selection.
+                SerializedObject ownerSO = idProp.serializedObject;
+                UnityEngine.Object target = ownerSO != null
+                    ? ownerSO.targetObject
                     : null;
                 string path = idProp.propertyPath;
 
                 ShowDropdown(buttonRect, kind, allowEmpty, current, selectedId =>
                 {
-                    if (target == null || string.IsNullOrEmpty(path))
-                        return;
-
-                    SerializedObject freshSO = new SerializedObject(target);
-                    SerializedProperty freshProp = freshSO.FindProperty(path);
-                    if (freshProp == null || freshProp.propertyType != SerializedPropertyType.String)
-                        return;
-
-                    string newValue = selectedId ?? string.Empty;
-                    if (string.Equals(freshProp.stringValue, newValue, StringComparison.Ordinal))
-                        return;
-
-                    Undo.RecordObject(target, "Set Reference Id");
-                    freshProp.stringValue = newValue;
-                    freshSO.ApplyModifiedProperties();
-                    EditorUtility.SetDirty(target);
+                    ApplyReferenceSelection(kind, ownerSO, target, path, selectedId);
                 });
             }
 
@@ -168,6 +153,88 @@ namespace Sol.Editor
                 current,
                 onPicked);
             dropdown.Show(activator);
+        }
+
+        internal static bool ApplyReferenceSelection(
+            ReferenceKind kind,
+            SerializedObject preferredSO,
+            UnityEngine.Object target,
+            string propertyPath,
+            string selectedId)
+        {
+            if (target == null || string.IsNullOrEmpty(propertyPath))
+                return false;
+
+            string newValue = selectedId ?? string.Empty;
+            SerializedObject writeSO = preferredSO != null && preferredSO.targetObject == target
+                ? preferredSO
+                : null;
+
+            if (TryApplyReferenceSelection(kind, writeSO, target, propertyPath, newValue))
+                return true;
+
+            return TryApplyReferenceSelection(kind, new SerializedObject(target), target, propertyPath, newValue);
+        }
+
+        private static bool TryApplyReferenceSelection(
+            ReferenceKind kind,
+            SerializedObject serializedObject,
+            UnityEngine.Object target,
+            string propertyPath,
+            string newValue)
+        {
+            if (serializedObject == null)
+                return false;
+
+            serializedObject.Update();
+            SerializedProperty property = serializedObject.FindProperty(propertyPath);
+            if (property == null || property.propertyType != SerializedPropertyType.String)
+                return false;
+
+            if (string.Equals(property.stringValue, newValue, StringComparison.Ordinal))
+                return false;
+
+            Undo.SetCurrentGroupName("Set Reference Id");
+            property.stringValue = newValue;
+            bool applied = serializedObject.ApplyModifiedProperties();
+            if (!applied)
+                return false;
+
+            EditorUtility.SetDirty(target);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(target);
+            NotifyReferenceChanged(kind, target);
+            return true;
+        }
+
+        private static void NotifyReferenceChanged(ReferenceKind kind, UnityEngine.Object target)
+        {
+            EditorApplication.delayCall += () =>
+            {
+                if (target != null)
+                    EditorUtility.SetDirty(target);
+
+                foreach (SolDatabaseWindow window in Resources.FindObjectsOfTypeAll<SolDatabaseWindow>())
+                    window.Repaint();
+                foreach (ItemDatabaseWindow window in Resources.FindObjectsOfTypeAll<ItemDatabaseWindow>())
+                    window.Repaint();
+                foreach (NPCDatabaseWindow window in Resources.FindObjectsOfTypeAll<NPCDatabaseWindow>())
+                    window.Repaint();
+                foreach (QuestDatabaseWindow window in Resources.FindObjectsOfTypeAll<QuestDatabaseWindow>())
+                    window.Repaint();
+
+                switch (kind)
+                {
+                    case ReferenceKind.Item:
+                        ItemRegistry.ScheduleEditorSync();
+                        break;
+                    case ReferenceKind.Npc:
+                        NPCRegistry.ScheduleEditorSync();
+                        break;
+                    case ReferenceKind.Quest:
+                        QuestRegistry.ScheduleEditorSync();
+                        break;
+                }
+            };
         }
 
         private static Entry? FindEntry(List<Entry> entries, string id)
