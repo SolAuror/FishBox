@@ -5,6 +5,7 @@ using Sol;
 using Sol.AI;
 using Sol.Grab;
 using Sol.Quests;
+using Sol.Rpg;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -21,7 +22,8 @@ namespace Sol.Editor
         {
             Item,
             Npc,
-            Quest
+            Quest,
+            Shop
         }
 
         public readonly struct Entry
@@ -51,6 +53,9 @@ namespace Sol.Editor
         public static void DrawQuestLayout(GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => DrawLayout(ReferenceKind.Quest, label, idProp, allowEmpty);
 
+        public static void DrawShopLayout(GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
+            => DrawLayout(ReferenceKind.Shop, label, idProp, allowEmpty);
+
         // Rect helpers
         public static void DrawItem(Rect rect, GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => Draw(ReferenceKind.Item, rect, label, idProp, allowEmpty);
@@ -60,6 +65,9 @@ namespace Sol.Editor
 
         public static void DrawQuest(Rect rect, GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => Draw(ReferenceKind.Quest, rect, label, idProp, allowEmpty);
+
+        public static void DrawShop(Rect rect, GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
+            => Draw(ReferenceKind.Shop, rect, label, idProp, allowEmpty);
 
         public static void DrawLayout(ReferenceKind kind, GUIContent label, SerializedProperty idProp, bool allowEmpty)
         {
@@ -233,6 +241,9 @@ namespace Sol.Editor
                     case ReferenceKind.Quest:
                         QuestRegistry.ScheduleEditorSync();
                         break;
+                    case ReferenceKind.Shop:
+                        RpgDefinitionRegistry.ScheduleEditorSync();
+                        break;
                 }
             };
         }
@@ -259,6 +270,7 @@ namespace Sol.Editor
                 ReferenceKind.Item => BuildItemEntries(),
                 ReferenceKind.Npc => BuildNpcEntries(),
                 ReferenceKind.Quest => BuildQuestEntries(),
+                ReferenceKind.Shop => BuildShopEntries(),
                 _ => new List<Entry>()
             };
         }
@@ -281,10 +293,10 @@ namespace Sol.Editor
                 if (!seen.Add(id))
                     continue;
 
-                string itemName = e.Prefab != null && !string.IsNullOrWhiteSpace(e.Prefab.ItemName)
-                    ? e.Prefab.ItemName.Trim()
+                string itemName = !string.IsNullOrWhiteSpace(e.DisplayName)
+                    ? e.DisplayName.Trim()
                     : id;
-                string itemType = e.Prefab != null ? e.Prefab.TypeDisplayName : "Missing";
+                string itemType = e.ItemType == ItemType.Miscellaneous ? "Miscellaneous" : e.ItemType.ToString();
                 string display = $"{itemName} ({id})";
                 string menuPath = string.IsNullOrEmpty(itemType)
                     ? itemName
@@ -377,6 +389,33 @@ namespace Sol.Editor
 
                 string title = string.IsNullOrWhiteSpace(def.Title) ? id : def.Title.Trim();
                 entries.Add(new Entry(id, $"{title} ({id})", $"{title} ({id})"));
+            }
+
+            entries.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.MenuPath, b.MenuPath));
+            return entries;
+        }
+
+        private static List<Entry> BuildShopEntries()
+        {
+            List<Entry> entries = new List<Entry>();
+            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            RpgDefinitionRegistry registry = RpgDefinitionRegistry.Get();
+            if (registry?.Shops != null)
+            {
+                for (int i = 0; i < registry.Shops.Count; i++)
+                {
+                    RpgShopDefinition shop = registry.Shops[i];
+                    if (shop == null || string.IsNullOrWhiteSpace(shop.Id))
+                        continue;
+
+                    string id = shop.Id.Trim();
+                    if (!seen.Add(id))
+                        continue;
+
+                    string title = string.IsNullOrWhiteSpace(shop.DisplayName) ? id : shop.DisplayName.Trim();
+                    entries.Add(new Entry(id, $"{title} ({id})", $"{title} ({id})"));
+                }
             }
 
             entries.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.MenuPath, b.MenuPath));

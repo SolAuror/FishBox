@@ -14,7 +14,7 @@ namespace Sol.Quests
     [CreateAssetMenu(fileName = "QuestRegistry", menuName = "Sol/Quests/Quest Registry")]
     public class QuestRegistry : ScriptableObject
     {
-        private const string ResourcePath = "QuestRegistry";
+        private const string LegacyResourcePath = "QuestRegistry";
 #region Inspector Settings
 
         [Tooltip("Inspector: tunes quests.")]
@@ -27,7 +27,8 @@ namespace Sol.Quests
         public IReadOnlyList<QuestDefinition> Quests => _quests;
 
 #if UNITY_EDITOR
-        private const string DefaultAssetPath = "Assets/Resources/QuestRegistry.asset";
+        private const string DefaultAssetPath = "Assets/Data/QuestRegistry.asset";
+        private const string LegacyAssetPath = "Assets/Resources/QuestRegistry.asset";
         private static bool _editorSyncScheduled;
         private static bool _isEditorSynchronizing;
 #endif
@@ -37,10 +38,12 @@ namespace Sol.Quests
             if (_instance != null)
                 return _instance;
 
-            _instance = Resources.Load<QuestRegistry>(ResourcePath);
 #if UNITY_EDITOR
+            _instance = GetOrCreateEditorAsset();
+#else
+            _instance = FindLoadedRegistryAsset();
             if (_instance == null)
-                _instance = GetOrCreateEditorAsset();
+                _instance = Resources.Load<QuestRegistry>(LegacyResourcePath);
 #endif
             return _instance;
         }
@@ -51,6 +54,18 @@ namespace Sol.Quests
             EnsureLookup();
             _lookup.TryGetValue(questId, out QuestDefinition def);
             return def;
+        }
+
+        private static QuestRegistry FindLoadedRegistryAsset()
+        {
+            QuestRegistry[] registries = Resources.FindObjectsOfTypeAll<QuestRegistry>();
+            for (int i = 0; i < registries.Length; i++)
+            {
+                if (registries[i] != null && registries[i].name == nameof(QuestRegistry))
+                    return registries[i];
+            }
+
+            return registries.Length > 0 ? registries[0] : null;
         }
 
         private void EnsureLookup()
@@ -135,22 +150,55 @@ namespace Sol.Quests
 
         private static QuestRegistry GetOrCreateEditorAsset()
         {
-            QuestRegistry loaded = Resources.Load<QuestRegistry>(ResourcePath);
+            QuestRegistry loaded = AssetDatabase.LoadAssetAtPath<QuestRegistry>(DefaultAssetPath);
             if (loaded != null)
+            {
+                EnsurePreloadedAsset(loaded);
                 return loaded;
+            }
 
-            loaded = AssetDatabase.LoadAssetAtPath<QuestRegistry>(DefaultAssetPath);
-            if (loaded != null)
+            QuestRegistry legacy = AssetDatabase.LoadAssetAtPath<QuestRegistry>(LegacyAssetPath);
+            if (legacy != null)
+            {
+                EnsureDataFolder();
+                string moveError = AssetDatabase.MoveAsset(LegacyAssetPath, DefaultAssetPath);
+                loaded = string.IsNullOrEmpty(moveError)
+                    ? AssetDatabase.LoadAssetAtPath<QuestRegistry>(DefaultAssetPath)
+                    : legacy;
+                EnsurePreloadedAsset(loaded);
                 return loaded;
+            }
 
-            const string resourcesFolder = "Assets/Resources";
-            if (!AssetDatabase.IsValidFolder(resourcesFolder))
-                AssetDatabase.CreateFolder("Assets", "Resources");
+            EnsureDataFolder();
 
             QuestRegistry created = CreateInstance<QuestRegistry>();
             AssetDatabase.CreateAsset(created, DefaultAssetPath);
             AssetDatabase.SaveAssets();
+            EnsurePreloadedAsset(created);
             return created;
+        }
+
+        private static void EnsureDataFolder()
+        {
+            const string dataFolder = "Assets/Data";
+            if (!AssetDatabase.IsValidFolder(dataFolder))
+                AssetDatabase.CreateFolder("Assets", "Data");
+        }
+
+        private static void EnsurePreloadedAsset(QuestRegistry registry)
+        {
+            if (registry == null)
+                return;
+
+            UnityEngine.Object[] assets = PlayerSettings.GetPreloadedAssets();
+            for (int i = 0; i < assets.Length; i++)
+            {
+                if (assets[i] == registry)
+                    return;
+            }
+
+            List<UnityEngine.Object> updated = new(assets) { registry };
+            PlayerSettings.SetPreloadedAssets(updated.ToArray());
         }
 
         private void SyncFromProject()

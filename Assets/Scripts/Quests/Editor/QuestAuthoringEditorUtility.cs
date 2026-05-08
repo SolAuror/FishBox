@@ -10,7 +10,7 @@ namespace Sol.Editor
 {
     public static class QuestAuthoringEditorUtility
     {
-        public const string DefaultQuestFolder = "Assets/Resources";
+        public const string DefaultQuestFolder = "Assets/Data/QuestData";
 
         public static QuestDefinition CreateQuestAsset(QuestAuthoringTemplate template, string title = null)
         {
@@ -153,13 +153,22 @@ namespace Sol.Editor
 
         private static void EnsureDefaultFolder()
         {
-            if (AssetDatabase.IsValidFolder(DefaultQuestFolder))
+            EnsureFolderRecursive(DefaultQuestFolder);
+        }
+
+        private static void EnsureFolderRecursive(string folder)
+        {
+            if (string.IsNullOrWhiteSpace(folder) || AssetDatabase.IsValidFolder(folder))
                 return;
 
-            if (!AssetDatabase.IsValidFolder("Assets"))
+            string parent = Path.GetDirectoryName(folder)?.Replace("\\", "/");
+            string leaf = Path.GetFileName(folder);
+            if (string.IsNullOrEmpty(parent) || string.IsNullOrEmpty(leaf))
                 return;
 
-            AssetDatabase.CreateFolder("Assets", "Resources");
+            EnsureFolderRecursive(parent);
+            if (!AssetDatabase.IsValidFolder(folder))
+                AssetDatabase.CreateFolder(parent, leaf);
         }
 
         private static string DefaultTitleFor(QuestAuthoringTemplate template)

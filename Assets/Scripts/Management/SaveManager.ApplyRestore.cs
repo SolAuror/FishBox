@@ -7,6 +7,7 @@ using UnityEngine.AI;
 using Sol.AI;
 using Sol.Grab;
 using Sol.Player;
+using Sol.Rpg;
 using Sol.ToD;
 
 #if UNITY_EDITOR
@@ -34,6 +35,7 @@ namespace Sol.SaveLoad
             ApplyNpcData(data.NPCs);
             ApplyWorldItemData(data.WorldItems);
             Sol.Quests.QuestManager.Instance?.ApplySaveData(data.Quests);
+            ApplyShopData(data.Shops);
         }
 
 
@@ -269,6 +271,27 @@ namespace Sol.SaveLoad
                 Collider col = item.GetComponent<Collider>();
                 if (col != null)
                     col.enabled = true;
+            }
+        }
+
+        private void ApplyShopData(List<ShopSaveData> shops)
+        {
+            ShopRuntimeStore.Clear();
+            if (shops == null || shops.Count == 0)
+                return;
+
+            for (int i = 0; i < shops.Count; i++)
+            {
+                ShopSaveData shop = shops[i];
+                if (shop == null || string.IsNullOrWhiteSpace(shop.ShopId))
+                    continue;
+
+                ShopRuntimeStore.RestoreSession(
+                    shop.ShopId,
+                    shop.Gold,
+                    shop.Stock,
+                    shop.LastRestockRealtime,
+                    shop.LastRestockInGameDay);
             }
         }
 

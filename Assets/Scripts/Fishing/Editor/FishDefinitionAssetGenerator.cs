@@ -111,6 +111,16 @@ namespace Sol.Editor
         }
     }
 
+    [CustomPropertyDrawer(typeof(ShopIdDropdownAttribute))]
+    public sealed class ShopIdDropdownDrawer : PropertyDrawer
+    {
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            ShopIdDropdownAttribute config = (ShopIdDropdownAttribute)attribute;
+            ReferenceDropdown.DrawShop(position, label, property, config?.AllowEmpty ?? true);
+        }
+    }
+
     [CustomEditor(typeof(Inventory))]
     public sealed class InventoryEditor : UnityEditor.Editor
     {

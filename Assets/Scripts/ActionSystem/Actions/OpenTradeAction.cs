@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol.Actions
@@ -60,6 +61,49 @@ namespace Sol.Actions
             }
 
             _onOpened?.Invoke();
+            Complete();
+        }
+    }
+
+    /// <summary>
+    /// Discrete action: open a registry-backed shop session for the actor.
+    /// </summary>
+    public class OpenShopAction : InteractionAction
+    {
+        private readonly Inventory _playerInventory;
+        private readonly ShopRuntimeSession _shopSession;
+
+        public bool Succeeded { get; private set; }
+
+        public OpenShopAction(Inventory playerInventory, ShopRuntimeSession shopSession)
+        {
+            _playerInventory = playerInventory;
+            _shopSession = shopSession;
+        }
+
+        public override bool CanExecute()
+        {
+            return _playerInventory != null && _shopSession?.Inventory != null;
+        }
+
+        public override void OnStart()
+        {
+            HUD.TradeUI tradeUi = HUD.TradeUI.ResolveInstance();
+            if (tradeUi == null)
+            {
+                Debug.LogWarning("[OpenShopAction] TradeUI instance is unavailable.");
+                Cancel();
+                return;
+            }
+
+            tradeUi.OpenShop(_playerInventory, _shopSession);
+            Succeeded = tradeUi.IsOpen;
+            if (!Succeeded)
+            {
+                Cancel();
+                return;
+            }
+
             Complete();
         }
     }

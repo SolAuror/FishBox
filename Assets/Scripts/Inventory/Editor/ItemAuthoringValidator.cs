@@ -45,6 +45,18 @@ namespace Sol.Editor
 
             if (string.IsNullOrWhiteSpace(item.ItemId))
                 warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Error, "Missing item id."));
+            else
+            {
+                ItemRegistry.Entry definition = ItemRegistry.Get()?.GetDefinition(item.ItemId);
+                if (definition == null)
+                {
+                    warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Error, $"Item id '{item.ItemId}' is missing from ItemRegistry."));
+                }
+                else
+                {
+                    ValidatePrefabDrift(item, definition, warnings);
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(item.ItemName) || string.Equals(item.ItemName.Trim(), "Item", System.StringComparison.Ordinal))
                 warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Item name still looks like a placeholder."));
@@ -68,6 +80,43 @@ namespace Sol.Editor
             return warnings;
         }
 
+        public static List<ItemAuthoringWarning> ValidateDefinition(ItemRegistry.Entry definition)
+        {
+            List<ItemAuthoringWarning> warnings = new();
+            if (definition == null)
+            {
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Error, "Missing item registry definition."));
+                return warnings;
+            }
+
+            definition.Normalize();
+
+            if (string.IsNullOrWhiteSpace(definition.ItemId))
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Error, "Missing item id."));
+
+            if (string.IsNullOrWhiteSpace(definition.DisplayName) || string.Equals(definition.DisplayName.Trim(), "Item", System.StringComparison.Ordinal))
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Item name still looks like a placeholder."));
+
+            if (definition.Icon == null)
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Missing inventory icon."));
+
+            if (definition.Prefab == null)
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Missing visual/world prefab. This item cannot spawn in-world or render a 3D preview."));
+
+            if (definition.IsStackable && definition.MaxStackSize <= 1)
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Stackable items should have a max stack size above 1."));
+
+            if (!definition.IsStackable && definition.MaxStackSize > 1)
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Info, "Max stack size is ignored when the item is not stackable."));
+
+            if (definition.ItemType == ItemType.Gold && (!definition.IsStackable || definition.MaxStackSize <= 1 || definition.Value != 1))
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Gold should stay stackable with value normalized to 1."));
+
+            ValidateUse(definition, warnings);
+            ValidateEquipment(definition, warnings);
+            return warnings;
+        }
+
         public static List<ItemAuthoringWarning> ValidateRegistry(ItemRegistry registry)
         {
             List<ItemAuthoringWarning> warnings = new();
@@ -88,21 +137,17 @@ namespace Sol.Editor
                     continue;
                 }
 
-                if (entry.Prefab == null)
-                {
-                    warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Error, $"Registry entry {i} points to a null prefab."));
-                    continue;
-                }
-
-                string id = string.IsNullOrWhiteSpace(entry.ItemId) ? entry.Prefab.ItemId : entry.ItemId.Trim();
+                string id = string.IsNullOrWhiteSpace(entry.ItemId) ? entry.Prefab != null ? entry.Prefab.ItemId : string.Empty : entry.ItemId.Trim();
                 if (string.IsNullOrWhiteSpace(id))
                 {
-                    warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Error, $"{entry.Prefab.name} has no item id."));
+                    warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Error, $"Registry entry {i} has no item id."));
                     continue;
                 }
 
                 if (!seen.Add(id))
                     warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Error, $"Duplicate item id {id}."));
+
+                warnings.AddRange(ValidateDefinition(entry));
             }
 
             return warnings;
@@ -145,6 +190,31 @@ namespace Sol.Editor
             }
         }
 
+        private static void ValidateUse(ItemRegistry.Entry definition, List<ItemAuthoringWarning> warnings)
+        {
+            IReadOnlyList<ItemUseEffect> effects = definition.UseEffects;
+            int effectCount = effects?.Count ?? 0;
+
+            bool isConsumable = definition.IsConsumable || ItemTypeRules.IsConsumableType(definition.ItemType);
+            if (isConsumable && definition.UseOccasion != ItemUseOccasion.Never && effectCount == 0)
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Consumable item has no use effects."));
+
+            if (!isConsumable && effectCount > 0)
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Use effects are ignored because this item is not consumable."));
+
+            if (effects == null)
+                return;
+
+            for (int i = 0; i < effects.Count; i++)
+            {
+                ItemUseEffect effect = effects[i];
+                if (effect == null)
+                    warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, $"Use effect {i + 1} is empty."));
+                else if (effect.Amount <= 0f)
+                    warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, $"Use effect {i + 1} has no amount."));
+            }
+        }
+
         private static void ValidateEquipment(ItemComponent item, List<ItemAuthoringWarning> warnings)
         {
             if (!ItemTypeRules.IsEquipableType(item.Type))
@@ -162,6 +232,42 @@ namespace Sol.Editor
                 EquipmentSlotType slot = allowed[i];
                 if (!ItemTypeRules.CanItemUseSlot(item, slot))
                     warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, $"{slot} is not valid for this equipment domain."));
+            }
+        }
+
+        private static void ValidateEquipment(ItemRegistry.Entry definition, List<ItemAuthoringWarning> warnings)
+        {
+            if (!ItemTypeRules.IsEquipableType(definition.ItemType))
+                return;
+
+            if (string.IsNullOrWhiteSpace(definition.EquipBone))
+                warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Equipment item is missing an equip bone/socket."));
+
+            IReadOnlyList<EquipmentSlotType> allowed = definition.AllowedEquipSlots;
+            if (allowed == null)
+                return;
+
+            for (int i = 0; i < allowed.Count; i++)
+            {
+                EquipmentSlotType slot = allowed[i];
+                if (!ItemTypeRules.CanItemUseSlot(definition.ItemType, definition.EquipDomain, definition.WeaponHanding, slot))
+                    warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, $"{slot} is not valid for this equipment domain."));
+            }
+        }
+
+        private static void ValidatePrefabDrift(ItemComponent item, ItemRegistry.Entry definition, List<ItemAuthoringWarning> warnings)
+        {
+            if (item == null || definition == null)
+                return;
+
+            if (!string.Equals(item.LegacyItemName, definition.DisplayName, System.StringComparison.Ordinal)
+                || item.LegacyType != definition.ItemType
+                || item.LegacyValue != definition.Value
+                || item.LegacyIcon != definition.Icon)
+            {
+                warnings.Add(new ItemAuthoringWarning(
+                    ItemAuthoringWarningSeverity.Info,
+                    "Legacy prefab design fields differ from ItemRegistry. Registry values are authoritative."));
             }
         }
 

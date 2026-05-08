@@ -10,7 +10,7 @@ namespace Sol.SaveLoad
     public class GameSaveData                               // Root class for all save data. Contains metadata and all relevant game state data for saving and loading.
     {
         public const int InitialVersion = 1;                // First version of the save data structure.
-        public const int CurrentVersion = 7;                // Increment when making changes to the save data structure.
+        public const int CurrentVersion = 8;                // Increment when making changes to the save data structure.
 
         public int SaveVersion = CurrentVersion;            // Used to handle loading old save versions and applying necessary conversions.
 
@@ -22,6 +22,7 @@ namespace Sol.SaveLoad
         public List<CaughtFishData> CaughtFish = new();     // Data for fish caught by the player, used to populate the fish encyclopedia.
         public List<WorldItemSaveData> WorldItems = new(); // Data for items placed in the world (e.g. dropped items), including position and rotation.
         public List<QuestSaveData> Quests = new();          // Quest runtime states (active/ready/completed/failed). SaveVersion 4.
+        public List<ShopSaveData> Shops = new();            // Mutable RPG shop runtime states. SaveVersion 8.
     }
 
     [Serializable]
@@ -118,6 +119,16 @@ namespace Sol.SaveLoad
         public int Gold;
         public List<ItemInstanceSaveData> InventoryItems = new();
         public List<string> ConversationFlags = new();
+    }
+
+    [Serializable]
+    public class ShopSaveData
+    {
+        public string ShopId = string.Empty;
+        public int Gold;
+        public double LastRestockRealtime;
+        public int LastRestockInGameDay;
+        public List<Sol.Rpg.ShopStockSaveEntry> Stock = new();
     }
 
     [Serializable]

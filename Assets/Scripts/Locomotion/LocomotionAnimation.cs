@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Fishing;
+using Sol.Combat;
+using Sol.Actions;
 
 namespace Sol.Locomotion
 {
@@ -16,6 +18,7 @@ namespace Sol.Locomotion
         private LocomotionController _controller;
         private FishingState _fishingState;
         private Sol.AI.AI_NPC _aiNpc;
+        private BasicMeleeAttack _meleeAttack;
 
         //Locomotion Hashes
         private static int inputXHash = Animator.StringToHash("inputX");
@@ -72,6 +75,7 @@ namespace Sol.Locomotion
             _controller = GetComponent<LocomotionController>();
             _fishingState = GetComponent<FishingState>();
             _aiNpc = GetComponent<Sol.AI.AI_NPC>();
+            _meleeAttack = GetComponent<BasicMeleeAttack>();
 
             // Cache which parameters actually exist in the Animator Controller
             _validParams = new HashSet<int>();
@@ -144,7 +148,17 @@ namespace Sol.Locomotion
             bool shouldBlockDefaultAttack = _fishingState != null && _fishingState.ShouldBlockDefaultAttack;
             if (!shouldBlockDefaultAttack && _locomotionInput.AttackPressed && _validParams.Contains(attackTriggerHash))
             {
-                _animator.SetTrigger(attackTriggerHash);
+                if (_meleeAttack == null || _meleeAttack.CanStartAttack())
+                {
+                    _animator.SetTrigger(attackTriggerHash);
+                    if (_meleeAttack != null)
+                    {
+                        bool dispatched = ActionSystem.Instance != null
+                            && ActionSystem.Instance.Dispatch(new MeleeAttackAction(), gameObject);
+                        if (!dispatched)
+                            _meleeAttack.BeginAttack();
+                    }
+                }
                 _locomotionInput.SetAttackPressedFalse();
             }
 
@@ -230,6 +244,16 @@ namespace Sol.Locomotion
         {
             OnPickupContext();
         }
+
+        // Shared punch animation event hook.
+        public void OnMeleeHitFrame()
+        {
+            _meleeAttack?.ResolveHitFrame();
+        }
+
+        // Compatibility aliases in case clips already reference alternative names.
+        public void OnAttackHit() => OnMeleeHitFrame();
+        public void OnPunchHit() => OnMeleeHitFrame();
 #endregion
     }
 }

@@ -1,6 +1,7 @@
 using UnityEngine;
 using Sol.Grab;
 using Sol.Fishing;
+using Sol.Combat;
 
 namespace Sol.Actions
 {
@@ -10,11 +11,24 @@ namespace Sol.Actions
     /// </summary>
     public sealed class ActionContext
     {
+        private readonly GameObject _actor;
+        private BasicMeleeAttack _basicMeleeAttack;
+
         public GameObject Actor { get; }
         public Transform Transform { get; }
         public Inventory Inventory { get; }
         public Equipment Equipment { get; }
         public FishingState FishingState { get; }
+        public BasicMeleeAttack BasicMeleeAttack
+        {
+            get
+            {
+                if (_basicMeleeAttack == null && _actor != null)
+                    _basicMeleeAttack = _actor.GetComponent<BasicMeleeAttack>();
+
+                return _basicMeleeAttack;
+            }
+        }
         // GrabManager is scene-owned and may be recreated; always resolve live instance.
         public GrabManager GrabSystem => GrabManager.Instance;
 
@@ -23,11 +37,13 @@ namespace Sol.Actions
 
         public ActionContext(GameObject actor)
         {
+            _actor = actor;
             Actor = actor;
             Transform = actor.transform;
             Inventory = actor.GetComponent<Inventory>();
             Equipment = actor.GetComponent<Equipment>();
             FishingState = actor.GetComponent<FishingState>();
+            _basicMeleeAttack = actor.GetComponent<BasicMeleeAttack>();
         }
     }
 }

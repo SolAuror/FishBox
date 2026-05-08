@@ -5,8 +5,10 @@ using UnityEngine;
 
 namespace Sol.Combat
 {
+    [DisallowMultipleComponent]
+    [RequireComponent(typeof(BasicMeleeAttack))]
     [AddComponentMenu("Sol/Combat/Player Punch Combat")]
-    [DefaultExecutionOrder(-1)]
+    [DefaultExecutionOrder(-2)]
     public class PlayerPunchCombat : MonoBehaviour
     {
         [Header("References")]
@@ -23,11 +25,13 @@ namespace Sol.Combat
         [SerializeField] private float _hitHeightOffset = 1f;
         [SerializeField] private LayerMask _targetLayers = ~0;
 
-        private readonly Collider[] _hits = new Collider[16];
-        private float _nextPunchTime;
+        private BasicMeleeAttack _basicMeleeAttack;
 
         private void Awake()
         {
+            _basicMeleeAttack = GetComponent<BasicMeleeAttack>();
+            if (_basicMeleeAttack == null)
+                _basicMeleeAttack = gameObject.AddComponent<BasicMeleeAttack>();
             if (_input == null)
                 _input = GetComponent<LocomotionInput>();
 
@@ -36,115 +40,58 @@ namespace Sol.Combat
 
             if (_fishingState == null)
                 _fishingState = GetComponent<FishingState>();
-        }
-
-        private void Update()
-        {
-            if (_input == null || !_input.AttackPressed)
-                return;
-
-            if (Time.time < _nextPunchTime)
-                return;
-
-            if (_fishingState != null && _fishingState.ShouldBlockDefaultAttack)
-                return;
-
-            _nextPunchTime = Time.time + Mathf.Max(0.01f, _cooldown);
-            TryPunch();
-        }
-
-        private void TryPunch()
-        {
-            Transform origin = ResolveOrigin();
-            Vector3 originPosition = origin.position;
-            Vector3 forward = origin.forward;
-            int hitCount = Physics.OverlapCapsuleNonAlloc(
-                originPosition,
-                originPosition + forward * _range,
-                _radius,
-                _hits,
-                _targetLayers,
-                QueryTriggerInteraction.Ignore);
-
-            NPCSoul target = FindBestTarget(hitCount, originPosition, forward);
-            if (target == null)
-                return;
-
-            target.TakeDamage(_damage);
-
-            if (!target.IsAlive)
-                return;
-
-            Vector3 hitDirection = target.transform.position - transform.position;
-            if (hitDirection.sqrMagnitude < 0.001f)
-                hitDirection = forward;
-
-            HitReaction hitReaction = target.GetComponent<HitReaction>();
-            if (hitReaction == null)
-                hitReaction = target.GetComponentInChildren<HitReaction>();
-
-            if (hitReaction != null)
-                hitReaction.PlayHitReaction(hitDirection.normalized);
-        }
-
-        private NPCSoul FindBestTarget(int hitCount, Vector3 originPosition, Vector3 forward)
-        {
-            NPCSoul bestTarget = null;
-            float bestScore = float.MaxValue;
-
-            for (int i = 0; i < hitCount; i++)
-            {
-                Collider hit = _hits[i];
-                _hits[i] = null;
-
-                if (hit == null || hit.transform.IsChildOf(transform))
-                    continue;
-
-                NPCSoul soul = hit.GetComponentInParent<NPCSoul>();
-                if (soul == null || !soul.IsAlive)
-                    continue;
-
-                Vector3 targetPoint = soul.transform.position + Vector3.up * _hitHeightOffset;
-                Vector3 toTarget = targetPoint - originPosition;
-                if (Vector3.Dot(forward, toTarget.normalized) < 0.2f)
-                    continue;
-
-                float score = toTarget.sqrMagnitude;
-                if (score >= bestScore)
-                    continue;
-
-                bestScore = score;
-                bestTarget = soul;
-            }
-
-            return bestTarget;
-        }
-
-        private Transform ResolveOrigin()
-        {
-            if (_originOverride != null)
-                return _originOverride;
-
-            if (_controller != null && _controller.CamTransform != null)
-                return _controller.CamTransform;
-
-            return transform;
+            SyncIntoBasicMelee();
         }
 
 #if UNITY_EDITOR
+        private void OnValidate()
+        {
+            if (!Application.isPlaying)
+                SyncIntoBasicMelee();
+        }
+
         private void OnDrawGizmosSelected()
         {
-            Transform origin = _originOverride != null
-                ? _originOverride
-                : _controller != null && _controller.CamTransform != null
-                    ? _controller.CamTransform
-                    : transform;
+            if (_basicMeleeAttack == null)
+                _basicMeleeAttack = GetComponent<BasicMeleeAttack>();
 
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(origin.position, _radius);
-            Gizmos.DrawWireSphere(origin.position + origin.forward * _range, _radius);
-            Gizmos.DrawLine(origin.position, origin.position + origin.forward * _range);
+            if (_basicMeleeAttack == null)
+                return;
         }
 #endif
+
+        private void SyncIntoBasicMelee()
+        {
+            if (_basicMeleeAttack == null)
+                _basicMeleeAttack = GetComponent<BasicMeleeAttack>();
+
+            if (_basicMeleeAttack == null)
+                return;
+
+            // Keep legacy prefab values alive while routing runtime behavior through BasicMeleeAttack.
+            SerializedConfig config = new SerializedConfig
+            {
+                Damage = _damage,
+                Range = _range,
+                Radius = _radius,
+                Cooldown = _cooldown,
+                HitHeightOffset = _hitHeightOffset,
+                TargetLayers = _targetLayers,
+                OriginOverride = _originOverride
+            };
+
+            _basicMeleeAttack.ApplyLegacyConfig(config);
+        }
+
+        public struct SerializedConfig
+        {
+            public float Damage;
+            public float Range;
+            public float Radius;
+            public float Cooldown;
+            public float HitHeightOffset;
+            public LayerMask TargetLayers;
+            public Transform OriginOverride;
+        }
     }
 }

@@ -1,36 +1,59 @@
 # NPCs
 
-*The people standing around the pond. Some trade. Some don't. All of them own their pathing.*
+*Townsfolk, guards, quest givers, bandits, and traders. They own pathing, dialogue hooks, identity, and optional shop ids.*
 
 ## Purpose
 
-NPC characters — traders, idlers, patrollers — built on the same locomotion stack as the player, but fed by a simple state machine instead of input. Each NPC has a `NavMeshAgent`, a `LocomotionController`, and an `AIStateBase` subclass deciding what it wants to do this tick.
+NPC characters use the same locomotion and soul stack as the player, but their intent comes from AI states instead of input. Each NPC has a `NavMeshAgent`, locomotion components, `NPCSoul` identity, and an `AI_NPC` partial class that coordinates state, dialogue, inventory, death/loot, and trading.
 
-## Key files
+The authoring tool seeds NPCs from archetypes such as `Civilian`, `Guard`, `Bandit`, `Quest Giver`, and `Unique`. Traders now use shop ids for merchant stock. NPC inventory still exists, but it is no longer the source of merchant shop stock.
 
-- [AI_NPC.cs](../../Assets/Scripts/NPCs/AI_NPC.cs) — partial class root. Lists `[RequireComponent]`s and exposes the conversation hooks.
-- [AI_NPC.Core.cs](../../Assets/Scripts/NPCs/AI_NPC.Core.cs) — main behaviour loop, state switching, public surface.
-- [AI_NPC.Locomotion.cs](../../Assets/Scripts/NPCs/AI_NPC.Locomotion.cs) — intent translation: turns the active state's `LocomotionIntent` into `NavMeshAgent` destinations.
-- [AI_NPC.Animation.cs](../../Assets/Scripts/NPCs/AI_NPC.Animation.cs) — animator parameter mapping (speed, conversing, dead).
-- [AI_NPC.Inventory.cs](../../Assets/Scripts/NPCs/AI_NPC.Inventory.cs) — NPC-side inventory seeding and trade integration.
-- [AIConfig.cs](../../Assets/Scripts/NPCs/AIConfig.cs) — authored per-NPC config (speeds, patrol radii, idle timings).
-- [NPCSoul.cs](../../Assets/Scripts/NPCs/NPCSoul.cs) — persistent NPC identity. Survives save/load; carries the stable `NPC#####` id.
-- [IntentContext.cs](../../Assets/Scripts/NPCs/IntentContext.cs) — glue between AI intent and the shared locomotion intent provider contract.
-- [NPC.asset](../../Assets/Scripts/NPCs/NPC.asset) / [Trader_Elsbeth.asset](../../Assets/Scripts/NPCs/Trader_Elsbeth.asset) — authored NPC configs.
-- **States:**
-  - [States/AIStateBase.cs](../../Assets/Scripts/NPCs/States/AIStateBase.cs) — abstract base. `Enter` / `Exit` / `Tick` / `GetIntent`.
-  - [States/AIState_Idle.cs](../../Assets/Scripts/NPCs/States/AIState_Idle.cs) — stand there, optionally look at the player.
-  - [States/AIState_Patrol.cs](../../Assets/Scripts/NPCs/States/AIState_Patrol.cs) — follow a spline or waypoint loop.
-  - [States/AIState_Dead.cs](../../Assets/Scripts/NPCs/States/AIState_Dead.cs) — ragdoll hand-off; no intent, no tick-out.
+## Key Files
+
+- [AI_NPC.cs](../../Assets/Scripts/NPCs/AI_NPC.cs): partial class root and required component declarations.
+- [AI_NPC.Core.cs](../../Assets/Scripts/NPCs/AI_NPC.Core.cs): main behavior loop, state switching, and public surface.
+- [AI_NPC.Locomotion.cs](../../Assets/Scripts/NPCs/AI_NPC.Locomotion.cs): active-state locomotion intent into `NavMeshAgent`.
+- [AI_NPC.Animation.cs](../../Assets/Scripts/NPCs/AI_NPC.Animation.cs): animator parameter mapping.
+- [AI_NPC.Inventory.cs](../../Assets/Scripts/NPCs/AI_NPC.Inventory.cs): NPC-side inventory support.
+- [AI_NPC.Shop.cs](../../Assets/Scripts/NPCs/AI_NPC.Shop.cs): trader surface, shop id, shop-session opening, and legacy direct trade fallback.
+- [AIConfig.cs](../../Assets/Scripts/NPCs/AIConfig.cs): authored per-NPC config.
+- [NPCSoul.cs](../../Assets/Scripts/NPCs/NPCSoul.cs): persistent NPC identity and character facts.
+- [IntentContext.cs](../../Assets/Scripts/NPCs/IntentContext.cs): glue between AI intent and locomotion.
+- [NPCAuthoringDrawerUtility.cs](../../Assets/Scripts/NPCs/Editor/NPCAuthoringDrawerUtility.cs): grouped NPC inspector UI, including shop id dropdown.
+- [NPCAuthoringValidator.cs](../../Assets/Scripts/NPCs/Editor/NPCAuthoringValidator.cs): NPC authoring warnings, including missing/invalid shop ids.
+- [ShopRuntimeStore.cs](../../Assets/Scripts/RPG/ShopRuntimeStore.cs): resolves a trader's shop id into a mutable runtime session.
+- **States:** [States/](../../Assets/Scripts/NPCs/States/) contains idle, patrol, dead, and shared state base classes.
 - **Prefabs:** [NPCs/Prefabs/](../../Assets/Scripts/NPCs/Prefabs/).
 
-## Entry points
+## Entry Points
 
-- `AI_NPC` is the single MonoBehaviour on an NPC root. It requires (and auto-resolves) `NavMeshAgent`, `CharacterController`, and the full locomotion stack.
-- Trading is wired through [NpcTradeInteractable](../../Assets/Scripts/Interactions/NpcTradeInteractable.cs) on the NPC, which implements `IInteractable` and returns the trade-opening `GameAction`.
-- Conversations call `BeginConversation()` / `EndConversation()` on `AI_NPC` which propagates to `LocomotionController.IsConversing` (suppresses rotation).
+- `AI_NPC` is the single behavior component on an NPC root. It requires and resolves navigation, locomotion, inventory, and dialogue/trade pieces.
+- Conversations call `BeginConversation()` / `EndConversation()` on `AI_NPC`, which propagates to locomotion conversation state.
+- Trader interaction/dialogue asks `AI_NPC` for its trade action.
+- If `AI_NPC.ShopId` resolves to a `RpgShopDefinition`, trade opens a `ShopRuntimeSession`.
+- If no shop id is assigned, legacy direct inventory trade can still be used where appropriate.
 
-## AI state transitions
+## Trading Model
+
+Trader NPCs should use `SHP#####` shop ids for paid merchant trading:
+
+```mermaid
+flowchart TD
+    NPC["AI_NPC<br/>ShopId"] --> Store["ShopRuntimeStore.GetOrCreateSession"]
+    Store --> Def["RpgShopDefinition<br/>stock item ids"]
+    Def --> Session["ShopRuntimeSession<br/>mutable stock + gold"]
+    Session --> ItemRegistry["ItemRegistry<br/>item facts + visual prefabs"]
+    Session --> TradeUI["TradeUI shop mode"]
+```
+
+Authoring rules:
+
+- Assign the shop id in the NPC authoring UI.
+- Author merchant stock in the `Shops` tab, not in the NPC inventory.
+- NPC inventory remains for non-shop possessions, loot, quest delivery, and direct/free transfer.
+- Trader dialogue without a valid shop id warns and does not open a broken paid trade UI.
+
+## AI State Transitions
 
 ```mermaid
 stateDiagram-v2
@@ -40,56 +63,28 @@ stateDiagram-v2
     Idle --> Dead: Health <= 0
     Patrol --> Dead: Health <= 0
     Dead --> [*]
-
-    note right of Idle
-        Accepts trade /
-        conversation interacts
-    end note
-    note right of Patrol
-        NavMeshAgent follows
-        spline or waypoint list
-    end note
-    note right of Dead
-        Ragdoll on.
-        No Tick. No intent.
-    end note
 ```
 
-The `State` enum in [AI_NPC.cs](../../Assets/Scripts/NPCs/AI_NPC.cs) names `Chase` too, but no concrete `AIState_Chase` exists in the States folder yet — it's reserved for hostile NPCs and is currently a stub.
-
-## Intent → locomotion
-
-```
-AIStateBase.Tick() ─► returns next State enum
-AIStateBase.GetIntent() ─► LocomotionIntent (direction, speed, sprint flag)
-AI_NPC.Locomotion (partial) ─► feeds intent into LocomotionController via ILocomotionIntentProvider
-NavMeshAgent ─► carries the character along the computed path
-LocomotionAnimation ─► reads resulting velocity, drives animator
-```
-
-The NavMeshAgent is the *actual* mover; the `CharacterController` follows. If pathing breaks (`IsPathInvalid`), the state should re-plan rather than lurching — see how `AIState_Patrol` handles stale paths.
+The `State.Chase` enum value is reserved, but no complete chase state is wired yet.
 
 ## Persistence
 
-NPCs persist via `NPCSoul`. On save, [SaveManager](../../Assets/Scripts/Management/SaveManager.cs) collects each soul's `NPCSaveData` (position, rotation, health, inventory, current state). On load, souls are matched back to in-scene NPCs by their stable id and rehydrated.
+NPCs persist through `NPCSoul`. Save/load captures each soul's position, rotation, health, current state, conversation-ready flags, and non-shop inventory.
 
-## Adding a new state
+Merchant shop stock/gold does not persist through NPC inventory. It persists through `ShopSaveData` and restores through `ShopRuntimeStore`.
 
-1. Subclass `AIStateBase` in [States/](../../Assets/Scripts/NPCs/States/). Implement `Enter`, `Exit`, `Tick`, `GetIntent`.
-2. Add a value to `AI_NPC.State` enum in [AI_NPC.cs](../../Assets/Scripts/NPCs/AI_NPC.cs).
-3. Wire it into `AI_NPC.Core` so the new enum value instantiates your class.
-4. If it needs new authored data (e.g. flee radius), extend [AIConfig.cs](../../Assets/Scripts/NPCs/AIConfig.cs) and reference from the state.
+## Adding A New NPC
 
-## Adding a new NPC
-
-1. Duplicate a prefab under [NPCs/Prefabs/](../../Assets/Scripts/NPCs/Prefabs/) and an `NPC.asset` config.
-2. Assign a unique `NPC#####` id to the `NPCSoul`.
-3. If tradeable, add [NpcTradeInteractable](../../Assets/Scripts/Interactions/NpcTradeInteractable.cs) and seed an inventory.
-4. Place in-scene on a NavMesh.
+1. Use `Window/Sol/Database` -> `NPCs` or duplicate a prefab under [NPCs/Prefabs/](../../Assets/Scripts/NPCs/Prefabs/).
+2. Assign/fix a stable owner id through the database tools.
+3. Configure archetype, AI config, patrol points, inventory, dialogue, and death/loot.
+4. For a merchant, create a `RpgShopDefinition` in the `Shops` tab and assign its shop id to the NPC.
+5. Place in-scene on a NavMesh.
 
 ## Gotchas
 
-- **`[RequireComponent]` is strict.** Drop an AI_NPC on an object without a `CharacterController` *and* a `NavMeshAgent` *and* the whole locomotion stack, and Unity will noisily silently add them in whatever order — leading to default speeds and broken animation hookups. Always start from a prefab.
-- **Dead NPCs stop ticking.** If you save while an NPC is mid-death animation, the loaded state is `Dead` with no extra grace period. That's intentional, but don't expect post-death cleanup logic to run on load.
-- **Conversation rotation suppression only applies while `IsConversing` is true.** Starting a conversation doesn't stop the `NavMeshAgent`. If you want the NPC to stand still and face the player, the state's `GetIntent` must return zero velocity for the conversation's duration.
-- **The `Chase` state is a placeholder.** Don't assume `State.Chase` works end-to-end until a concrete `AIState_Chase` lands.
+- Start from an NPC prefab. Required components are strict, and Unity auto-add order can hide broken defaults.
+- Dead NPCs stop ticking. Loaded dead state has no post-load death grace period.
+- Starting a conversation does not automatically stop the `NavMeshAgent`; the active state must provide zero movement if the NPC should stand still.
+- `State.Chase` is a placeholder until a concrete chase state lands.
+- Merchant stock belongs to `RpgShopDefinition` and `ShopRuntimeSession`, not the NPC inventory seed list.

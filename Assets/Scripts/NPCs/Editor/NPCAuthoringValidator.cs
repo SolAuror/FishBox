@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Sol.AI;
 using Sol.Quests;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol.Editor
@@ -69,6 +70,7 @@ namespace Sol.Editor
             }
 
             ValidateDialogue(aiNpc, warnings);
+            ValidateShop(aiNpc, warnings);
 
             if (soul.MaxHealth <= 0f)
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Max health is 0 — this NPC will be considered dead immediately."));
@@ -128,6 +130,23 @@ namespace Sol.Editor
                         warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Dialogue option '{DisplayOption(option)}' visibility references missing quest '{visibility.QuestId}'."));
                 }
             }
+        }
+
+        private static void ValidateShop(AI_NPC aiNpc, List<NPCAuthoringWarning> warnings)
+        {
+            if (aiNpc == null || !aiNpc.IsTrader)
+                return;
+
+            if (string.IsNullOrWhiteSpace(aiNpc.ShopId))
+            {
+                warnings.Add(new NPCAuthoringWarning(
+                    NPCAuthoringWarningSeverity.Warning,
+                    "Trader has no shop assigned. Legacy inventory trading will still work, but merchant stock should be authored in an RPG shop definition."));
+                return;
+            }
+
+            if (RpgDefinitionRegistry.Get()?.GetShop(aiNpc.ShopId) == null)
+                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Assigned shop '{aiNpc.ShopId}' is not in the RPG registry."));
         }
 
         private static bool RequiresQuest(DialogueOptionAction action)

@@ -185,14 +185,16 @@ namespace Sol.Grab
         [Header("Authoring")]
         [SerializeField] private ItemAuthoringTemplate _authoringTemplate = ItemAuthoringTemplate.None;
         [SerializeField] [TextArea] private string _itemAuthoringNotes = string.Empty;
+        [SerializeField] [HideInInspector] private bool _legacyDesignMigratedToRegistry;
         #endregion
 
         private GameObject _lastInteractorOwner;
+        private bool _missingDefinitionWarned;
 
         public string ItemId => _itemId;
-        public string ItemName => _itemName;
-        public ItemType Type => _itemType;
-        public string TypeDisplayName => IsMiscellaneousType(_itemType) ? "Miscellaneous" : _itemType.ToString();
+        public string ItemName => Definition != null ? Definition.DisplayName : _itemName;
+        public ItemType Type => Definition != null ? Definition.ItemType : _itemType;
+        public string TypeDisplayName => IsMiscellaneousType(Type) ? "Miscellaneous" : Type.ToString();
         public string ItemOwnerId
         {
             get
@@ -204,35 +206,69 @@ namespace Sol.Grab
         public GameObject ItemOwner => ResolveOwnerReference();
         public bool HasOwner => !string.IsNullOrWhiteSpace(ItemOwnerId);
         public bool IsStolen => _isStolen;
-        public int Value => _value;
-        public string FlavourText => _flavourText;
-        public Sprite Icon => _icon;
-        public bool IsStackable => _isStackable;
-        public bool IsConsumable => _isConsumable || ItemTypeRules.IsConsumableType(_itemType);
-        public bool IsTradeable => _isTradeable;
-        public int MaxStackSize => _maxStackSize;
-        public ItemUseOccasion UseOccasion => _useOccasion;
-        public IReadOnlyList<ItemUseEffect> UseEffects => _useEffects;
-        public bool CanUseFromInventory => IsConsumable && _useOccasion != ItemUseOccasion.Never;
-        public float Damage => ItemTypeRules.UsesWeaponStats(_itemType) ? _damage : 0f;
-        public float Defense => ItemTypeRules.UsesArmorStats(_itemType) ? _defense : 0f;
-        public string EquipBone => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipBone : string.Empty;
-        public Vector3 EquipOffset => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipOffset : Vector3.zero;
-        public Vector3 EquipRotation => ItemTypeRules.UsesEquipmentSettings(_itemType) ? _equipRotation : Vector3.zero;
-        public EquipDomain EquipCategory => _equipDomain;
-        public WeaponHanding WeaponHanding => _weaponHanding;
-        public IReadOnlyList<EquipmentSlotType> AllowedEquipSlots => _allowedEquipSlots;
+        public int Value => Definition != null ? Definition.Value : _value;
+        public string FlavourText => Definition != null ? Definition.FlavourText : _flavourText;
+        public Sprite Icon => Definition != null ? Definition.Icon : _icon;
+        public bool IsStackable => Definition != null ? Definition.IsStackable : _isStackable;
+        public bool IsConsumable => Definition != null ? Definition.IsConsumable || ItemTypeRules.IsConsumableType(Definition.ItemType) : _isConsumable || ItemTypeRules.IsConsumableType(_itemType);
+        public bool IsTradeable => Definition != null ? Definition.IsTradeable : _isTradeable;
+        public int MaxStackSize => Definition != null ? Definition.MaxStackSize : _maxStackSize;
+        public ItemUseOccasion UseOccasion => Definition != null ? Definition.UseOccasion : _useOccasion;
+        public IReadOnlyList<ItemUseEffect> UseEffects => Definition != null ? Definition.UseEffects : _useEffects;
+        public bool CanUseFromInventory => IsConsumable && UseOccasion != ItemUseOccasion.Never;
+        public float Damage => ItemTypeRules.UsesWeaponStats(Type) ? (Definition != null ? Definition.Damage : _damage) : 0f;
+        public float Defense => ItemTypeRules.UsesArmorStats(Type) ? (Definition != null ? Definition.Defense : _defense) : 0f;
+        public string EquipBone => ItemTypeRules.UsesEquipmentSettings(Type) ? (Definition != null ? Definition.EquipBone : _equipBone) : string.Empty;
+        public Vector3 EquipOffset => ItemTypeRules.UsesEquipmentSettings(Type) ? (Definition != null ? Definition.EquipOffset : _equipOffset) : Vector3.zero;
+        public Vector3 EquipRotation => ItemTypeRules.UsesEquipmentSettings(Type) ? (Definition != null ? Definition.EquipRotation : _equipRotation) : Vector3.zero;
+        public EquipDomain EquipCategory => Definition != null ? Definition.EquipDomain : _equipDomain;
+        public WeaponHanding WeaponHanding => Definition != null ? Definition.WeaponHanding : _weaponHanding;
+        public IReadOnlyList<EquipmentSlotType> AllowedEquipSlots => Definition != null ? Definition.AllowedEquipSlots : _allowedEquipSlots;
         public Transform PickupGrip => _pickupGrip;
-        public ItemAuthoringTemplate AuthoringTemplate => _authoringTemplate;
-        public string ItemAuthoringNotes => _itemAuthoringNotes;
+        public ItemAuthoringTemplate AuthoringTemplate => Definition != null ? Definition.AuthoringTemplate : _authoringTemplate;
+        public string ItemAuthoringNotes => Definition != null ? Definition.AuthoringNotes : _itemAuthoringNotes;
+
+        public string LegacyItemId => _itemId;
+        public string LegacyItemName => _itemName;
+        public ItemType LegacyType => _itemType;
+        public int LegacyValue => _value;
+        public string LegacyFlavourText => _flavourText;
+        public Sprite LegacyIcon => _icon;
+        public bool LegacyIsStackable => _isStackable;
+        public bool LegacyIsConsumable => _isConsumable;
+        public bool LegacyIsTradeable => _isTradeable;
+        public int LegacyMaxStackSize => _maxStackSize;
+        public ItemUseOccasion LegacyUseOccasion => _useOccasion;
+        public float LegacyDamage => _damage;
+        public float LegacyDefense => _defense;
+        public string LegacyEquipBone => _equipBone;
+        public Vector3 LegacyEquipOffset => _equipOffset;
+        public Vector3 LegacyEquipRotation => _equipRotation;
+        public EquipDomain LegacyEquipDomain => _equipDomain;
+        public WeaponHanding LegacyWeaponHanding => _weaponHanding;
+        public ItemAuthoringTemplate LegacyAuthoringTemplate => _authoringTemplate;
+        public string LegacyAuthoringNotes => _itemAuthoringNotes;
+        public bool LegacyDesignMigratedToRegistry => _legacyDesignMigratedToRegistry;
+
+        private Sol.ItemRegistry.Entry Definition => ResolveDefinition();
+
+        public List<ItemUseEffect> CloneLegacyUseEffects()
+        {
+            return _useEffects != null ? new List<ItemUseEffect>(_useEffects) : new List<ItemUseEffect>();
+        }
+
+        public List<EquipmentSlotType> CloneLegacyAllowedEquipSlots()
+        {
+            return _allowedEquipSlots != null ? new List<EquipmentSlotType>(_allowedEquipSlots) : new List<EquipmentSlotType>();
+        }
 
         public List<ItemActionType> GetAvailableActions()
         {
             List<ItemActionType> actions = new(3);
-            if (CanUseFromInventory && ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Use))
+            if (CanUseFromInventory && ItemTypeRules.SupportsAction(Type, IsConsumable, ItemActionType.Use))
                 actions.Add(ItemActionType.Use);
 
-            if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Equip))
+            if (ItemTypeRules.SupportsAction(Type, IsConsumable, ItemActionType.Equip))
                 actions.Add(ItemActionType.Equip);
 
             actions.Add(ItemActionType.Drop);
@@ -241,9 +277,9 @@ namespace Sol.Grab
 
         public ItemActionType GetPrimaryAction()
         {
-            if (CanUseFromInventory && ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Use))
+            if (CanUseFromInventory && ItemTypeRules.SupportsAction(Type, IsConsumable, ItemActionType.Use))
                 return ItemActionType.Use;
-            if (ItemTypeRules.SupportsAction(_itemType, IsConsumable, ItemActionType.Equip))
+            if (ItemTypeRules.SupportsAction(Type, IsConsumable, ItemActionType.Equip))
                 return ItemActionType.Equip;
             return ItemActionType.Drop;
         }
@@ -254,8 +290,8 @@ namespace Sol.Grab
         }
 
         public string InteractionPrompt => ShouldShowStealPrompt()
-            ? $"Steal {_itemName}"
-            : $"Pick up {_itemName}";
+            ? $"Steal {ItemName}"
+            : $"Pick up {ItemName}";
 
         public bool CanInteract(Interactor interactor)
         {
@@ -271,12 +307,20 @@ namespace Sol.Grab
         public bool ApplyUseEffects(Interactor interactor)
         {
             if (_useEffects == null || _useEffects.Count == 0)
+            {
+                IReadOnlyList<ItemUseEffect> definitionEffects = UseEffects;
+                if (definitionEffects == null || definitionEffects.Count == 0)
+                    return false;
+            }
+
+            IReadOnlyList<ItemUseEffect> effects = UseEffects;
+            if (effects == null || effects.Count == 0)
                 return false;
 
             bool appliedAny = false;
-            for (int i = 0; i < _useEffects.Count; i++)
+            for (int i = 0; i < effects.Count; i++)
             {
-                ItemUseEffect effect = _useEffects[i];
+                ItemUseEffect effect = effects[i];
                 if (effect == null)
                     continue;
 
@@ -332,6 +376,25 @@ namespace Sol.Grab
 
             if (icon != null)
                 _icon = icon;
+        }
+
+        private Sol.ItemRegistry.Entry ResolveDefinition()
+        {
+            if (string.IsNullOrWhiteSpace(_itemId))
+                return null;
+
+            Sol.ItemRegistry registry = Sol.ItemRegistry.Get();
+            Sol.ItemRegistry.Entry definition = registry != null ? registry.GetDefinition(_itemId) : null;
+            if (definition != null)
+                return definition;
+
+            if (!_missingDefinitionWarned)
+            {
+                _missingDefinitionWarned = true;
+                Debug.LogWarning($"[ItemComponent] '{name}' has item id '{_itemId}' but no ItemRegistry definition. Falling back to legacy prefab fields.", this);
+            }
+
+            return null;
         }
 
         public Pose GetPickupPose()

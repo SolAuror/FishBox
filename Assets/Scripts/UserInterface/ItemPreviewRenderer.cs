@@ -131,6 +131,24 @@ namespace Sol.HUD
             }
         }
 
+        public void ShowItemId(string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+            {
+                Clear();
+                return;
+            }
+
+            ItemComponent prefab = Sol.ItemRegistry.Get()?.GetVisualPrefab(itemId);
+            if (prefab == null)
+            {
+                Clear();
+                return;
+            }
+
+            Show(prefab);
+        }
+
         public void Clear()
         {
             _isActive = false;

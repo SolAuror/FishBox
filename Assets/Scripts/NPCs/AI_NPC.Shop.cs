@@ -1,6 +1,7 @@
 using Sol;
 using Sol.Actions;
 using Sol.Grab;
+using Sol.Rpg;
 using UnityEngine;
 
 #if UNITY_EDITOR
@@ -16,6 +17,12 @@ namespace Sol.AI
     public partial class AI_NPC
     {
         private const string DefaultGoldPrefabPath = "Assets/ItemPrefabs/Gold.prefab";
+
+        [Header("Corpse Loot")]
+        [Header("Shop")]
+        [Tooltip("RPG shop definition used for merchant trade. When assigned, merchant stock/prices come from the shop system.")]
+        [ShopIdDropdown]
+        [SerializeField] private string _shopId = string.Empty;
 
         [Header("Corpse Loot")]
         [Tooltip("Gold item id (registry-backed). When set, takes precedence over the direct prefab reference.")]
@@ -34,7 +41,7 @@ namespace Sol.AI
         /// </summary>
         public bool IsTrader
         {
-            get => soul != null && soul.CanTrade;
+            get => (soul != null && soul.CanTrade) || !string.IsNullOrWhiteSpace(_shopId);
             set
             {
                 if (soul != null)
@@ -42,12 +49,22 @@ namespace Sol.AI
             }
         }
 
+        public string ShopId => _shopId;
+
         private bool IsLootingCorpse => soul != null && !soul.IsAlive;
 
         private GameAction BuildTradeAction(Interactor interactor)
         {
             if (!IsTrader)
                 return null;
+
+            ShopRuntimeSession shopSession = ResolveShopSession();
+            if (shopSession != null)
+                return new OpenShopAction(interactor.Inventory, shopSession);
+
+            if (!string.IsNullOrWhiteSpace(_shopId))
+                return null;
+
             return new OpenTradeAction(interactor.Inventory, inventory, lootMode: false);
         }
 
@@ -66,7 +83,23 @@ namespace Sol.AI
             if (tradeUi == null)
                 return;
 
-            tradeUi.OpenTrade(interactor.Inventory, inventory, freeTrade: false);
+            ShopRuntimeSession shopSession = ResolveShopSession();
+            if (shopSession != null)
+            {
+                tradeUi.OpenShop(interactor.Inventory, shopSession);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_shopId))
+                tradeUi.OpenTrade(interactor.Inventory, inventory, freeTrade: false);
+        }
+
+        private ShopRuntimeSession ResolveShopSession()
+        {
+            if (string.IsNullOrWhiteSpace(_shopId))
+                return null;
+
+            return ShopRuntimeStore.GetOrCreateSession(_shopId);
         }
 
         private void ItemizeGoldForCorpseLoot(Interactor looter = null)

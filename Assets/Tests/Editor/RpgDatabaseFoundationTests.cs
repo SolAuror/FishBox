@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
+using Sol;
 using Sol.AI;
 using Sol.Editor;
 using Sol.Grab;
@@ -92,6 +94,134 @@ public sealed class RpgDatabaseFoundationTests
         finally
         {
             Object.DestroyImmediate(itemObject);
+        }
+    }
+
+    [Test]
+    public void ItemRegistryDefinitionLookup_ReturnsRegistryAuthoredDesignWithoutPrefab()
+    {
+        ItemRegistry registry = ScriptableObject.CreateInstance<ItemRegistry>();
+        try
+        {
+            SetRegistryEntries(registry, new List<ItemRegistry.Entry>
+            {
+                new()
+                {
+                    ItemId = "ITM00055",
+                    DisplayName = "Sunberry Tea",
+                    ItemType = ItemType.Drink,
+                    Value = 12,
+                    IsStackable = true,
+                    MaxStackSize = 6,
+                    IsTradeable = false
+                }
+            });
+
+            ItemRegistry.Entry definition = registry.GetDefinition("itm55");
+
+            Assert.That(definition, Is.Not.Null);
+            Assert.That(definition.DisplayName, Is.EqualTo("Sunberry Tea"));
+            Assert.That(definition.ItemType, Is.EqualTo(ItemType.Drink));
+            Assert.That(definition.Value, Is.EqualTo(12));
+            Assert.That(definition.IsStackable, Is.True);
+            Assert.That(definition.MaxStackSize, Is.EqualTo(6));
+            Assert.That(definition.IsTradeable, Is.False);
+            Assert.That(registry.GetVisualPrefab("ITM00055"), Is.Null);
+        }
+        finally
+        {
+            Object.DestroyImmediate(registry);
+        }
+    }
+
+    [Test]
+    public void ItemComponentFacade_ReadsDesignFromRegistryDefinition()
+    {
+        ItemRegistry registry = ScriptableObject.CreateInstance<ItemRegistry>();
+        GameObject itemObject = new("Legacy Sword");
+        ItemRegistry previousRegistry = SwapItemRegistryInstance(registry);
+        try
+        {
+            ItemComponent item = AddItemComponent(itemObject, "ITM00056");
+            SerializedObject itemObjectData = new(item);
+            itemObjectData.Update();
+            itemObjectData.FindProperty("_itemName").stringValue = "Prefab Sword";
+            itemObjectData.FindProperty("_itemType").enumValueIndex = (int)ItemType.Material;
+            itemObjectData.FindProperty("_value").intValue = 1;
+            itemObjectData.ApplyModifiedPropertiesWithoutUndo();
+
+            SetRegistryEntries(registry, new List<ItemRegistry.Entry>
+            {
+                new()
+                {
+                    ItemId = "ITM00056",
+                    DisplayName = "Registry Sword",
+                    ItemType = ItemType.Weapon,
+                    Value = 99,
+                    IsTradeable = true,
+                    Damage = 13f,
+                    EquipDomain = EquipDomain.WeaponTool,
+                    AllowedEquipSlots = new List<EquipmentSlotType> { EquipmentSlotType.RightHand }
+                }
+            });
+
+            Assert.That(item.ItemName, Is.EqualTo("Registry Sword"));
+            Assert.That(item.Type, Is.EqualTo(ItemType.Weapon));
+            Assert.That(item.Value, Is.EqualTo(99));
+            Assert.That(item.Damage, Is.EqualTo(13f));
+            Assert.That(item.AllowedEquipSlots, Contains.Item(EquipmentSlotType.RightHand));
+        }
+        finally
+        {
+            SwapItemRegistryInstance(previousRegistry);
+            Object.DestroyImmediate(itemObject);
+            Object.DestroyImmediate(registry);
+        }
+    }
+
+    [Test]
+    public void ShopRuntimeSession_SeedsStockAndPricesFromRegistryDefinitions()
+    {
+        ItemRegistry registry = ScriptableObject.CreateInstance<ItemRegistry>();
+        RpgShopDefinition shop = ScriptableObject.CreateInstance<RpgShopDefinition>();
+        GameObject prefabObject = new("Registry Pearl Prefab");
+        ShopRuntimeSession session = null;
+        ItemRegistry previousRegistry = SwapItemRegistryInstance(registry);
+        try
+        {
+            ItemComponent prefab = AddItemComponent(prefabObject, "ITM00090");
+            SetRegistryEntries(registry, new List<ItemRegistry.Entry>
+            {
+                new()
+                {
+                    ItemId = "ITM00090",
+                    DisplayName = "Registry Pearl",
+                    ItemType = ItemType.Material,
+                    Value = 10,
+                    IsStackable = true,
+                    MaxStackSize = 10,
+                    IsTradeable = true,
+                    Prefab = prefab
+                }
+            });
+
+            ConfigureShop(shop, "SHP00090", 250, buyMultiplier: 2f, sellMultiplier: 0.5f, "ITM00090", quantity: 2, stockMultiplier: 3f);
+
+            session = new ShopRuntimeSession(shop);
+
+            Assert.That(session.Inventory.Slots.Count, Is.EqualTo(1));
+            Assert.That(session.Inventory.Slots[0].Count, Is.EqualTo(2));
+            Assert.That(session.Inventory.Slots[0].Item.ItemName, Is.EqualTo("Registry Pearl"));
+            Assert.That(session.GetBuyPrice(session.Inventory.Slots[0].Item), Is.EqualTo(60));
+            Assert.That(session.GetSellPrice(session.Inventory.Slots[0].Item), Is.EqualTo(5));
+        }
+        finally
+        {
+            session?.Dispose();
+            SwapItemRegistryInstance(previousRegistry);
+            Object.DestroyImmediate(prefabObject);
+            Object.DestroyImmediate(shop);
+            Object.DestroyImmediate(registry);
         }
     }
 
@@ -254,5 +384,60 @@ public sealed class RpgDatabaseFoundationTests
         so.FindProperty("_id").stringValue = id;
         so.FindProperty("_displayName").stringValue = displayName;
         so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static ItemComponent AddItemComponent(GameObject itemObject, string itemId)
+    {
+        itemObject.AddComponent<BoxCollider>();
+        itemObject.AddComponent<GrabbableComponent>();
+        ItemComponent item = itemObject.AddComponent<ItemComponent>();
+        SerializedObject serializedObject = new(item);
+        serializedObject.Update();
+        serializedObject.FindProperty("_itemId").stringValue = itemId;
+        serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        return item;
+    }
+
+    private static void ConfigureShop(
+        RpgShopDefinition shop,
+        string shopId,
+        int gold,
+        float buyMultiplier,
+        float sellMultiplier,
+        string stockItemId,
+        int quantity,
+        float stockMultiplier)
+    {
+        SerializedObject so = new(shop);
+        so.Update();
+        so.FindProperty("_id").stringValue = shopId;
+        so.FindProperty("_displayName").stringValue = "Test Shop";
+        so.FindProperty("_gold").intValue = gold;
+        so.FindProperty("_buyPriceMultiplier").floatValue = buyMultiplier;
+        so.FindProperty("_sellPriceMultiplier").floatValue = sellMultiplier;
+        so.FindProperty("_restockMode").enumValueIndex = (int)RpgShopRestockMode.Never;
+        SerializedProperty stock = so.FindProperty("_stock");
+        stock.arraySize = 1;
+        SerializedProperty entry = stock.GetArrayElementAtIndex(0);
+        entry.FindPropertyRelative("ItemId").stringValue = stockItemId;
+        entry.FindPropertyRelative("MinQuantity").intValue = quantity;
+        entry.FindPropertyRelative("MaxQuantity").intValue = quantity;
+        entry.FindPropertyRelative("PriceMultiplier").floatValue = stockMultiplier;
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void SetRegistryEntries(ItemRegistry registry, List<ItemRegistry.Entry> entries)
+    {
+        typeof(ItemRegistry)
+            .GetField("_entries", BindingFlags.Instance | BindingFlags.NonPublic)
+            ?.SetValue(registry, entries);
+    }
+
+    private static ItemRegistry SwapItemRegistryInstance(ItemRegistry registry)
+    {
+        FieldInfo field = typeof(ItemRegistry).GetField("_instance", BindingFlags.Static | BindingFlags.NonPublic);
+        ItemRegistry previous = field?.GetValue(null) as ItemRegistry;
+        field?.SetValue(null, registry);
+        return previous;
     }
 }

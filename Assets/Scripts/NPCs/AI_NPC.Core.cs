@@ -7,6 +7,7 @@ using UnityEngine.Splines;
 using Sol.Locomotion;
 using Sol.Grab;
 using Sol.Player;
+using Sol.Combat;
 
 namespace Sol.AI
 {
@@ -70,6 +71,7 @@ namespace Sol.AI
         private LocomotionAnimation locoAnim;
         private CharacterController characterController;
         private NavMeshAgent agent;
+        private BasicMeleeAttack meleeAttack;
         private Transform playerTarget;
         private float nextPlayerResolveTime;
         private readonly Dictionary<State, AIStateBase> states = new();
@@ -96,6 +98,9 @@ namespace Sol.AI
             locoAnim       = GetComponent<LocomotionAnimation>();
             characterController = GetComponent<CharacterController>();
             agent          = GetComponent<NavMeshAgent>();
+            meleeAttack    = GetComponent<BasicMeleeAttack>();
+            if (meleeAttack == null)
+                meleeAttack = gameObject.AddComponent<BasicMeleeAttack>();
             if (soul == null) soul = GetComponent<NPCSoul>();
             if (animator == null) animator = GetComponent<Animator>();
             if (soul != null) soul.OnDeath += HandleDeath;
@@ -211,6 +216,39 @@ namespace Sol.AI
 
             playerPosition = playerTarget.position;
             return true;
+        }
+
+        public float GetMeleeEngageDistance()
+        {
+            if (meleeAttack != null)
+                return meleeAttack.EngageDistance;
+
+            return config != null ? Mathf.Max(0.5f, config.chaseStopDistance) : 1.5f;
+        }
+
+        public bool TryRequestMeleeAttack()
+        {
+            if (CurrentState == State.Dead || locoInput == null || !locoInput.enabled)
+                return false;
+
+            if (meleeAttack == null || !meleeAttack.CanStartAttack())
+                return false;
+
+            locoInput.AttackPressed = true;
+            return true;
+        }
+
+        public void FaceTowards(Vector3 worldPosition)
+        {
+            if (fakeCam == null)
+                return;
+
+            Vector3 look = worldPosition - transform.position;
+            look.y = 0f;
+            if (look.sqrMagnitude <= 0.0001f)
+                return;
+
+            fakeCam.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
         }
 
         public int GetAuthoredPatrolPointCount()

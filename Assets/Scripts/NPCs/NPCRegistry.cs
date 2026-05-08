@@ -15,7 +15,7 @@ namespace Sol.AI
     [CreateAssetMenu(fileName = "NPCRegistry", menuName = "Sol/NPC Registry")]
     public class NPCRegistry : ScriptableObject
     {
-        private const string ResourceName = "NPCRegistry";
+        private const string LegacyResourceName = "NPCRegistry";
 
         #region Inspector Settings
         [Tooltip("Inspector: tunes entries.")]
@@ -35,7 +35,8 @@ namespace Sol.AI
         public IReadOnlyList<Entry> Entries => _entries;
 
 #if UNITY_EDITOR
-        private const string DefaultAssetPath = "Assets/Resources/NPCRegistry.asset";
+        private const string DefaultAssetPath = "Assets/Data/NPCRegistry.asset";
+        private const string LegacyAssetPath = "Assets/Resources/NPCRegistry.asset";
         private static bool _editorSyncScheduled;
         private static bool _isEditorSynchronizing;
 #endif
@@ -45,10 +46,12 @@ namespace Sol.AI
             if (_instance != null)
                 return _instance;
 
-            _instance = Resources.Load<NPCRegistry>(ResourceName);
 #if UNITY_EDITOR
+            _instance = GetOrCreateEditorAsset();
+#else
+            _instance = FindLoadedRegistryAsset();
             if (_instance == null)
-                _instance = GetOrCreateEditorAsset();
+                _instance = Resources.Load<NPCRegistry>(LegacyResourceName);
 #endif
             return _instance;
         }
@@ -61,6 +64,18 @@ namespace Sol.AI
             EnsureLookup();
             _lookup.TryGetValue(ownerId.Trim(), out NPCSoul prefab);
             return prefab;
+        }
+
+        private static NPCRegistry FindLoadedRegistryAsset()
+        {
+            NPCRegistry[] registries = Resources.FindObjectsOfTypeAll<NPCRegistry>();
+            for (int i = 0; i < registries.Length; i++)
+            {
+                if (registries[i] != null && registries[i].name == nameof(NPCRegistry))
+                    return registries[i];
+            }
+
+            return registries.Length > 0 ? registries[0] : null;
         }
 
         private void EnsureLookup()
@@ -172,22 +187,55 @@ namespace Sol.AI
 
         private static NPCRegistry GetOrCreateEditorAsset()
         {
-            NPCRegistry loaded = Resources.Load<NPCRegistry>(ResourceName);
+            NPCRegistry loaded = AssetDatabase.LoadAssetAtPath<NPCRegistry>(DefaultAssetPath);
             if (loaded != null)
+            {
+                EnsurePreloadedAsset(loaded);
                 return loaded;
+            }
 
-            loaded = AssetDatabase.LoadAssetAtPath<NPCRegistry>(DefaultAssetPath);
-            if (loaded != null)
+            NPCRegistry legacy = AssetDatabase.LoadAssetAtPath<NPCRegistry>(LegacyAssetPath);
+            if (legacy != null)
+            {
+                EnsureDataFolder();
+                string moveError = AssetDatabase.MoveAsset(LegacyAssetPath, DefaultAssetPath);
+                loaded = string.IsNullOrEmpty(moveError)
+                    ? AssetDatabase.LoadAssetAtPath<NPCRegistry>(DefaultAssetPath)
+                    : legacy;
+                EnsurePreloadedAsset(loaded);
                 return loaded;
+            }
 
-            const string resourcesFolder = "Assets/Resources";
-            if (!AssetDatabase.IsValidFolder(resourcesFolder))
-                AssetDatabase.CreateFolder("Assets", "Resources");
+            EnsureDataFolder();
 
             NPCRegistry created = CreateInstance<NPCRegistry>();
             AssetDatabase.CreateAsset(created, DefaultAssetPath);
             AssetDatabase.SaveAssets();
+            EnsurePreloadedAsset(created);
             return created;
+        }
+
+        private static void EnsureDataFolder()
+        {
+            const string dataFolder = "Assets/Data";
+            if (!AssetDatabase.IsValidFolder(dataFolder))
+                AssetDatabase.CreateFolder("Assets", "Data");
+        }
+
+        private static void EnsurePreloadedAsset(NPCRegistry registry)
+        {
+            if (registry == null)
+                return;
+
+            UnityEngine.Object[] assets = PlayerSettings.GetPreloadedAssets();
+            for (int i = 0; i < assets.Length; i++)
+            {
+                if (assets[i] == registry)
+                    return;
+            }
+
+            List<UnityEngine.Object> updated = new(assets) { registry };
+            PlayerSettings.SetPreloadedAssets(updated.ToArray());
         }
 
         private void SyncFromProject()

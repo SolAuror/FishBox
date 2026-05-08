@@ -9,7 +9,7 @@ namespace Sol.Rpg
     [CreateAssetMenu(fileName = "RpgDefinitionRegistry", menuName = "Sol/RPG/Definition Registry")]
     public sealed class RpgDefinitionRegistry : ScriptableObject
     {
-        private const string ResourceName = "RpgDefinitionRegistry";
+        private const string LegacyResourceName = "RpgDefinitionRegistry";
 
         [SerializeField] private List<RpgStatDefinition> _stats = new();
         [SerializeField] private List<RpgSkillDefinition> _skills = new();
@@ -28,7 +28,8 @@ namespace Sol.Rpg
         public IReadOnlyList<RpgShopDefinition> Shops => _shops;
 
 #if UNITY_EDITOR
-        private const string DefaultAssetPath = "Assets/Resources/RpgDefinitionRegistry.asset";
+        private const string DefaultAssetPath = "Assets/Data/RpgDefinitionRegistry.asset";
+        private const string LegacyAssetPath = "Assets/Resources/RpgDefinitionRegistry.asset";
         private static bool _editorSyncScheduled;
         private static bool _isEditorSynchronizing;
 #endif
@@ -38,10 +39,12 @@ namespace Sol.Rpg
             if (_instance != null)
                 return _instance;
 
-            _instance = Resources.Load<RpgDefinitionRegistry>(ResourceName);
 #if UNITY_EDITOR
+            _instance = GetOrCreateEditorAsset();
+#else
+            _instance = FindLoadedRegistryAsset();
             if (_instance == null)
-                _instance = GetOrCreateEditorAsset();
+                _instance = Resources.Load<RpgDefinitionRegistry>(LegacyResourceName);
 #endif
             return _instance;
         }
@@ -68,6 +71,18 @@ namespace Sol.Rpg
         {
             EnsureLookups();
             return !string.IsNullOrWhiteSpace(id) && _shopsById.TryGetValue(id.Trim(), out RpgShopDefinition def) ? def : null;
+        }
+
+        private static RpgDefinitionRegistry FindLoadedRegistryAsset()
+        {
+            RpgDefinitionRegistry[] registries = Resources.FindObjectsOfTypeAll<RpgDefinitionRegistry>();
+            for (int i = 0; i < registries.Length; i++)
+            {
+                if (registries[i] != null && registries[i].name == nameof(RpgDefinitionRegistry))
+                    return registries[i];
+            }
+
+            return registries.Length > 0 ? registries[0] : null;
         }
 
         private void EnsureLookups()
@@ -174,22 +189,55 @@ namespace Sol.Rpg
 
         private static RpgDefinitionRegistry GetOrCreateEditorAsset()
         {
-            RpgDefinitionRegistry loaded = Resources.Load<RpgDefinitionRegistry>(ResourceName);
+            RpgDefinitionRegistry loaded = AssetDatabase.LoadAssetAtPath<RpgDefinitionRegistry>(DefaultAssetPath);
             if (loaded != null)
+            {
+                EnsurePreloadedAsset(loaded);
                 return loaded;
+            }
 
-            loaded = AssetDatabase.LoadAssetAtPath<RpgDefinitionRegistry>(DefaultAssetPath);
-            if (loaded != null)
+            RpgDefinitionRegistry legacy = AssetDatabase.LoadAssetAtPath<RpgDefinitionRegistry>(LegacyAssetPath);
+            if (legacy != null)
+            {
+                EnsureDataFolder();
+                string moveError = AssetDatabase.MoveAsset(LegacyAssetPath, DefaultAssetPath);
+                loaded = string.IsNullOrEmpty(moveError)
+                    ? AssetDatabase.LoadAssetAtPath<RpgDefinitionRegistry>(DefaultAssetPath)
+                    : legacy;
+                EnsurePreloadedAsset(loaded);
                 return loaded;
+            }
 
-            const string resourcesFolder = "Assets/Resources";
-            if (!AssetDatabase.IsValidFolder(resourcesFolder))
-                AssetDatabase.CreateFolder("Assets", "Resources");
+            EnsureDataFolder();
 
             RpgDefinitionRegistry created = CreateInstance<RpgDefinitionRegistry>();
             AssetDatabase.CreateAsset(created, DefaultAssetPath);
             AssetDatabase.SaveAssets();
+            EnsurePreloadedAsset(created);
             return created;
+        }
+
+        private static void EnsureDataFolder()
+        {
+            const string dataFolder = "Assets/Data";
+            if (!AssetDatabase.IsValidFolder(dataFolder))
+                AssetDatabase.CreateFolder("Assets", "Data");
+        }
+
+        private static void EnsurePreloadedAsset(RpgDefinitionRegistry registry)
+        {
+            if (registry == null)
+                return;
+
+            UnityEngine.Object[] assets = PlayerSettings.GetPreloadedAssets();
+            for (int i = 0; i < assets.Length; i++)
+            {
+                if (assets[i] == registry)
+                    return;
+            }
+
+            List<UnityEngine.Object> updated = new(assets) { registry };
+            PlayerSettings.SetPreloadedAssets(updated.ToArray());
         }
 
         private void SyncFromProject()

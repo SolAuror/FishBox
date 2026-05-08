@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using Sol.Grab;
+using Sol.Rpg;
 
 namespace Sol.HUD
 {
@@ -78,6 +79,7 @@ namespace Sol.HUD
         private readonly Dictionary<InventorySlot, int> _selectedNpcQuantities = new();
         private Inventory _playerInventory;
         private Inventory _npcInventory;
+        private ShopRuntimeSession _shopSession;
         private bool _isLootMode;
         private bool _isFreeTrade;
         private string _defaultCancelLabel = "Cancel";
@@ -126,16 +128,28 @@ namespace Sol.HUD
 
         public void OpenTrade(Inventory playerInventory, Inventory npcInventory, bool freeTrade = false)
         {
+            _shopSession = null;
             OpenInternal(playerInventory, npcInventory, lootMode: false, freeTrade);
+        }
+
+        public void OpenShop(Inventory playerInventory, ShopRuntimeSession shopSession)
+        {
+            if (shopSession == null)
+                return;
+
+            _shopSession = shopSession;
+            OpenInternal(playerInventory, shopSession.Inventory, lootMode: false, freeTrade: false);
         }
 
         public void OpenLoot(Inventory playerInventory, Inventory lootInventory)
         {
+            _shopSession = null;
             OpenInternal(playerInventory, lootInventory, lootMode: true, freeTrade: false);
         }
 
         public void Open(Inventory playerInventory, Inventory npcInventory, bool lootMode = false, bool freeTrade = false)
         {
+            _shopSession = null;
             OpenInternal(playerInventory, npcInventory, lootMode, freeTrade);
         }
         #endregion
@@ -217,6 +231,7 @@ namespace Sol.HUD
             _npcInventoryUI?.ClearBinding();
             _playerInventory = null;
             _npcInventory = null;
+            _shopSession = null;
             _isLootMode = false;
             _isFreeTrade = false;
             ClearCart();
@@ -274,8 +289,16 @@ namespace Sol.HUD
             }
             else
             {
-                foreach (KeyValuePair<InventorySlot, int> entry in sales) ExecuteQuantity(entry.Key, entry.Value, () => Sol.TradeController.SellItem(entry.Key, _playerInventory, _npcInventory));
-                foreach (KeyValuePair<InventorySlot, int> entry in purchases) ExecuteQuantity(entry.Key, entry.Value, () => Sol.TradeController.BuyItem(entry.Key, _playerInventory, _npcInventory));
+                if (_shopSession != null)
+                {
+                    foreach (KeyValuePair<InventorySlot, int> entry in sales) ExecuteQuantity(entry.Key, entry.Value, () => _shopSession.SellItem(entry.Key, _playerInventory));
+                    foreach (KeyValuePair<InventorySlot, int> entry in purchases) ExecuteQuantity(entry.Key, entry.Value, () => _shopSession.BuyItem(entry.Key, _playerInventory));
+                }
+                else
+                {
+                    foreach (KeyValuePair<InventorySlot, int> entry in sales) ExecuteQuantity(entry.Key, entry.Value, () => Sol.TradeController.SellItem(entry.Key, _playerInventory, _npcInventory));
+                    foreach (KeyValuePair<InventorySlot, int> entry in purchases) ExecuteQuantity(entry.Key, entry.Value, () => Sol.TradeController.BuyItem(entry.Key, _playerInventory, _npcInventory));
+                }
             }
 
             ClearCart();
@@ -314,8 +337,8 @@ namespace Sol.HUD
             if (_totalCostText != null) _totalCostText.gameObject.SetActive(true);
             if (_confirmButton != null) _confirmButton.gameObject.SetActive(true);
 
-            int buying = CalculateSelectionTotal(_selectedNpcQuantities);
-            int selling = CalculateSelectionTotal(_selectedPlayerQuantities);
+            int buying = CalculateSelectionTotal(_selectedNpcQuantities, buyingFromShop: true);
+            int selling = CalculateSelectionTotal(_selectedPlayerQuantities, buyingFromShop: false);
             int netCost = buying - selling;
 
             if (_isFreeTrade)
@@ -381,10 +404,19 @@ namespace Sol.HUD
             return false;
         }
 
-        private int CalculateSelectionTotal(IEnumerable<KeyValuePair<InventorySlot, int>> slots)
+        private int CalculateSelectionTotal(IEnumerable<KeyValuePair<InventorySlot, int>> slots, bool buyingFromShop)
         {
             int total = 0;
-            foreach (KeyValuePair<InventorySlot, int> entry in slots) if (entry.Key?.Item != null) total += entry.Key.Item.Value * Mathf.Max(0, entry.Value);
+            foreach (KeyValuePair<InventorySlot, int> entry in slots)
+            {
+                if (entry.Key?.Item == null)
+                    continue;
+
+                int unitPrice = _shopSession != null
+                    ? buyingFromShop ? _shopSession.GetBuyPrice(entry.Key.Item) : _shopSession.GetSellPrice(entry.Key.Item)
+                    : entry.Key.Item.Value;
+                total += unitPrice * Mathf.Max(0, entry.Value);
+            }
             return total;
         }
 

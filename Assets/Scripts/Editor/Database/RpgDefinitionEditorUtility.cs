@@ -8,7 +8,7 @@ namespace Sol.Editor
 {
     internal static class RpgDefinitionEditorUtility
     {
-        public const string DefaultRpgFolder = "Assets/Resources/RPG";
+        public const string DefaultRpgFolder = "Assets/Data/RPG";
 
         public static T CreateDefinition<T>(string idPrefix, string displayName) where T : RpgDefinition
         {

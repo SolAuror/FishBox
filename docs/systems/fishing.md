@@ -4,7 +4,7 @@
 
 ## Purpose
 
-The fishing loop is the core gameplay. A player equips a rod, optionally loads tackle and bait, casts into a water volume, waits for a bite, reels, and either lands a catch or watches the fish escape. The system is state-driven (not coroutine-driven), animation-aware, and tolerant of a missing rod prefab — there's a fallback path that synthesizes every tunable so you can test fishing with just an `ItemComponent` named "Fishing Rod".
+Fishing is one of the project's headline activity loops, sitting alongside combat, work stations, quests, and trading. A player equips a rod, optionally loads tackle and bait, casts into a water volume, waits for a bite, reels, and either lands a catch or watches the fish escape. The system is state-driven (not coroutine-driven), animation-aware, and tolerant of a missing rod prefab — there's a fallback path that synthesizes every tunable so you can test fishing with just an `ItemComponent` named "Fishing Rod".
 
 ## Key files
 

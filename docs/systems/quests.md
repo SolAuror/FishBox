@@ -10,7 +10,7 @@ Authored quests become runtime state the moment the player accepts them, and sta
 
 - [QuestManager.cs](../../Assets/Scripts/Quests/QuestManager.cs) — the singleton. Holds active quests, subscribes to player inventory/equipment and the `ActionSystem`, ticks timed quests.
 - [QuestDefinition.cs](../../Assets/Scripts/Quests/QuestDefinition.cs) — authored `ScriptableObject`. Id (`QST#####`), title, summary, giver, objectives, reward, prerequisites, optional time limit.
-- [QuestObjective.cs](../../Assets/Scripts/Quests/QuestObjective.cs) — one objective. Types: `CatchCount`, `CatchTotalValue`, `CatchRarity`, `CatchByPrefix`, `CollectItem`, `DeliverItem`, `TalkToNpc`, `EquipItem`. Objectives run **in order** — you finish objective 0 before objective 1 starts watching.
+- [QuestObjective.cs](../../Assets/Scripts/Quests/QuestObjective.cs) — one objective. Types: `CatchCount`, `CatchTotalValue`, `CatchRarity`, `CatchByPrefix`, `CollectItem`, `DeliverItem`, `TalkToNpc`, `EquipItem`. The `Catch*` types are fishing-flavored shortcuts on top of an otherwise generic RPG objective system; `CollectItem`, `DeliverItem`, `TalkToNpc`, and `EquipItem` carry the non-fishing RPG content. Objectives run **in order** — you finish objective 0 before objective 1 starts watching.
 - [QuestReward.cs](../../Assets/Scripts/Quests/QuestReward.cs) — gold, items, and future hooks for non-material rewards.
 - [QuestRegistry.cs](../../Assets/Scripts/Quests/QuestRegistry.cs) — the project-wide list of all quest definitions; backs the offer queries.
 - [QuestSaveData.cs](../../Assets/Scripts/Quests/QuestSaveData.cs) — per-quest runtime state serialized into the save file (`SaveVersion ≥ 4`).

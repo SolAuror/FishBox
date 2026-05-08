@@ -7,6 +7,7 @@ using UnityEngine.AI;
 using Sol.AI;
 using Sol.Grab;
 using Sol.Player;
+using Sol.Rpg;
 using Sol.ToD;
 
 #if UNITY_EDITOR
@@ -44,7 +45,8 @@ namespace Sol.SaveLoad
                 WorldItems = CollectWorldItemData(),
                 Quests = Sol.Quests.QuestManager.Instance != null
                     ? Sol.Quests.QuestManager.Instance.CollectSaveData()
-                    : new List<Sol.Quests.QuestSaveData>()
+                    : new List<Sol.Quests.QuestSaveData>(),
+                Shops = CollectShopData()
             };
         }
 
@@ -335,6 +337,28 @@ namespace Sol.SaveLoad
                 data.FishCode = fishItem.FishCode;
 
             return data;
+        }
+
+        private List<ShopSaveData> CollectShopData()
+        {
+            List<ShopSaveData> shops = new();
+            foreach (KeyValuePair<string, ShopRuntimeSession> pair in ShopRuntimeStore.ActiveSessions)
+            {
+                ShopRuntimeSession session = pair.Value;
+                if (session == null || string.IsNullOrWhiteSpace(session.ShopId))
+                    continue;
+
+                shops.Add(new ShopSaveData
+                {
+                    ShopId = session.ShopId,
+                    Gold = session.Inventory != null ? session.Inventory.Gold : 0,
+                    LastRestockRealtime = session.LastRestockRealtime,
+                    LastRestockInGameDay = session.LastRestockInGameDay,
+                    Stock = session.CollectStockSaveData()
+                });
+            }
+
+            return shops;
         }
 
 

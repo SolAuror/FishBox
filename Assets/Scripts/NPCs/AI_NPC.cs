@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Splines;
 using Sol.Locomotion;
+using Sol.Combat;
 
 // AI_NPC partial class root. All implementation is in partials:
 //  - AI_NPC.Core.cs
@@ -16,6 +17,7 @@ namespace Sol.AI
     [RequireComponent(typeof(LocomotionController))]
     [RequireComponent(typeof(LocomotionState))]
     [RequireComponent(typeof(LocomotionAnimation))]
+    [RequireComponent(typeof(BasicMeleeAttack))]
     [RequireComponent(typeof(CharacterController))]
     [RequireComponent(typeof(NavMeshAgent))]
     [RequireComponent(typeof(Sol.Inventory))]

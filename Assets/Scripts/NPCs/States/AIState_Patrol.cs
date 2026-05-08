@@ -266,11 +266,24 @@ namespace Sol.AI
             if (toPlayer.sqrMagnitude > loseRadius * loseRadius)
                 return AI_NPC.State.Patrol;
 
+            float meleeDistance = npc.GetMeleeEngageDistance();
+            bool inMeleeRange = toPlayer.sqrMagnitude <= meleeDistance * meleeDistance;
+
             if (agent != null && agent.isOnNavMesh)
             {
-                float stopDistance = config != null ? Mathf.Max(0.1f, config.chaseStopDistance) : 1.5f;
+                float configuredStopDistance = config != null ? Mathf.Max(0.1f, config.chaseStopDistance) : 1.5f;
+                float stopDistance = Mathf.Max(configuredStopDistance, meleeDistance * 0.9f);
                 agent.stoppingDistance = stopDistance;
-                agent.SetDestination(playerPosition);
+                if (inMeleeRange)
+                    agent.ResetPath();
+                else
+                    agent.SetDestination(playerPosition);
+            }
+
+            if (inMeleeRange)
+            {
+                npc.FaceTowards(playerPosition);
+                npc.TryRequestMeleeAttack();
             }
 
             return AI_NPC.State.Chase;

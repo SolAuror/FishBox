@@ -1,45 +1,71 @@
 # Interactions & Inventory
 
-*The "press E" layer, plus the Elder-Scrolls-style bag that fills up with fish.*
+*The "press E" layer, the inventory bag, world items, equipment, loot, and trading.*
 
 ## Purpose
 
-One system covers three jobs that naturally overlap:
-- **World interaction** — what the crosshair is pointing at, whether it's usable, what pressing E does.
-- **Inventory** — a list-style container (with stacks, capacity, gold) that both player/NPC characters and world chests share.
-- **Equipment + item actions** — equipping to bones, using consumables, dropping items, and the central `ItemActionSystem` that routes all of that.
+One system covers four jobs that naturally overlap:
 
-Trading between inventories (NPC and container) rides on top of the same primitives.
+- **World interaction**: what the crosshair is pointing at, whether it is usable, and what pressing E does.
+- **Inventory**: a list-style container with stacks, capacity, gold, seeded contents, and world-container ownership/lock rules.
+- **Equipment + item actions**: equipping to bones, using consumables, dropping items, and routing item commands through `ItemActionSystem`.
+- **Trading**: merchant shop trading through shop sessions, plus direct inventory transfer for loot, containers, quest delivery, and debug/free exchange.
 
-## Key files
+Item design is registry-authoritative. `ItemRegistry` owns gameplay-facing design fields, item prefabs are visual/world instances, and `ItemComponent` is the runtime facade that keeps older systems working against live item objects.
 
-- [I_Interactable.cs](../../Assets/Scripts/Interactions/I_Interactable.cs) — the `IInteractable` interface. Anything with a prompt and an interact action implements it. Also hosts `EntityCodeUtility` (the `ITM#####` / `NPC#####` / `CNT#####` / `OWN#####` id scheme).
-- [Interactor.cs](../../Assets/Scripts/Interactions/Interactor.cs) — the context object passed into interactables. Wraps the acting GameObject, its `Inventory`, and its soul.
-- [Inventory.cs](../../Assets/Scripts/Interactions/Inventory.cs) — list inventory. Handles stacking, capacity, gold, seed contents, lock/ownership access rules for world containers.
-- [InventorySlot.cs](../../Assets/Scripts/Interactions/InventorySlot.cs) — one slot, one item reference, a stack count.
-- [Equipment.cs](../../Assets/Scripts/Interactions/Equipment.cs) — slot-based equipment, bone attachment, IK activation on main-hand equip. Fires `OnChanged` for listeners like [FishingState](../../Assets/Scripts/Fishing/FishingState.cs).
-- [EquipmentSlotType.cs](../../Assets/Scripts/Interactions/EquipmentSlotType.cs) — enum: Head, Chest, MainHand, OffHand, etc.
-- [ItemComponent.cs](../../Assets/Scripts/Interactions/ItemComponent.cs) — the pickup-able world-item component. Carries item id, name, stackability, equip bone/offset/rotation, consumable/weapon stats.
-- [ItemActionSystem.cs](../../Assets/Scripts/Interactions/ItemActionSystem.cs) / [ItemActionType.cs](../../Assets/Scripts/Interactions/ItemActionType.cs) — static router for Use / Equip / Drop on a slot. One path for UI, AI, and any other caller.
-- [ItemRegistry.cs](../../Assets/Scripts/Interactions/ItemRegistry.cs) — project-wide registry backing the `[ItemIdDropdown]` inspector attribute and resolving ids to prefabs.
-- [NpcTradeInteractable.cs](../../Assets/Scripts/Interactions/NpcTradeInteractable.cs) / [TradeController.cs](../../Assets/Scripts/Interactions/TradeController.cs) — NPC trade entry and the static transfer helper.
-- [ContainerInteractable.cs](../../Assets/Scripts/Interactions/ContainerInteractable.cs) — chests/barrels. Reuses the trade UI in "loot" mode.
-- [OwnerIdentity.cs](../../Assets/Scripts/Interactions/OwnerIdentity.cs) / [OwnerRegistry.cs](../../Assets/Scripts/Interactions/OwnerRegistry.cs) — stable owner ids (`OWN#####`) for lock/theft rules on containers.
-- [BedSleepInteractable.cs](../../Assets/Scripts/Interactions/BedSleepInteractable.cs) — sleep-through-night interactable; talks to [TimeOfDay](time-of-day.md).
-- [CaughtFishItem.cs](../../Assets/Scripts/Interactions/CaughtFishItem.cs) — the specialized item spawned when you land a catch.
+## Key Files
 
-## Entry points
+- [I_Interactable.cs](../../Assets/Scripts/Interactables/I_Interactable.cs): `IInteractable`, id utilities, and dropdown attributes.
+- [Interactor.cs](../../Assets/Scripts/Interactables/Interactor.cs): context passed into interactables; wraps the acting GameObject, inventory, and soul.
+- [Inventory.cs](../../Assets/Scripts/Inventory/Inventory.cs): list inventory with stack, capacity, gold, seed contents, lock, and ownership behavior.
+- [InventorySlot.cs](../../Assets/Scripts/Inventory/InventorySlot.cs): one slot, one primary item reference, stack count, and extra stacked instances.
+- [Equipment.cs](../../Assets/Scripts/Inventory/Equipment.cs): slot-based equipment, bone attachment, and equipment change events.
+- [EquipmentSlotType.cs](../../Assets/Scripts/Inventory/EquipmentSlotType.cs): armor, held, and sheathed equipment slot enum.
+- [ItemRegistry.cs](../../Assets/Scripts/Inventory/ItemOwnership/ItemRegistry.cs): authoritative item definition registry and item-id-to-visual-prefab lookup.
+- [ItemComponent.cs](../../Assets/Scripts/Inventory/ItemOwnership/ItemComponent.cs): pickup-able world item and runtime facade for registry-backed design values.
+- [TradeController.cs](../../Assets/Scripts/Inventory/TradeController.cs): direct inventory-to-inventory transfer helper.
+- [ShopRuntimeSession.cs](../../Assets/Scripts/RPG/ShopRuntimeSession.cs): mutable merchant shop state seeded from `RpgShopDefinition`.
+- [ShopRuntimeStore.cs](../../Assets/Scripts/RPG/ShopRuntimeStore.cs): active shop session cache and restore entry point.
+- [ContainerInteractable.cs](../../Assets/Scripts/Interactables/ContainerInteractable.cs): world containers that open loot/direct-transfer UI.
+- [OwnerIdentity.cs](../../Assets/Scripts/Inventory/ItemOwnership/OwnerIdentity.cs) / [OwnerRegistry.cs](../../Assets/Scripts/Inventory/ItemOwnership/OwnerRegistry.cs): stable owner ids for theft and lock rules.
+- [BedSleepInteractable.cs](../../Assets/Scripts/Interactables/BedSleepInteractable.cs): sleep-through-night interactable; talks to [Time of Day](time-of-day.md).
+- [CaughtFishItem.cs](../../Assets/Scripts/Fishing/CaughtFishItem.cs): specialized item spawned for caught fish.
+
+## Item Authority
+
+`ItemRegistry.Entry` is the design record. It owns:
+
+- `ItemId`, display name, type, value, icon, and flavor text.
+- Stackability, max stack size, consumable flag, and tradeability.
+- Use occasion and use effects.
+- Damage, defense, equip domain, handing, equip socket, offsets, and allowed equip slots.
+- Authoring template/notes.
+- Visual/world prefab reference.
+
+`ItemComponent` keeps per-instance/runtime state:
+
+- Item id.
+- Owner id and stolen state.
+- Pickup grip and world/equip transform hooks.
+- Runtime fish code or other specialized dynamic state.
+- The actual GameObject used for pickups, equipped visuals, inventory previews, and trade previews.
+
+When a live item asks for `ItemName`, `Value`, `Icon`, `UseEffects`, `Damage`, or similar fields, `ItemComponent` resolves the definition from `ItemRegistry`. Missing definitions fall back to legacy serialized values with a warning instead of crashing.
+
+## Entry Points
 
 - **Player/NPC:** `Inventory` + `Equipment` + an `Interactor` component on the character root.
-- **World objects:** any `MonoBehaviour` implementing `IInteractable`. Current concrete ones: `ItemComponent` (pickups), `NpcTradeInteractable`, `ContainerInteractable`, `BedSleepInteractable`.
-- **UI:** the [CrosshairUI](../../Assets/Scripts/UserInterface/CrosshairUI.cs) raycasts each frame and surfaces the prompt of whatever `IInteractable` is targeted.
+- **World objects:** any `MonoBehaviour` implementing `IInteractable`; common examples are item pickups, containers, beds, and workstations.
+- **UI:** [CrosshairUI](../../Assets/Scripts/UserInterface/CrosshairUI.cs) raycasts and triggers the selected interactable action.
+- **Item design lookup:** call `ItemRegistry.Get().GetDefinition(itemId)` for design data, or use `ItemComponent` when working with a live item.
+- **Merchant shop lookup:** trader NPCs carry a `SHP#####` shop id. `ShopRuntimeStore.GetOrCreateSession(shopId)` resolves and seeds the shop session.
 
-## Interact + item-action flow
+## Interact + Item Action Flow
 
 ```mermaid
 sequenceDiagram
     participant UI as CrosshairUI
-    participant Player as Interactor (player)
+    participant Player as Interactor
     participant Target as IInteractable
     participant AS as ActionSystem
     participant Inv as Inventory
@@ -53,7 +79,7 @@ sequenceDiagram
     Player->>AS: Dispatch(action)
     AS->>Target: OnStart / OnUpdate / OnComplete
 
-    Note over UI,IAS: From the inventory panel
+    Note over UI,IAS: From inventory UI
     UI->>IAS: Execute(Use | Equip | Drop, slot, inventory, instigator)
     alt Use
         IAS->>Inv: Use(slot, instigator)
@@ -62,40 +88,58 @@ sequenceDiagram
     else Drop
         IAS->>Inv: Remove(slot) + spawn world item
     end
-    Eq-->>Eq: fire OnChanged
-    Inv-->>Inv: fire OnChanged
 ```
 
-The one piece worth noting: the interact path *returns* a `GameAction` rather than doing anything directly. The interactable describes intent; the `ActionSystem` decides whether it runs. That means opening a chest, using a bed, and trading all preempt cleanly if something higher-priority kicks in mid-action.
-
-## Containers and ownership
-
-- Containers can be `Inventory` (player/NPC) or `Container` (world). Containers can be locked, keyed, lockpickable, and owned.
-- Owner identity is stable (`OWN#####`) and survives scene reloads / saves via [OwnerRegistry](../../Assets/Scripts/Interactions/OwnerRegistry.cs).
-- `InventoryAccessResult` flags what kind of denial happened — UI can show a different prompt for Locked vs. NotOwner vs. InvalidInteractor.
+The interact path returns a `GameAction` rather than performing work immediately. The interactable describes intent; the `ActionSystem` decides whether it runs.
 
 ## Trading
 
-`NpcTradeInteractable` returns an action that opens [TradeUI](../../Assets/Scripts/UserInterface/TradeUI.cs) with both inventories side by side. Transfers go through `TradeController` which enforces stack limits and gold, and fires `OnChanged` on both sides.
+There are two trading paths.
 
-## Adding a new interactable
+**Merchant shops:** trader NPCs use a shop id. Dialogue or interaction opens [TradeUI](../../Assets/Scripts/UserInterface/TradeUI.cs) in shop mode with the player inventory on one side and a `ShopRuntimeSession.Inventory` on the other. Buying and selling mutate the shop session, not the authored `RpgShopDefinition`.
 
-1. Implement `IInteractable` on your component. Return a prompt string.
-2. `CanInteract(interactor)` should be cheap and side-effect-free.
-3. `GetInteraction(interactor)` returns a `GameAction` — either an existing one from `ActionSystem/Actions/` or a new subclass. Return `null` to silently opt out.
-4. If your interactable should be outlined on crosshair target, add an `OutlineComponent` ([Outline/Sol.OutlineComponent.cs](../../Assets/Scripts/Outline/Sol.OutlineComponent.cs)).
+Price rules:
 
-## Adding a new item
+- Buy price = registry item value x shop buy multiplier x stock entry price multiplier.
+- Sell price = registry item value x shop sell multiplier.
+- Nonzero-value buyable items cost at least 1g.
 
-1. Make a prefab with `ItemComponent`. Set a unique `ITM#####` id (the `[ItemIdDropdown]` inspector helps).
-2. Configure `EquipBone` / `EquipOffset` / `EquipRotation` if the item is wearable.
-3. Register the prefab with [ItemRegistry](../../Assets/Scripts/Interactions/ItemRegistry.cs) so ids resolve on load.
-4. If it's consumable or a weapon, fill the relevant stats on `ItemComponent`.
+**Direct inventory transfer:** corpse loot, world containers, quest delivery, and free/debug exchange still use `TradeController` against two inventories. This preserves existing loot/container behavior and does not require a shop definition.
+
+NPC inventory seed contents are no longer merchant stock. NPC inventories remain valid for non-shop possessions, loot, and direct transfer paths.
+
+## Containers And Ownership
+
+- Containers can be `Inventory` or `Container` mode.
+- World containers can be locked, keyed, lockpickable, and owned.
+- Owner identity is stable (`OWN#####`) and survives scene reloads/saves via `OwnerRegistry`.
+- `InventoryAccessResult` distinguishes locked, not-owner, invalid interactor, and allowed results.
+
+## Adding A New Item
+
+1. Open `Window/Sol/Database` and create the item in the `Items` tab.
+2. Fill registry design fields: name, type, value, icon, flavor text, stack rules, tradeability, use effects, equipment stats, and notes.
+3. Assign or create a visual/world prefab with `ItemComponent`.
+4. Put pickup/equipment visuals, preview mesh/material setup, pickup grip, and specialized runtime components on the prefab.
+5. Author gameplay values in the registry, not on prefab legacy fields.
+
+To migrate older prefab-authored items, run `Tools/Sol/Items/Migrate Prefab Design Into Registry`, then resolve drift warnings in the database overview.
+
+## Adding Merchant Stock
+
+1. Open `Window/Sol/Database` -> `Shops`.
+2. Create or open a `RpgShopDefinition`.
+3. Add stock rows by item id from `ItemRegistry`.
+4. Set shop gold, buy/sell multipliers, stock entry price multipliers, and restock mode.
+5. Assign the shop id to the trader NPC in the NPC authoring UI.
+6. Keep NPC inventory for non-shop possessions or loot only.
 
 ## Gotchas
 
-- **`Equipment.Equip` returns `false` when the slot is occupied.** It does not auto-swap. Callers that want "equip or swap" must check `IsEquipped` + `UnequipItem` first. `ItemActionSystem.ExecuteEquip` implements the toggle pattern — copy from there.
-- **World-scale is preserved across bone attach.** `Equipment.Equip` does the lossy-scale math so items don't squash when the skeleton scales. Don't bypass it by re-parenting manually.
-- **Consumed inventory items are removed by slot, not by reference.** If two slots hold the same stackable item and you hand the wrong `InventorySlot` reference to `Remove`, you'll drain the wrong one. `PopItem` on a slot is the safe per-slot path.
-- **`CaughtFishItem` is a subclass of `ItemComponent`.** Anything that filters by exact type (`is ItemComponent` is fine; `GetType() == typeof(ItemComponent)` is not) will miss it.
-- **Locked containers respect `_requiredKeyItemName` OR `_requiredKeyItemId`.** Use the id. Names are kept for legacy data and will silently fail if renamed.
+- `Equipment.Equip` returns `false` when the slot is occupied. Callers that want equip-or-swap should follow the `ItemActionSystem.ExecuteEquip` pattern.
+- World scale is preserved across bone attach. Do not bypass `Equipment` by re-parenting equipped items manually.
+- Consumed inventory items are removed by slot, not by reference. Use `InventorySlot.PopItem()` for per-instance stack handling.
+- `CaughtFishItem` is a subclass of `ItemComponent`. Type checks should use `is ItemComponent`, not exact type equality.
+- Locked containers respect required key name or required key id. Prefer id; names are legacy.
+- Item prefabs are not design authority. They still render, equip, preview, and host specialized components, but gameplay-facing values come from `ItemRegistry`.
+- `RpgShopDefinition` is authored seed data, not mutable runtime state. Runtime shop stock and gold live in `ShopRuntimeSession` and save/load through shop save data.

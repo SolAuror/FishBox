@@ -15,7 +15,7 @@ namespace Sol
     [CreateAssetMenu(fileName = "ItemRegistry", menuName = "Sol/Item Registry")]
     public class ItemRegistry : ScriptableObject
     {
-        private const string ResourceName = "ItemRegistry";
+        private const string LegacyResourceName = "ItemRegistry";
 #region Inspector Settings
 
         [Tooltip("Inspector: tunes entries.")]
@@ -26,7 +26,83 @@ namespace Sol
         public class Entry
         {
             public string ItemId;
+            public string DisplayName = "Item";
+            public ItemType ItemType = ItemType.Material;
+            [Min(0)] public int Value;
+            public Sprite Icon;
+            [TextArea] public string FlavourText = string.Empty;
+            public bool IsStackable;
+            public bool IsConsumable;
+            public bool IsTradeable = true;
+            [Min(1)] public int MaxStackSize = 1;
+            public ItemUseOccasion UseOccasion = ItemUseOccasion.InventoryOnly;
+            public List<ItemUseEffect> UseEffects = new();
+            public float Damage;
+            public float Defense;
+            public string EquipBone = string.Empty;
+            public Vector3 EquipOffset;
+            public Vector3 EquipRotation;
+            public EquipDomain EquipDomain = EquipDomain.Auto;
+            public WeaponHanding WeaponHanding = WeaponHanding.OneHanded;
+            public List<EquipmentSlotType> AllowedEquipSlots = new();
+            public ItemAuthoringTemplate AuthoringTemplate = ItemAuthoringTemplate.None;
+            [TextArea] public string AuthoringNotes = string.Empty;
             public ItemComponent Prefab;
+
+            public string NameOrId => string.IsNullOrWhiteSpace(DisplayName) ? ItemId : DisplayName.Trim();
+
+            public void Normalize()
+            {
+                ItemId = EntityCodeUtility.NormalizeOrEmpty(ItemId, EntityCodeUtility.ItemPrefix);
+                DisplayName = string.IsNullOrWhiteSpace(DisplayName) ? "Item" : DisplayName.Trim();
+                FlavourText = FlavourText ?? string.Empty;
+                MaxStackSize = Mathf.Max(1, MaxStackSize);
+                Value = ItemType == ItemType.Gold ? 1 : Mathf.Max(0, Value);
+                if (ItemType == ItemType.Gold)
+                {
+                    IsStackable = true;
+                    IsTradeable = true;
+                    MaxStackSize = Mathf.Max(MaxStackSize, 1);
+                    UseOccasion = ItemUseOccasion.Never;
+                }
+                if (!IsStackable)
+                    MaxStackSize = Mathf.Max(1, MaxStackSize);
+                UseEffects ??= new List<ItemUseEffect>();
+                AllowedEquipSlots ??= new List<EquipmentSlotType>();
+                EquipBone = EquipBone?.Trim() ?? string.Empty;
+                AuthoringNotes = AuthoringNotes?.Trim() ?? string.Empty;
+            }
+
+            public void CopyDesignFromPrefab(ItemComponent item)
+            {
+                if (item == null)
+                    return;
+
+                ItemId = item.LegacyItemId;
+                DisplayName = item.LegacyItemName;
+                ItemType = item.LegacyType;
+                Value = item.LegacyValue;
+                Icon = item.LegacyIcon;
+                FlavourText = item.LegacyFlavourText;
+                IsStackable = item.LegacyIsStackable;
+                IsConsumable = item.LegacyIsConsumable;
+                IsTradeable = item.LegacyIsTradeable;
+                MaxStackSize = item.LegacyMaxStackSize;
+                UseOccasion = item.LegacyUseOccasion;
+                UseEffects = item.CloneLegacyUseEffects();
+                Damage = item.LegacyDamage;
+                Defense = item.LegacyDefense;
+                EquipBone = item.LegacyEquipBone;
+                EquipOffset = item.LegacyEquipOffset;
+                EquipRotation = item.LegacyEquipRotation;
+                EquipDomain = item.LegacyEquipDomain;
+                WeaponHanding = item.LegacyWeaponHanding;
+                AllowedEquipSlots = item.CloneLegacyAllowedEquipSlots();
+                AuthoringTemplate = item.LegacyAuthoringTemplate;
+                AuthoringNotes = item.LegacyAuthoringNotes;
+                Prefab = item;
+                Normalize();
+            }
         }
 
         private static ItemRegistry _instance;
@@ -35,7 +111,8 @@ namespace Sol
         public IReadOnlyList<Entry> Entries => _entries;
 
 #if UNITY_EDITOR
-        private const string DefaultAssetPath = "Assets/Resources/ItemRegistry.asset";
+        private const string DefaultAssetPath = "Assets/Data/ItemRegistry.asset";
+        private const string LegacyAssetPath = "Assets/Resources/ItemRegistry.asset";
         private static bool _editorSyncScheduled;
         private static bool _isEditorSynchronizing;
 #endif
@@ -45,15 +122,35 @@ namespace Sol
             if (_instance != null)
                 return _instance;
 
-            _instance = Resources.Load<ItemRegistry>(ResourceName);
 #if UNITY_EDITOR
+            _instance = GetOrCreateEditorAsset();
+#else
+            _instance = FindLoadedRegistryAsset();
             if (_instance == null)
-                _instance = GetOrCreateEditorAsset();
+                _instance = Resources.Load<ItemRegistry>(LegacyResourceName);
 #endif
             return _instance;
         }
 
         public ItemComponent GetPrefab(string itemId)
+        {
+            return GetVisualPrefab(itemId);
+        }
+
+        public Entry GetDefinition(string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(itemId))
+                return null;
+
+            EnsureLookup();
+            _lookup.TryGetValue(itemId.Trim(), out ItemComponent prefab);
+            if (prefab == null)
+                return FindEntry(itemId);
+
+            return FindEntry(prefab.ItemId);
+        }
+
+        public ItemComponent GetVisualPrefab(string itemId)
         {
             if (string.IsNullOrWhiteSpace(itemId))
                 return null;
@@ -61,6 +158,29 @@ namespace Sol
             EnsureLookup();
             _lookup.TryGetValue(itemId.Trim(), out ItemComponent prefab);
             return prefab;
+        }
+
+        public ItemComponent InstantiateWorldItem(string itemId, Transform parent = null)
+        {
+            ItemComponent prefab = GetVisualPrefab(itemId);
+            if (prefab == null)
+                return null;
+
+            ItemComponent instance = Instantiate(prefab, parent);
+            instance.gameObject.SetActive(false);
+            return instance;
+        }
+
+        private static ItemRegistry FindLoadedRegistryAsset()
+        {
+            ItemRegistry[] registries = Resources.FindObjectsOfTypeAll<ItemRegistry>();
+            for (int i = 0; i < registries.Length; i++)
+            {
+                if (registries[i] != null && registries[i].name == nameof(ItemRegistry))
+                    return registries[i];
+            }
+
+            return registries.Length > 0 ? registries[0] : null;
         }
 
         private void EnsureLookup()
@@ -72,13 +192,36 @@ namespace Sol
             for (int i = 0; i < _entries.Count; i++)
             {
                 Entry entry = _entries[i];
-                if (entry == null || entry.Prefab == null || string.IsNullOrWhiteSpace(entry.ItemId))
+                if (entry == null || string.IsNullOrWhiteSpace(entry.ItemId))
                     continue;
 
+                entry.Normalize();
                 string key = entry.ItemId.Trim();
-                if (!_lookup.ContainsKey(key))
+                if (!_lookup.ContainsKey(key) && entry.Prefab != null)
                     _lookup[key] = entry.Prefab;
             }
+        }
+
+        private Entry FindEntry(string itemId)
+        {
+            if (string.IsNullOrWhiteSpace(itemId) || _entries == null)
+                return null;
+
+            string normalized = EntityCodeUtility.NormalizeOrEmpty(itemId, EntityCodeUtility.ItemPrefix);
+            if (string.IsNullOrEmpty(normalized))
+                normalized = itemId.Trim();
+
+            for (int i = 0; i < _entries.Count; i++)
+            {
+                Entry entry = _entries[i];
+                if (entry == null)
+                    continue;
+
+                if (string.Equals(entry.ItemId, normalized, System.StringComparison.OrdinalIgnoreCase))
+                    return entry;
+            }
+
+            return null;
         }
 
         private void OnDisable()
@@ -99,11 +242,12 @@ namespace Sol
             for (int i = 0; i < _entries.Count; i++)
             {
                 Entry entry = _entries[i];
-                if (entry == null || entry.Prefab == null)
+                if (entry == null)
                     continue;
 
-                if (!string.IsNullOrWhiteSpace(entry.Prefab.ItemId))
-                    entry.ItemId = entry.Prefab.ItemId.Trim();
+                if (entry.Prefab != null && string.IsNullOrWhiteSpace(entry.ItemId) && !string.IsNullOrWhiteSpace(entry.Prefab.LegacyItemId))
+                    entry.ItemId = entry.Prefab.LegacyItemId.Trim();
+                entry.Normalize();
             }
 
             _lookup = null;
@@ -139,6 +283,44 @@ namespace Sol
             ForceEditorSync();
         }
 
+        [ContextMenu("Migrate Prefab Design Into Registry")]
+        private void MigratePrefabDesignIntoRegistry()
+        {
+            MigratePrefabDesignIntoRegistryNow();
+        }
+
+        [MenuItem("Tools/Sol/Items/Migrate Prefab Design Into Registry")]
+        public static void MigratePrefabDesignIntoRegistryNow()
+        {
+            ForceEditorSync();
+
+            ItemRegistry registry = GetOrCreateEditorAsset();
+            if (registry == null || registry._entries == null)
+                return;
+
+            int migrated = 0;
+            for (int i = 0; i < registry._entries.Count; i++)
+            {
+                Entry entry = registry._entries[i];
+                ItemComponent prefab = entry?.Prefab;
+                if (prefab == null || prefab.LegacyDesignMigratedToRegistry)
+                    continue;
+
+                entry.CopyDesignFromPrefab(prefab);
+                MarkPrefabDesignMigrated(prefab);
+                migrated++;
+            }
+
+            if (migrated > 0)
+            {
+                registry._lookup = null;
+                EditorUtility.SetDirty(registry);
+                AssetDatabase.SaveAssets();
+            }
+
+            Debug.Log($"[ItemRegistry] Migrated prefab design into {migrated} registry item definition(s).");
+        }
+
         public static void ForceEditorSyncNow()
         {
             ForceEditorSync();
@@ -172,22 +354,55 @@ namespace Sol
 
         private static ItemRegistry GetOrCreateEditorAsset()
         {
-            ItemRegistry loaded = Resources.Load<ItemRegistry>(ResourceName);
+            ItemRegistry loaded = AssetDatabase.LoadAssetAtPath<ItemRegistry>(DefaultAssetPath);
             if (loaded != null)
+            {
+                EnsurePreloadedAsset(loaded);
                 return loaded;
+            }
 
-            loaded = AssetDatabase.LoadAssetAtPath<ItemRegistry>(DefaultAssetPath);
-            if (loaded != null)
+            ItemRegistry legacy = AssetDatabase.LoadAssetAtPath<ItemRegistry>(LegacyAssetPath);
+            if (legacy != null)
+            {
+                EnsureDataFolder();
+                string moveError = AssetDatabase.MoveAsset(LegacyAssetPath, DefaultAssetPath);
+                loaded = string.IsNullOrEmpty(moveError)
+                    ? AssetDatabase.LoadAssetAtPath<ItemRegistry>(DefaultAssetPath)
+                    : legacy;
+                EnsurePreloadedAsset(loaded);
                 return loaded;
+            }
 
-            const string resourcesFolder = "Assets/Resources";
-            if (!AssetDatabase.IsValidFolder(resourcesFolder))
-                AssetDatabase.CreateFolder("Assets", "Resources");
+            EnsureDataFolder();
 
             ItemRegistry created = CreateInstance<ItemRegistry>();
             AssetDatabase.CreateAsset(created, DefaultAssetPath);
             AssetDatabase.SaveAssets();
+            EnsurePreloadedAsset(created);
             return created;
+        }
+
+        private static void EnsureDataFolder()
+        {
+            const string dataFolder = "Assets/Data";
+            if (!AssetDatabase.IsValidFolder(dataFolder))
+                AssetDatabase.CreateFolder("Assets", "Data");
+        }
+
+        private static void EnsurePreloadedAsset(ItemRegistry registry)
+        {
+            if (registry == null)
+                return;
+
+            UnityEngine.Object[] assets = PlayerSettings.GetPreloadedAssets();
+            for (int i = 0; i < assets.Length; i++)
+            {
+                if (assets[i] == registry)
+                    return;
+            }
+
+            List<UnityEngine.Object> updated = new(assets) { registry };
+            PlayerSettings.SetPreloadedAssets(updated.ToArray());
         }
 
         private void SyncFromProject()
@@ -318,14 +533,59 @@ namespace Sol
                 if (item == null || !assignedIds.TryGetValue(item, out string assignedId))
                     continue;
 
-                rebuilt.Add(new Entry
+                Entry entry = FindExistingEntryForBuild(assignedId);
+                if (entry == null)
                 {
-                    ItemId = assignedId,
-                    Prefab = item
-                });
+                    entry = new Entry();
+                    entry.CopyDesignFromPrefab(item);
+                    MarkPrefabDesignMigrated(item);
+                }
+                else if (entry.Prefab == null)
+                {
+                    entry.Prefab = item;
+                }
+
+                entry.ItemId = assignedId;
+                entry.Prefab = item;
+                entry.Normalize();
+                rebuilt.Add(entry);
             }
 
             return rebuilt;
+        }
+
+        private static void MarkPrefabDesignMigrated(ItemComponent item)
+        {
+            if (item == null || item.LegacyDesignMigratedToRegistry)
+                return;
+
+            SerializedObject serializedObject = new(item);
+            SerializedProperty migrated = serializedObject.FindProperty("_legacyDesignMigratedToRegistry");
+            if (migrated == null)
+                return;
+
+            migrated.boolValue = true;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(item);
+        }
+
+        private static Entry FindExistingEntryForBuild(string itemId)
+        {
+            ItemRegistry registry = _instance;
+            if (registry?._entries == null || string.IsNullOrWhiteSpace(itemId))
+                return null;
+
+            for (int i = 0; i < registry._entries.Count; i++)
+            {
+                Entry entry = registry._entries[i];
+                if (entry == null)
+                    continue;
+
+                if (string.Equals(entry.ItemId, itemId, System.StringComparison.OrdinalIgnoreCase))
+                    return entry;
+            }
+
+            return null;
         }
 
         private bool ReplaceEntriesIfDifferent(List<Entry> rebuiltEntries)
@@ -345,7 +605,16 @@ namespace Sol
 
                     bool sameId = string.Equals(current.ItemId, incoming.ItemId, System.StringComparison.Ordinal);
                     bool samePrefab = current.Prefab == incoming.Prefab;
-                    if (!sameId || !samePrefab)
+                    bool sameDesign = sameId
+                        && string.Equals(current.DisplayName, incoming.DisplayName, System.StringComparison.Ordinal)
+                        && current.ItemType == incoming.ItemType
+                        && current.Value == incoming.Value
+                        && current.Icon == incoming.Icon
+                        && current.IsStackable == incoming.IsStackable
+                        && current.IsConsumable == incoming.IsConsumable
+                        && current.IsTradeable == incoming.IsTradeable
+                        && current.MaxStackSize == incoming.MaxStackSize;
+                    if (!sameId || !samePrefab || !sameDesign)
                     {
                         identical = false;
                         break;

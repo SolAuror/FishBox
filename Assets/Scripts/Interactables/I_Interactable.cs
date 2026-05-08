@@ -295,6 +295,21 @@ namespace Sol
             return IsHandSlot(slotType) || IsSheathSlot(slotType);
         }
 
+        public static bool CanItemUseSlot(ItemType itemType, EquipDomain equipDomain, WeaponHanding weaponHanding, EquipmentSlotType slotType)
+        {
+            if (!IsEquipableType(itemType))
+                return false;
+
+            EquipDomain domain = equipDomain != EquipDomain.Auto
+                ? equipDomain
+                : itemType == ItemType.Armor ? EquipDomain.Armor : EquipDomain.WeaponTool;
+
+            if (domain == EquipDomain.Armor)
+                return IsArmorSlot(slotType);
+
+            return IsHandSlot(slotType) || IsSheathSlot(slotType);
+        }
+
         public static bool TryResolveDefaultSlot(ItemComponent item, out EquipmentSlotType slotType)
         {
             slotType = default;
@@ -480,6 +495,19 @@ namespace Sol
         public bool AllowEmpty { get; }
 
         public QuestIdDropdownAttribute(bool allowEmpty = true)
+        {
+            AllowEmpty = allowEmpty;
+        }
+    }
+
+    /// <summary>
+    /// Draws a string field as an RPG shop-id dropdown (SHP#####).
+    /// </summary>
+    public sealed class ShopIdDropdownAttribute : PropertyAttribute
+    {
+        public bool AllowEmpty { get; }
+
+        public ShopIdDropdownAttribute(bool allowEmpty = true)
         {
             AllowEmpty = allowEmpty;
         }

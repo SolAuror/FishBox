@@ -290,6 +290,9 @@ namespace Sol.Editor
 
             SerializedObject aiSO = new(aiNpc);
             aiSO.Update();
+            SerializedProperty shopIdProp = aiSO.FindProperty("_shopId");
+            if (shopIdProp != null)
+                ReferenceDropdown.DrawShopLayout(new GUIContent("Shop"), shopIdProp);
             DrawProperty(aiSO, "_useConversationWindow");
             DrawProperty(aiSO, "_talkPrompt");
             DrawProperty(aiSO, "_prompt");
