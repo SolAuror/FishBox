@@ -8,6 +8,13 @@ namespace Sol.Actions
     /// </summary>
     public class MeleeAttackAction : GameAction
     {
+        private readonly CombatAttackStyle _attackStyle;
+
+        public MeleeAttackAction(CombatAttackStyle attackStyle = CombatAttackStyle.Light)
+        {
+            _attackStyle = attackStyle;
+        }
+
         public bool Succeeded { get; private set; }
 
         public override ActionPriority Priority => ActionPriority.High;
@@ -16,15 +23,18 @@ namespace Sol.Actions
         {
             return Context != null
                 && Context.BasicMeleeAttack != null
-                && Context.BasicMeleeAttack.CanStartAttack();
+                && Context.BasicMeleeAttack.CanStartAttack(_attackStyle);
         }
 
         public override void OnStart()
         {
             Succeeded = Context.BasicMeleeAttack != null
-                && Context.BasicMeleeAttack.TryBeginAttack();
+                && Context.BasicMeleeAttack.TryBeginAttack(_attackStyle);
 
-            Complete();
+            if (Succeeded)
+                Complete();
+            else
+                Cancel();
         }
     }
 }

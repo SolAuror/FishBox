@@ -28,6 +28,7 @@ namespace Sol.Locomotion
         public bool AimPressed { get; set; }
         public bool InteractPressed { get; set; }
         public bool ReelHeld { get; set; }
+        public bool ReadyTogglePressed { get; set; }
 
         private LocomotionState _state;
         private bool _callbacksRegistered;
@@ -91,6 +92,7 @@ namespace Sol.Locomotion
         public void SetInteractPressedFalse() => InteractPressed = false;
         public void SetAttackPressedFalse() => AttackPressed = false;
         public void SetReelHeldFalse() => ReelHeld = false;
+        public void SetReadyTogglePressedFalse() => ReadyTogglePressed = false;
 #endregion
 
 #region SolControls.IDefaultActions - Locomotion
@@ -192,9 +194,14 @@ namespace Sol.Locomotion
             if (LocomotionInputManager.Instance != null && LocomotionInputManager.Instance.UIInputBlocked) return;
 
             if (context.performed)
+            {
                 ReelHeld = true;
+                ReadyTogglePressed = true;
+            }
             else if (context.canceled)
+            {
                 ReelHeld = false;
+            }
         }
         public void OnT(InputAction.CallbackContext context) { }
         public void OnF(InputAction.CallbackContext context) { }

@@ -116,6 +116,7 @@ namespace Sol.Fishing
         private float _fishingStatusUntil;
 
         public bool ShouldBlockDefaultAttack => _isRodEquipped;
+        public bool ShouldBlockCombatToggle => _isRodEquipped && (_activeLure != null || _isCastPending || _displayedCatchItem != null);
         public bool HasLineOut => _activeLure != null || _isCastPending;
         public bool HasEquippedRod => _isRodEquipped && _activeRod != null;
         public bool HasDisplayedCatch => _displayedCatchItem != null;

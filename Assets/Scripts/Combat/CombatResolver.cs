@@ -52,7 +52,8 @@ namespace Sol.Combat
             hit.Target.TakeDamage(finalDamage);
 
             bool killed = wasAlive && !hit.Target.IsAlive;
-            bool canStagger = targetMaxHealth > 0f && finalDamage >= targetMaxHealth * StaggerHealthFraction;
+            float staggerDamage = finalDamage * Mathf.Max(0f, hit.StaggerMultiplier);
+            bool canStagger = targetMaxHealth > 0f && staggerDamage >= targetMaxHealth * StaggerHealthFraction;
             bool didStagger = canStagger && hit.Target.IsAlive;
             CombatDamageResult result = new(
                 hit.Attacker,

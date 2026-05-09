@@ -25,6 +25,16 @@ namespace Sol.AI
     {
         /// <summary>True if this NPC is currently in a conversation (suppresses rotation).</summary>
         public bool IsConversing { get; private set; } = false;
+        public bool IsHitReacting
+        {
+            get
+            {
+                if (hitReaction == null)
+                    hitReaction = GetComponentInChildren<HitReaction>();
+
+                return hitReaction != null && hitReaction.IsReacting;
+            }
+        }
 
         /// <summary>Call when conversation starts.</summary>
         public void BeginConversation()

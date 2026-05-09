@@ -243,8 +243,9 @@ MonoBehaviour:
   _weaponHanding: 0
   _allowedEquipSlots: 
   _pickupGrip: {fileID: 0}
-  _authoringTemplate: 0
+  _authoringTemplate: 1
   _itemAuthoringNotes: 
+  _legacyDesignMigratedToRegistry: 0
 --- !u!114 &8134450822554591355
 MonoBehaviour:
   m_ObjectHideFlags: 0

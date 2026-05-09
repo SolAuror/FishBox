@@ -72,6 +72,8 @@ namespace Sol.AI
         private CharacterController characterController;
         private NavMeshAgent agent;
         private BasicMeleeAttack meleeAttack;
+        private CombatReadiness combatReadiness;
+        private HitReaction hitReaction;
         private Transform playerTarget;
         private float nextPlayerResolveTime;
         private readonly Dictionary<State, AIStateBase> states = new();
@@ -101,6 +103,8 @@ namespace Sol.AI
             meleeAttack    = GetComponent<BasicMeleeAttack>();
             if (meleeAttack == null)
                 meleeAttack = gameObject.AddComponent<BasicMeleeAttack>();
+            combatReadiness = CombatReadiness.ResolveOrAdd(gameObject);
+            hitReaction    = GetComponentInChildren<HitReaction>();
             if (soul == null) soul = GetComponent<NPCSoul>();
             if (animator == null) animator = GetComponent<Animator>();
             if (soul != null) soul.OnDeath += HandleDeath;
@@ -231,11 +235,34 @@ namespace Sol.AI
             if (CurrentState == State.Dead || locoInput == null || !locoInput.enabled)
                 return false;
 
+            if (IsHitReacting)
+                return false;
+
+            if (combatReadiness == null)
+                combatReadiness = GetComponent<CombatReadiness>();
+
+            if (combatReadiness != null && !combatReadiness.CanAttack)
+            {
+                if (combatReadiness.IsRelaxed)
+                    combatReadiness.RequestReady();
+
+                return false;
+            }
+
             if (meleeAttack == null || !meleeAttack.CanStartAttack())
                 return false;
 
             locoInput.AttackPressed = true;
             return true;
+        }
+
+        public void RequestCombatSheathe()
+        {
+            if (combatReadiness == null)
+                combatReadiness = GetComponent<CombatReadiness>();
+
+            if (combatReadiness != null && combatReadiness.IsReady)
+                combatReadiness.RequestSheathe();
         }
 
         public void FaceTowards(Vector3 worldPosition)

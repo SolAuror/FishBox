@@ -19,6 +19,7 @@ namespace Sol.Locomotion
         private FishingState _fishingState;
         private Sol.AI.AI_NPC _aiNpc;
         private BasicMeleeAttack _meleeAttack;
+        private CombatReadiness _combatReadiness;
 
         //Locomotion Hashes
         private static int inputXHash = Animator.StringToHash("inputX");
@@ -37,6 +38,8 @@ namespace Sol.Locomotion
 
         //Action Hashes
         private static int attackTriggerHash = Animator.StringToHash("isAttacking");
+        private static int combatReadyHash = Animator.StringToHash("combatReady");
+        private static int weaponKindHash = Animator.StringToHash("weaponKind");
         private static int isAimingHash = Animator.StringToHash("isAiming");
         private static int interactTriggerHash = Animator.StringToHash("isInteracting");
         private static int isPlayingActionHash = Animator.StringToHash("isPlayingAction");
@@ -76,6 +79,9 @@ namespace Sol.Locomotion
             _fishingState = GetComponent<FishingState>();
             _aiNpc = GetComponent<Sol.AI.AI_NPC>();
             _meleeAttack = GetComponent<BasicMeleeAttack>();
+            _combatReadiness = GetComponent<CombatReadiness>();
+            if (_combatReadiness == null && _meleeAttack != null)
+                _combatReadiness = CombatReadiness.ResolveOrAdd(gameObject);
 
             // Cache which parameters actually exist in the Animator Controller
             _validParams = new HashSet<int>();
@@ -144,22 +150,34 @@ namespace Sol.Locomotion
 
             //actions
             _animator.SetBool(isAimingHash, _locomotionInput.AimPressed);
+            UpdateCombatReadinessAnimatorChannels();
+            HandleCombatReadyToggle();
 
             bool shouldBlockDefaultAttack = _fishingState != null && _fishingState.ShouldBlockDefaultAttack;
             if (!shouldBlockDefaultAttack && _locomotionInput.AttackPressed && _validParams.Contains(attackTriggerHash))
             {
-                if (_meleeAttack == null || _meleeAttack.CanStartAttack())
+                if (_combatReadiness != null && !_combatReadiness.CanAttack)
                 {
-                    _animator.SetTrigger(attackTriggerHash);
-                    if (_meleeAttack != null)
-                    {
-                        bool dispatched = ActionSystem.Instance != null
-                            && ActionSystem.Instance.Dispatch(new MeleeAttackAction(), gameObject);
-                        if (!dispatched)
-                            _meleeAttack.BeginAttack();
-                    }
+                    if (_combatReadiness.IsRelaxed)
+                        _combatReadiness.RequestReady();
+
+                    _locomotionInput.SetAttackPressedFalse();
                 }
-                _locomotionInput.SetAttackPressedFalse();
+                else
+                {
+                    bool attackStarted = _meleeAttack == null;
+                    if (_meleeAttack != null && _meleeAttack.CanStartAttack())
+                    {
+                        attackStarted = ActionSystem.Instance != null
+                            ? ActionSystem.Instance.DispatchImmediate(new MeleeAttackAction(), gameObject)
+                            : _meleeAttack.TryBeginAttack();
+                    }
+
+                    if (attackStarted)
+                        _animator.SetTrigger(attackTriggerHash);
+
+                    _locomotionInput.SetAttackPressedFalse();
+                }
             }
 
             _animator.SetBool(isPlayingActionHash, isPlayingAction);
@@ -172,6 +190,30 @@ namespace Sol.Locomotion
             _animator.SetFloat(rotationMismatchHash, _controller.IsRotatingToTarget ? _controller.rotationMismatch : 0f);
 
             UpdateAiSpecificAnimationChannels(isSwimming);
+        }
+
+        private void HandleCombatReadyToggle()
+        {
+            if (_locomotionInput == null || !_locomotionInput.ReadyTogglePressed)
+                return;
+
+            bool fishingOwnsToggle = _fishingState != null && _fishingState.ShouldBlockCombatToggle;
+            if (!fishingOwnsToggle && _combatReadiness != null)
+                _combatReadiness.ToggleReady();
+
+            _locomotionInput.SetReadyTogglePressedFalse();
+        }
+
+        private void UpdateCombatReadinessAnimatorChannels()
+        {
+            if (_combatReadiness == null)
+                return;
+
+            if (_validParams.Contains(combatReadyHash))
+                _animator.SetBool(combatReadyHash, _combatReadiness.IsReady || _combatReadiness.IsReadying);
+
+            if (_validParams.Contains(weaponKindHash))
+                _animator.SetInteger(weaponKindHash, (int)_combatReadiness.CurrentWeaponKind);
         }
 
         private bool IsInteractionAnimationActive()
@@ -254,6 +296,8 @@ namespace Sol.Locomotion
         // Compatibility aliases in case clips already reference alternative names.
         public void OnAttackHit() => OnMeleeHitFrame();
         public void OnPunchHit() => OnMeleeHitFrame();
+        public void OnCombatReadyComplete() => _combatReadiness?.OnCombatReadyComplete();
+        public void OnCombatSheatheComplete() => _combatReadiness?.OnCombatSheatheComplete();
 #endregion
     }
 }

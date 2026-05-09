@@ -18,6 +18,12 @@ namespace Sol.Combat
         private PlayableGraph _graph;
         private Coroutine _stopClipRoutine;
         private Coroutine _fallbackRoutine;
+        private float _reactionUntil;
+
+        public bool IsReacting => Time.time < _reactionUntil
+            || _graph.IsValid()
+            || _stopClipRoutine != null
+            || _fallbackRoutine != null;
 
         private void Awake()
         {
@@ -52,6 +58,7 @@ namespace Sol.Combat
         private void PlayClip()
         {
             StopActiveReaction();
+            _reactionUntil = Time.time + Mathf.Max(0.01f, _hitClip.length);
 
             _graph = PlayableGraph.Create($"{name}_HitReaction");
             _graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
@@ -82,6 +89,7 @@ namespace Sol.Combat
             if (_fallbackRoutine != null)
                 StopCoroutine(_fallbackRoutine);
 
+            _reactionUntil = Time.time + Mathf.Max(0.01f, _fallbackDuration);
             _fallbackRoutine = StartCoroutine(FallbackFlinch(hitDirection));
         }
 
@@ -130,6 +138,8 @@ namespace Sol.Combat
 
             if (_graph.IsValid())
                 _graph.Destroy();
+
+            _reactionUntil = 0f;
         }
     }
 }

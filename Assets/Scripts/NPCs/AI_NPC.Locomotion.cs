@@ -100,6 +100,27 @@ namespace Sol.AI
                 };
             }
 
+            if (IsHitReacting)
+            {
+                return new Shared.AI.LocomotionIntent
+                {
+                    TargetPosition = transform.position,
+                    DesiredSpeed = 0f,
+                    ActionType = Shared.AI.LocomotionActionType.Idle
+                };
+            }
+
+            if ((combatReadiness != null && combatReadiness.IsBusy)
+                || (meleeAttack != null && meleeAttack.IsAttackActive))
+            {
+                return new Shared.AI.LocomotionIntent
+                {
+                    TargetPosition = transform.position,
+                    DesiredSpeed = 0f,
+                    ActionType = Shared.AI.LocomotionActionType.Idle
+                };
+            }
+
             var intent = activeState.GetIntent();
 
             // Rotate-before-move gate: hold the NPC in place until its body is roughly
@@ -210,4 +231,3 @@ namespace Sol.AI
         }
     }
 }
-

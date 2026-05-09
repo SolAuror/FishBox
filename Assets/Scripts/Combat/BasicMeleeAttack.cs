@@ -15,34 +15,51 @@ namespace Sol.Combat
         [SerializeField] private float _radius = 0.55f;
         [SerializeField] private float _cooldown = 0.45f;
         [SerializeField] private float _minForwardDot = 0.2f;
+        [SerializeField] private float _closeRangeArcBypassRadius = 0.85f;
         [SerializeField] private float _hitHeightOffset = 1f;
         [SerializeField] private LayerMask _targetLayers = ~0;
         [SerializeField] private Transform _originOverride;
+        [Header("Attack Profiles")]
+        [SerializeField] private CombatAttackStyle _defaultAttackStyle = CombatAttackStyle.Light;
 
         private readonly Collider[] _hits = new Collider[24];
         private readonly HashSet<int> _hitTargetsThisSwing = new();
         private float _nextAttackTime;
         private bool _attackActive;
+        private CombatAttackProfile _activeAttackProfile = CombatAttackProfile.Light;
 
         private PlayerSoul _playerSoul;
         private NPCSoul _npcSoul;
         private Combatant _combatant;
+        private CombatReadiness _readiness;
         private Transform _cachedTransform;
 
         public float EngageDistance => Mathf.Max(0.1f, _range + _radius);
+        public bool IsAttackActive => _attackActive;
 
         private void Awake()
         {
             _cachedTransform = transform;
             RefreshSoulReferences();
             _combatant = Combatant.ResolveOrAdd(gameObject);
+            _readiness = GetComponent<CombatReadiness>();
         }
 
         public bool CanStartAttack()
         {
+            return CanStartAttack(_defaultAttackStyle);
+        }
+
+        public bool CanStartAttack(CombatAttackStyle attackStyle)
+        {
             RefreshSoulReferences();
+            CombatAttackProfile profile = CombatAttackProfile.FromStyle(attackStyle);
 
             if (Time.time < _nextAttackTime)
+                return false;
+
+            CombatReadiness readiness = ResolveReadiness();
+            if (readiness != null && !readiness.CanAttack)
                 return false;
 
             if (_playerSoul != null)
@@ -60,7 +77,7 @@ namespace Sol.Combat
                 return true;
 
             combatant.TryGetEquippedWeapon(out Sol.Grab.ItemComponent weapon, out _);
-            float staminaCost = combatant.GetAttackStaminaCost(weapon);
+            float staminaCost = profile.ApplyStaminaCost(combatant.GetAttackStaminaCost(weapon));
             return combatant.CanSpendStamina(staminaCost);
         }
 
@@ -69,22 +86,45 @@ namespace Sol.Combat
             TryBeginAttack();
         }
 
+        public void BeginAttack(CombatAttackStyle attackStyle)
+        {
+            TryBeginAttack(attackStyle);
+        }
+
         public bool TryBeginAttack()
         {
-            RefreshSoulReferences();
+            return TryBeginAttack(_defaultAttackStyle);
+        }
 
-            if (!CanStartAttack())
+        public bool TryBeginAttack(CombatAttackStyle attackStyle)
+        {
+            RefreshSoulReferences();
+            CombatAttackProfile profile = CombatAttackProfile.FromStyle(attackStyle);
+
+            if (!CanStartAttack(attackStyle))
             {
                 Combatant rejectedCombatant = ResolveCombatant();
+                Sol.Grab.ItemComponent rejectedWeapon = null;
+                float rejectedStaminaCost = 0f;
+                CombatAttackKind rejectedAttackKind = CombatAttackKind.Unarmed;
+                if (rejectedCombatant != null)
+                {
+                    rejectedCombatant.TryGetEquippedWeapon(out rejectedWeapon, out _);
+                    rejectedStaminaCost = profile.ApplyStaminaCost(rejectedCombatant.GetAttackStaminaCost(rejectedWeapon));
+                    rejectedAttackKind = rejectedCombatant.GetAttackKind(rejectedWeapon);
+                }
+
                 CombatResolver.RaiseAttackRejected(new CombatHit(
                     rejectedCombatant,
                     null,
-                    null,
+                    rejectedWeapon,
+                    rejectedCombatant != null ? profile.ApplyDamage(rejectedCombatant.GetAttackBaseDamage(rejectedWeapon, _damage)) : _damage,
                     _damage,
-                    _damage,
-                    0f,
-                    CombatAttackKind.Unarmed,
-                    _cachedTransform != null ? _cachedTransform.forward : transform.forward));
+                    rejectedStaminaCost,
+                    rejectedAttackKind,
+                    _cachedTransform != null ? _cachedTransform.forward : transform.forward,
+                    profile.Style,
+                    profile.StaggerMultiplier));
                 return false;
             }
 
@@ -92,18 +132,20 @@ namespace Sol.Combat
             if (combatant != null)
             {
                 combatant.TryGetEquippedWeapon(out Sol.Grab.ItemComponent weapon, out _);
-                float staminaCost = combatant.GetAttackStaminaCost(weapon);
+                float staminaCost = profile.ApplyStaminaCost(combatant.GetAttackStaminaCost(weapon));
                 if (!combatant.TrySpendStamina(staminaCost))
                 {
                     CombatResolver.RaiseAttackRejected(new CombatHit(
                         combatant,
                         null,
                         weapon,
-                        combatant.GetAttackBaseDamage(weapon, _damage),
+                        profile.ApplyDamage(combatant.GetAttackBaseDamage(weapon, _damage)),
                         _damage,
                         staminaCost,
                         combatant.GetAttackKind(weapon),
-                        _cachedTransform != null ? _cachedTransform.forward : transform.forward));
+                        _cachedTransform != null ? _cachedTransform.forward : transform.forward,
+                        profile.Style,
+                        profile.StaggerMultiplier));
                     return false;
                 }
 
@@ -111,15 +153,18 @@ namespace Sol.Combat
                     combatant,
                     null,
                     weapon,
-                    combatant.GetAttackBaseDamage(weapon, _damage),
+                    profile.ApplyDamage(combatant.GetAttackBaseDamage(weapon, _damage)),
                     _damage,
                     staminaCost,
                     combatant.GetAttackKind(weapon),
-                    _cachedTransform != null ? _cachedTransform.forward : transform.forward));
+                    _cachedTransform != null ? _cachedTransform.forward : transform.forward,
+                    profile.Style,
+                    profile.StaggerMultiplier));
             }
 
-            _nextAttackTime = Time.time + Mathf.Max(0.01f, _cooldown);
+            _nextAttackTime = Time.time + profile.ApplyCooldown(_cooldown);
             _hitTargetsThisSwing.Clear();
+            _activeAttackProfile = profile;
             _attackActive = true;
             return true;
         }
@@ -157,6 +202,8 @@ namespace Sol.Combat
                 if (TryDamageTarget(hitTransform, originPosition, forward))
                     continue;
             }
+
+            EndAttack();
         }
 
         public void EndAttack()
@@ -187,7 +234,7 @@ namespace Sol.Combat
                     return false;
 
                 Vector3 hitDirection = ResolveHitDirection(targetNpcSoul.transform, forward);
-                CombatResolver.ApplyHit(attacker.CreateMeleeHit(target, _damage, hitDirection));
+                CombatResolver.ApplyHit(attacker.CreateMeleeHit(target, _damage, hitDirection, _activeAttackProfile));
                 return true;
             }
 
@@ -209,7 +256,7 @@ namespace Sol.Combat
                     return false;
 
                 Vector3 hitDirection = ResolveHitDirection(targetPlayerSoul.transform, forward);
-                CombatResolver.ApplyHit(attacker.CreateMeleeHit(target, _damage, hitDirection));
+                CombatResolver.ApplyHit(attacker.CreateMeleeHit(target, _damage, hitDirection, _activeAttackProfile));
                 return true;
             }
 
@@ -229,10 +276,22 @@ namespace Sol.Combat
         {
             Vector3 targetPoint = targetPosition + Vector3.up * _hitHeightOffset;
             Vector3 toTarget = targetPoint - originPosition;
-            if (toTarget.sqrMagnitude <= 0.0001f)
+
+            Vector3 planarToTarget = toTarget;
+            planarToTarget.y = 0f;
+            if (planarToTarget.sqrMagnitude <= Mathf.Max(_radius, _closeRangeArcBypassRadius) * Mathf.Max(_radius, _closeRangeArcBypassRadius))
                 return true;
 
-            return Vector3.Dot(forward, toTarget.normalized) >= _minForwardDot;
+            Vector3 planarForward = forward;
+            planarForward.y = 0f;
+            if (planarForward.sqrMagnitude <= 0.0001f)
+                planarForward = _cachedTransform != null ? _cachedTransform.forward : transform.forward;
+
+            planarForward.y = 0f;
+            if (planarForward.sqrMagnitude <= 0.0001f)
+                return true;
+
+            return Vector3.Dot(planarForward.normalized, planarToTarget.normalized) >= _minForwardDot;
         }
 
         private Combatant ResolveCombatant()
@@ -241,6 +300,14 @@ namespace Sol.Combat
                 _combatant = Combatant.ResolveOrAdd(gameObject);
 
             return _combatant;
+        }
+
+        private CombatReadiness ResolveReadiness()
+        {
+            if (_readiness == null)
+                _readiness = GetComponent<CombatReadiness>();
+
+            return _readiness;
         }
 
         private void RefreshSoulReferences()

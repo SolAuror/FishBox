@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 903d12b8c71b48c4bc2ff72b76e51f62, type: 3}
-  m_Name: STA00001_New_Stat
+  m_Name: STA00001_Fishing
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Rpg.RpgStatDefinition
   _id: STA00001
-  _displayName: New Stat
-  _description: 
+  _displayName: Fishing
+  _description: Catch fish to level up...
   _category: 0
   _canImproveWithUse: 1
-  _baseValue: 10
+  _baseValue: 0
   _minimumValue: 0
   _maximumValue: 100

@@ -317,6 +317,31 @@ namespace Sol.Actions
             InsertSorted(state.Queue, action);
         }
 
+        private ActorState GetOrCreateState(GameObject actor)
+        {
+            if (!_actors.TryGetValue(actor, out ActorState state))
+            {
+                state = new ActorState { Context = new ActionContext(actor) };
+                _actors[actor] = state;
+            }
+
+            return state;
+        }
+
+        private void PreemptIfHigherPriority(GameAction action, GameObject actor, ActorState state)
+        {
+            if (state.Current == null
+                || state.Current.IsComplete
+                || state.Current.IsCancelled
+                || action.Priority <= state.Current.Priority)
+            {
+                return;
+            }
+
+            state.Current.ForceCancelInternal();
+            Finish(actor, state, cancelled: true);
+        }
+
         // ----------------------------------------------------------------
         //  Public API
         // ----------------------------------------------------------------
@@ -330,26 +355,32 @@ namespace Sol.Actions
         {
             if (action == null || actor == null) return false;
 
-            if (!_actors.TryGetValue(actor, out var state))
-            {
-                state = new ActorState { Context = new ActionContext(actor) };
-                _actors[actor] = state;
-            }
+            ActorState state = GetOrCreateState(actor);
 
             action.Initialize(state.Context, target);
 
-            // Priority preemption: if incoming action outranks the running one, interrupt it.
-            if (state.Current != null
-                && !state.Current.IsComplete
-                && !state.Current.IsCancelled
-                && action.Priority > state.Current.Priority)
-            {
-                state.Current.ForceCancelInternal();
-                Finish(actor, state, cancelled: true);
-            }
+            PreemptIfHigherPriority(action, actor, state);
 
             InsertSorted(state.Queue, action);
             return true;
+        }
+
+        /// <summary>
+        /// Queue an action and tick this actor immediately. Use for animation-gated
+        /// instant actions that must enter their active window before animation events fire.
+        /// Returns true only if the action started during this call.
+        /// </summary>
+        public bool DispatchImmediate(GameAction action, GameObject actor, GameObject target = null)
+        {
+            if (action == null || actor == null) return false;
+
+            ActorState state = GetOrCreateState(actor);
+            action.Initialize(state.Context, target);
+            PreemptIfHigherPriority(action, actor, state);
+            InsertSorted(state.Queue, action);
+            TickActor(actor, state);
+
+            return !action.IsCancelled && (action.IsComplete || state.Current == action);
         }
 
         /// <summary>Cancel the currently running action for the given actor.</summary>

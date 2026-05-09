@@ -251,6 +251,7 @@ namespace Sol.AI
 
         public override void Exit()
         {
+            npc.RequestCombatSheathe();
         }
 
         public override AI_NPC.State Tick()
@@ -292,9 +293,21 @@ namespace Sol.AI
         public override Shared.AI.LocomotionIntent GetIntent()
         {
             Vector3 targetPos = npc.transform.position;
+
+            if (npc.TryGetPlayerPosition(out Vector3 playerPosition)
+                && (playerPosition - npc.transform.position).sqrMagnitude <= npc.GetMeleeEngageDistance() * npc.GetMeleeEngageDistance())
+            {
+                return new Shared.AI.LocomotionIntent
+                {
+                    TargetPosition = npc.transform.position,
+                    DesiredSpeed = 0f,
+                    ActionType = Shared.AI.LocomotionActionType.Idle
+                };
+            }
+
             if (agent != null && agent.isOnNavMesh && agent.hasPath)
                 targetPos = agent.steeringTarget;
-            else if (npc.TryGetPlayerPosition(out Vector3 playerPosition))
+            else if (npc.TryGetPlayerPosition(out playerPosition))
                 targetPos = playerPosition;
 
             return new Shared.AI.LocomotionIntent
