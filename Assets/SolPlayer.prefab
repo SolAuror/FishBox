@@ -3612,9 +3612,9 @@ MonoBehaviour:
   _gold: 10
   _containerType: 0
   _inspectorContents:
-  - Item: {fileID: 437761895070354558, guid: 4ebffe2a18b4c4b48a06144cd18adc57, type: 3}
+  - _itemId: ITM00012
     Quantity: 10
-  - Item: {fileID: 1312666679401494266, guid: 2c88d2e6f4ef79641b9411c18f411d9b, type: 3}
+  - _itemId: ITM00002
     Quantity: 5
   _owner: {fileID: 0}
   _ownerId: 

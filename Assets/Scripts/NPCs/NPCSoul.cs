@@ -20,7 +20,6 @@ namespace Sol.AI
         None = 0,
         Civilian = 1,
         Guard = 2,
-        LegacyTrader = 3,
         QuestGiver = 4,
         Unique = 5,
         Bandit = 6
@@ -401,12 +400,6 @@ namespace Sol.AI
             {
                 _entityType = EntityType.NPC;
                 _isHostile = true;
-            }
-
-            if (_npcArchetype == NPCArchetype.LegacyTrader)
-            {
-                _npcArchetype = NPCArchetype.Civilian;
-                _canTrade = true;
             }
 
             if (!_identityMigratedV2)

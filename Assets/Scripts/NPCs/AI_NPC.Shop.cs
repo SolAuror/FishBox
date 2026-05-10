@@ -11,7 +11,7 @@ using UnityEditor;
 namespace Sol.AI
 {
     /// <summary>
-    /// AI_NPC partial - trade and corpse-loot behaviour. Replaces the legacy NpcTraderInteractable.
+    /// AI_NPC partial - trade and corpse-loot behaviour.
     /// Trade is gated on <see cref="IsTrader"/> (derived from the NPCSoul trader checkbox).
     /// </summary>
     public partial class AI_NPC

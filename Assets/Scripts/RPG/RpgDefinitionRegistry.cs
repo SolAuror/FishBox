@@ -9,8 +9,6 @@ namespace Sol.Rpg
     [CreateAssetMenu(fileName = "RpgDefinitionRegistry", menuName = "Sol/RPG/Definition Registry")]
     public sealed class RpgDefinitionRegistry : ScriptableObject
     {
-        private const string LegacyResourceName = "RpgDefinitionRegistry";
-
         [SerializeField] private List<RpgStatDefinition> _stats = new();
         [SerializeField] private List<RpgSkillDefinition> _skills = new();
         [SerializeField] private List<RpgFactionDefinition> _factions = new();
@@ -29,7 +27,6 @@ namespace Sol.Rpg
 
 #if UNITY_EDITOR
         private const string DefaultAssetPath = "Assets/Data/RpgDefinitionRegistry.asset";
-        private const string LegacyAssetPath = "Assets/Resources/RpgDefinitionRegistry.asset";
         private static bool _editorSyncScheduled;
         private static bool _isEditorSynchronizing;
 #endif
@@ -43,8 +40,6 @@ namespace Sol.Rpg
             _instance = GetOrCreateEditorAsset();
 #else
             _instance = FindLoadedRegistryAsset();
-            if (_instance == null)
-                _instance = Resources.Load<RpgDefinitionRegistry>(LegacyResourceName);
 #endif
             return _instance;
         }
@@ -192,18 +187,6 @@ namespace Sol.Rpg
             RpgDefinitionRegistry loaded = AssetDatabase.LoadAssetAtPath<RpgDefinitionRegistry>(DefaultAssetPath);
             if (loaded != null)
             {
-                EnsurePreloadedAsset(loaded);
-                return loaded;
-            }
-
-            RpgDefinitionRegistry legacy = AssetDatabase.LoadAssetAtPath<RpgDefinitionRegistry>(LegacyAssetPath);
-            if (legacy != null)
-            {
-                EnsureDataFolder();
-                string moveError = AssetDatabase.MoveAsset(LegacyAssetPath, DefaultAssetPath);
-                loaded = string.IsNullOrEmpty(moveError)
-                    ? AssetDatabase.LoadAssetAtPath<RpgDefinitionRegistry>(DefaultAssetPath)
-                    : legacy;
                 EnsurePreloadedAsset(loaded);
                 return loaded;
             }

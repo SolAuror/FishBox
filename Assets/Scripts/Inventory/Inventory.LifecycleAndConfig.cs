@@ -74,11 +74,6 @@ namespace Sol
                         continue;
 
                     entry.Quantity = Mathf.Max(1, entry.Quantity);
-
-#pragma warning disable CS0618
-                    if (string.IsNullOrWhiteSpace(entry.ItemId) && entry.Item != null && !string.IsNullOrWhiteSpace(entry.Item.ItemId))
-                        entry.ItemId = entry.Item.ItemId;
-#pragma warning restore CS0618
                 }
             }
 
@@ -141,9 +136,7 @@ namespace Sol
                     return prefab;
             }
 
-#pragma warning disable CS0618
-            return entry.Item;
-#pragma warning restore CS0618
+            return null;
         }
 
 

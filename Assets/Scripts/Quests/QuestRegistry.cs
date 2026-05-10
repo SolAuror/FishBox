@@ -8,13 +8,12 @@ namespace Sol.Quests
 {
     /// <summary>
     /// Central registry of every <see cref="QuestDefinition"/> in the project.
-    /// Mirror of ItemRegistry / NPCRegistry — single asset at Resources/QuestRegistry.asset,
-    /// auto-synced from the project in the editor, lookup by questId.
+    /// Mirror of ItemRegistry / NPCRegistry: single preloaded asset in Assets/Data,
+    /// auto-synced from the project in the editor, with lookup by questId.
     /// </summary>
     [CreateAssetMenu(fileName = "QuestRegistry", menuName = "Sol/Quests/Quest Registry")]
     public class QuestRegistry : ScriptableObject
     {
-        private const string LegacyResourcePath = "QuestRegistry";
 #region Inspector Settings
 
         [Tooltip("Inspector: tunes quests.")]
@@ -28,7 +27,6 @@ namespace Sol.Quests
 
 #if UNITY_EDITOR
         private const string DefaultAssetPath = "Assets/Data/QuestRegistry.asset";
-        private const string LegacyAssetPath = "Assets/Resources/QuestRegistry.asset";
         private static bool _editorSyncScheduled;
         private static bool _isEditorSynchronizing;
 #endif
@@ -42,8 +40,6 @@ namespace Sol.Quests
             _instance = GetOrCreateEditorAsset();
 #else
             _instance = FindLoadedRegistryAsset();
-            if (_instance == null)
-                _instance = Resources.Load<QuestRegistry>(LegacyResourcePath);
 #endif
             return _instance;
         }
@@ -153,18 +149,6 @@ namespace Sol.Quests
             QuestRegistry loaded = AssetDatabase.LoadAssetAtPath<QuestRegistry>(DefaultAssetPath);
             if (loaded != null)
             {
-                EnsurePreloadedAsset(loaded);
-                return loaded;
-            }
-
-            QuestRegistry legacy = AssetDatabase.LoadAssetAtPath<QuestRegistry>(LegacyAssetPath);
-            if (legacy != null)
-            {
-                EnsureDataFolder();
-                string moveError = AssetDatabase.MoveAsset(LegacyAssetPath, DefaultAssetPath);
-                loaded = string.IsNullOrEmpty(moveError)
-                    ? AssetDatabase.LoadAssetAtPath<QuestRegistry>(DefaultAssetPath)
-                    : legacy;
                 EnsurePreloadedAsset(loaded);
                 return loaded;
             }

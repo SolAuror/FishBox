@@ -15,10 +15,6 @@ namespace Sol
         [ItemIdDropdown]
         [SerializeField] private string _itemId = string.Empty;
 
-        [HideInInspector]
-        [Obsolete("Use ItemId / _itemId. Retained for backward compatibility with existing prefabs.")]
-        public ItemComponent Item;
-
         [Min(1)]
         public int Quantity = 1;
 
@@ -135,6 +131,5 @@ namespace Sol
 #endif
     }
 }
-
 
 

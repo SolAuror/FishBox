@@ -362,17 +362,6 @@ namespace Sol.Editor
             DrawProperty(aiSO, "_speakerIcon");
             aiSO.ApplyModifiedProperties();
 
-#pragma warning disable CS0618
-            NpcTrader legacy = soul.GetComponent<NpcTrader>();
-#pragma warning restore CS0618
-            if (legacy != null)
-            {
-                EditorGUILayout.Space(4f);
-                EditorGUILayout.HelpBox(
-                    "Legacy NpcTrader component still attached. Run Tools/Sol/NPCs/Migrate NpcTrader -> AI_NPC to copy values onto AI_NPC and remove it.",
-                    MessageType.Warning);
-            }
-
             EndSection();
         }
 
@@ -586,8 +575,6 @@ namespace Sol.Editor
                 return;
 
             NPCArchetype current = (NPCArchetype)archetypeProp.enumValueIndex;
-            if (current == NPCArchetype.LegacyTrader)
-                current = NPCArchetype.Civilian;
 
             NPCArchetype[] options =
             {

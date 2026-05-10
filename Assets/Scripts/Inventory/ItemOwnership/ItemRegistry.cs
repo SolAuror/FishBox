@@ -15,7 +15,6 @@ namespace Sol
     [CreateAssetMenu(fileName = "ItemRegistry", menuName = "Sol/Item Registry")]
     public class ItemRegistry : ScriptableObject
     {
-        private const string LegacyResourceName = "ItemRegistry";
 #region Inspector Settings
 
         [Tooltip("Inspector: tunes entries.")]
@@ -112,7 +111,6 @@ namespace Sol
 
 #if UNITY_EDITOR
         private const string DefaultAssetPath = "Assets/Data/ItemRegistry.asset";
-        private const string LegacyAssetPath = "Assets/Resources/ItemRegistry.asset";
         private static bool _editorSyncScheduled;
         private static bool _isEditorSynchronizing;
 #endif
@@ -126,8 +124,6 @@ namespace Sol
             _instance = GetOrCreateEditorAsset();
 #else
             _instance = FindLoadedRegistryAsset();
-            if (_instance == null)
-                _instance = Resources.Load<ItemRegistry>(LegacyResourceName);
 #endif
             return _instance;
         }
@@ -357,18 +353,6 @@ namespace Sol
             ItemRegistry loaded = AssetDatabase.LoadAssetAtPath<ItemRegistry>(DefaultAssetPath);
             if (loaded != null)
             {
-                EnsurePreloadedAsset(loaded);
-                return loaded;
-            }
-
-            ItemRegistry legacy = AssetDatabase.LoadAssetAtPath<ItemRegistry>(LegacyAssetPath);
-            if (legacy != null)
-            {
-                EnsureDataFolder();
-                string moveError = AssetDatabase.MoveAsset(LegacyAssetPath, DefaultAssetPath);
-                loaded = string.IsNullOrEmpty(moveError)
-                    ? AssetDatabase.LoadAssetAtPath<ItemRegistry>(DefaultAssetPath)
-                    : legacy;
                 EnsurePreloadedAsset(loaded);
                 return loaded;
             }

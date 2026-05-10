@@ -15,8 +15,6 @@ namespace Sol.AI
     [CreateAssetMenu(fileName = "NPCRegistry", menuName = "Sol/NPC Registry")]
     public class NPCRegistry : ScriptableObject
     {
-        private const string LegacyResourceName = "NPCRegistry";
-
         #region Inspector Settings
         [Tooltip("Inspector: tunes entries.")]
         [SerializeField] private List<Entry> _entries = new();
@@ -36,7 +34,6 @@ namespace Sol.AI
 
 #if UNITY_EDITOR
         private const string DefaultAssetPath = "Assets/Data/NPCRegistry.asset";
-        private const string LegacyAssetPath = "Assets/Resources/NPCRegistry.asset";
         private static bool _editorSyncScheduled;
         private static bool _isEditorSynchronizing;
 #endif
@@ -50,8 +47,6 @@ namespace Sol.AI
             _instance = GetOrCreateEditorAsset();
 #else
             _instance = FindLoadedRegistryAsset();
-            if (_instance == null)
-                _instance = Resources.Load<NPCRegistry>(LegacyResourceName);
 #endif
             return _instance;
         }
@@ -190,18 +185,6 @@ namespace Sol.AI
             NPCRegistry loaded = AssetDatabase.LoadAssetAtPath<NPCRegistry>(DefaultAssetPath);
             if (loaded != null)
             {
-                EnsurePreloadedAsset(loaded);
-                return loaded;
-            }
-
-            NPCRegistry legacy = AssetDatabase.LoadAssetAtPath<NPCRegistry>(LegacyAssetPath);
-            if (legacy != null)
-            {
-                EnsureDataFolder();
-                string moveError = AssetDatabase.MoveAsset(LegacyAssetPath, DefaultAssetPath);
-                loaded = string.IsNullOrEmpty(moveError)
-                    ? AssetDatabase.LoadAssetAtPath<NPCRegistry>(DefaultAssetPath)
-                    : legacy;
                 EnsurePreloadedAsset(loaded);
                 return loaded;
             }

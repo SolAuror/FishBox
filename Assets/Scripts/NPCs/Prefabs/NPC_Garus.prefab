@@ -1691,7 +1691,6 @@ MonoBehaviour:
   _containerType: 0
   _inspectorContents:
   - _itemId: 
-    Item: {fileID: 0}
     Quantity: 1
   _owner: {fileID: 0}
   _ownerId: 

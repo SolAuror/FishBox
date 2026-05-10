@@ -141,11 +141,7 @@ namespace Sol.AI
         private void Update()
         {
             if (CurrentState == State.Dead)
-            {
-                // Dead: skip perception, fakeCam, look updates. Only sync animation.
-                SyncAnimationWithLocomotion();
                 return;
-            }
 
             bool canUseNavAgent = agent != null && agent.enabled && agent.isOnNavMesh;
             if (!canUseNavAgent && agent != null && agent.enabled)
@@ -177,7 +173,6 @@ namespace Sol.AI
             State desired = activeState != null ? activeState.Tick() : State.Idle;
             if (desired != CurrentState)
                 SetState(desired);
-            SyncAnimationWithLocomotion();
         }
 
         private bool ValidateSetup()

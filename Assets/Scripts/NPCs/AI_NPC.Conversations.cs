@@ -12,8 +12,8 @@ namespace Sol.AI
 {
     /// <summary>
     /// AI_NPC partial - conversation/dialogue surface and IInteractable wiring.
-    /// Replaces the legacy NpcTraderInteractable. Routes to the authored DialogueGraph
-    /// when one is present, otherwise falls back to the flat Trade/Quest/Goodbye flow.
+    /// Routes to the authored DialogueGraph when one is present, otherwise falls back
+    /// to the flat Trade/Quest/Goodbye flow.
     /// </summary>
     public partial class AI_NPC
     {
@@ -648,7 +648,7 @@ namespace Sol.AI
             return null;
         }
 
-        // ----- Quest helpers (relocated from NpcTraderInteractable) -----
+        // ----- Quest helpers -----
 
         private static bool HasQuestReadyToTurnIn(QuestManager questManager, string speakerName)
         {
