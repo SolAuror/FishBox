@@ -39,7 +39,7 @@ namespace Sol.Editor
             {
                 warnings.Add(new ItemAuthoringWarning(
                     ItemAuthoringWarningSeverity.Info,
-                    "Runtime catch prefab — name, value, icon, and visual are populated at runtime by CaughtFishItem.ConfigureFromFish/Data. Standard authoring checks are skipped."));
+                    "Runtime catch prefab - name, value, icon, and visual are populated at runtime by CaughtFishItem.ConfigureFromFish/Data. Standard authoring checks are skipped."));
                 return warnings;
             }
 

@@ -266,6 +266,34 @@ namespace Sol.Editor
             return AssetDatabase.GetAssetPath(item.gameObject);
         }
 
+        public static void EnsureCanonicalComponents(ItemComponent item)
+        {
+            if (item == null)
+                return;
+
+            GameObject go = item.gameObject;
+
+            if (go.GetComponent<Rigidbody>() == null)
+            {
+                Rigidbody rb = AddTemplateComponent<Rigidbody>(item);
+                rb.mass = 0.1f;
+                rb.linearDamping = 1.2f;
+                rb.angularDamping = 1.4f;
+                rb.useGravity = true;
+                rb.interpolation = RigidbodyInterpolation.Interpolate;
+                rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            }
+
+            if (go.GetComponent<MeshFilter>() == null)
+                AddTemplateComponent<MeshFilter>(item);
+
+            if (go.GetComponent<MeshRenderer>() == null)
+                AddTemplateComponent<MeshRenderer>(item);
+
+            if (go.GetComponent<OutlineComponent>() == null)
+                AddTemplateComponent<OutlineComponent>(item);
+        }
+
         private static void EnsureDefaultFolder()
         {
             if (AssetDatabase.IsValidFolder(DefaultItemFolder))
@@ -353,31 +381,6 @@ namespace Sol.Editor
             EditorUtility.SetDirty(component);
             EditorUtility.SetDirty(item.gameObject);
             return component;
-        }
-
-        private static void EnsureCanonicalComponents(ItemComponent item)
-        {
-            GameObject go = item.gameObject;
-
-            if (go.GetComponent<Rigidbody>() == null)
-            {
-                Rigidbody rb = AddTemplateComponent<Rigidbody>(item);
-                rb.mass = 0.1f;
-                rb.linearDamping = 1.2f;
-                rb.angularDamping = 1.4f;
-                rb.useGravity = true;
-                rb.interpolation = RigidbodyInterpolation.Interpolate;
-                rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
-            }
-
-            if (go.GetComponent<MeshFilter>() == null)
-                AddTemplateComponent<MeshFilter>(item);
-
-            if (go.GetComponent<MeshRenderer>() == null)
-                AddTemplateComponent<MeshRenderer>(item);
-
-            if (go.GetComponent<OutlineComponent>() == null)
-                AddTemplateComponent<OutlineComponent>(item);
         }
 
         private static void SetString(SerializedObject serializedObject, string propertyName, string value)

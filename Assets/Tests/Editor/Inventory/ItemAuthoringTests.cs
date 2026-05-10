@@ -4,6 +4,7 @@ using Sol;
 using Sol.AI;
 using Sol.Editor;
 using Sol.Grab;
+using Sol.Outline;
 using Sol.Player;
 using UnityEditor;
 using UnityEngine;
@@ -122,6 +123,34 @@ public sealed class ItemAuthoringTests
             Assert.That(item.MaxStackSize, Is.EqualTo(7));
             Assert.That(item.UseEffects.Count, Is.EqualTo(1));
             Assert.That(item.AuthoringTemplate, Is.EqualTo(ItemAuthoringTemplate.Consumable));
+        }
+        finally
+        {
+            Object.DestroyImmediate(itemObject);
+        }
+    }
+
+    [Test]
+    public void EnsureCanonicalComponents_AddsWorldPrefabComponents()
+    {
+        GameObject itemObject = new("Bare World Item");
+        try
+        {
+            ItemComponent item = AddItemComponent(itemObject);
+
+            Assert.That(itemObject.GetComponent<Rigidbody>(), Is.Null);
+            Assert.That(itemObject.GetComponent<MeshFilter>(), Is.Null);
+            Assert.That(itemObject.GetComponent<MeshRenderer>(), Is.Null);
+            Assert.That(itemObject.GetComponent<OutlineComponent>(), Is.Null);
+
+            ItemAuthoringEditorUtility.EnsureCanonicalComponents(item);
+
+            Rigidbody rb = itemObject.GetComponent<Rigidbody>();
+            Assert.That(rb, Is.Not.Null);
+            Assert.That(rb.mass, Is.EqualTo(0.1f).Within(0.001f));
+            Assert.That(itemObject.GetComponent<MeshFilter>(), Is.Not.Null);
+            Assert.That(itemObject.GetComponent<MeshRenderer>(), Is.Not.Null);
+            Assert.That(itemObject.GetComponent<OutlineComponent>(), Is.Not.Null);
         }
         finally
         {

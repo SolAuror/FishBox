@@ -1,6 +1,6 @@
 using System;
-using UnityEngine;
 using Sol.Grab;
+using UnityEngine;
 
 namespace Sol
 {
@@ -18,6 +18,8 @@ namespace Sol
     {
         // ----- Serialized fields preserved for migration. Field names must match
         // the corresponding fields on AI_NPC.Conversations.cs / AI_NPC.Shop.cs. -----
+        // These are read through Unity serialization by AI_NPC_TraderMigration.
+#pragma warning disable CS0414
         [SerializeField] private string _prompt = "Trade";
         [SerializeField] private string _lootPrompt = "Loot";
         [SerializeField] private bool _useConversationWindow = true;
@@ -29,5 +31,6 @@ namespace Sol
         [SerializeField] private string _goldLootItemId = string.Empty;
         [SerializeField] private ItemComponent _goldLootItemTemplate;
         [SerializeField] [Min(1)] private int _maxGoldItemizeAttemptsPerOpen = 2000;
+#pragma warning restore CS0414
     }
 }

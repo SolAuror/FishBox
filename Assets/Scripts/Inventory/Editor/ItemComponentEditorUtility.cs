@@ -20,14 +20,14 @@ namespace Sol.Editor
             if (showWarnings && item != null)
                 DrawWarnings(item);
 
-            DrawBasicSection(serializedObject);
+            DrawBasicSection(serializedObject, item);
+            DrawAuthoringSection(serializedObject, item);
             DrawInventorySection(serializedObject);
             DrawUseSection(serializedObject);
             DrawEquipmentSection(serializedObject);
             DrawFishingSection(item);
             DrawOwnershipSection(serializedObject);
             DrawPrefabWorldSection(serializedObject);
-            DrawAuthoringSection(serializedObject);
         }
 
         public static void DrawWarnings(ItemComponent item)
@@ -53,7 +53,7 @@ namespace Sol.Editor
 
         // ----- Section: Basic -----
 
-        private static void DrawBasicSection(SerializedObject serializedObject)
+        private static void DrawBasicSection(SerializedObject serializedObject, ItemComponent item)
         {
             if (!BeginSection("Basic", defaultOpen: true))
             {
@@ -72,12 +72,49 @@ namespace Sol.Editor
             using (new EditorGUI.DisabledScope(true))
                 DrawProperty(serializedObject, "_itemId");
 
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            using (new EditorGUI.DisabledScope(item == null))
+            {
+                if (GUILayout.Button("Regenerate ItemId...", GUILayout.Width(150f)))
+                    RegenerateItemId(serializedObject, item);
+            }
+            EditorGUILayout.EndHorizontal();
+
             DrawProperty(serializedObject, "_itemType");
             DrawProperty(serializedObject, "_value");
             DrawProperty(serializedObject, "_icon");
             DrawProperty(serializedObject, "_flavourText");
 
             EndSection();
+        }
+
+        private static void RegenerateItemId(SerializedObject serializedObject, ItemComponent item)
+        {
+            if (item == null)
+                return;
+
+            string oldId = item.ItemId;
+            string message = string.IsNullOrWhiteSpace(oldId)
+                ? "Assign a new item id to this prefab?"
+                : $"Assign a new item id to this prefab?\n\nCurrent id: {oldId}\n\nExisting inventory, shop, loot, quest, or save references that use the current id may need to be updated.";
+
+            if (!EditorUtility.DisplayDialog("Regenerate ItemId", message, "Regenerate", "Cancel"))
+                return;
+
+            SerializedProperty itemId = serializedObject.FindProperty("_itemId");
+            if (itemId == null)
+                return;
+
+            string next = ItemAuthoringEditorUtility.NextItemId();
+            if (string.IsNullOrEmpty(next))
+                return;
+
+            itemId.stringValue = next;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            if (serializedObject.targetObject != null)
+                EditorUtility.SetDirty(serializedObject.targetObject);
+            ItemRegistry.ScheduleEditorSync();
         }
 
         // ----- Section: Inventory -----
@@ -225,10 +262,23 @@ namespace Sol.Editor
                 return;
             }
 
-            if (bait == null && GUILayout.Button("Add Fishing Bait Component"))
-                bait = Undo.AddComponent<FishingBaitItem>(item.gameObject);
-            if (lure == null && GUILayout.Button("Add Fishing Lure Component"))
-                lure = Undo.AddComponent<FishingLureItem>(item.gameObject);
+            if (item.AuthoringTemplate == ItemAuthoringTemplate.FishingBait && bait == null)
+                EditorGUILayout.HelpBox("Fishing bait templates need a FishingBaitItem component.", MessageType.Warning);
+            if (item.AuthoringTemplate == ItemAuthoringTemplate.FishingLure && lure == null)
+                EditorGUILayout.HelpBox("Fishing lure templates need a FishingLureItem component.", MessageType.Warning);
+
+            EditorGUILayout.BeginHorizontal();
+            using (new EditorGUI.DisabledScope(bait != null))
+            {
+                if (GUILayout.Button("Add Fishing Bait Component"))
+                    bait = Undo.AddComponent<FishingBaitItem>(item.gameObject);
+            }
+            using (new EditorGUI.DisabledScope(lure != null))
+            {
+                if (GUILayout.Button("Add Fishing Lure Component"))
+                    lure = Undo.AddComponent<FishingLureItem>(item.gameObject);
+            }
+            EditorGUILayout.EndHorizontal();
 
             if (bait != null)
             {
@@ -296,8 +346,14 @@ namespace Sol.Editor
             if (filter == null || renderer == null)
             {
                 EditorGUILayout.HelpBox(
-                    "This prefab is missing MeshFilter / MeshRenderer. Click 'Fill Missing Defaults' above to add canonical components.",
+                    "This prefab is missing MeshFilter / MeshRenderer. Add canonical components to make the item usable as a world prefab.",
                     MessageType.Info);
+                if (GUILayout.Button("Add Canonical Item Components"))
+                {
+                    ItemAuthoringEditorUtility.EnsureCanonicalComponents(item);
+                    serializedObject.Update();
+                    ItemRegistry.ScheduleEditorSync();
+                }
                 EndSection();
                 return;
             }
@@ -321,21 +377,87 @@ namespace Sol.Editor
 
         // ----- Section: Authoring -----
 
-        private static void DrawAuthoringSection(SerializedObject serializedObject)
+        private static void DrawAuthoringSection(SerializedObject serializedObject, ItemComponent item)
         {
-            if (!BeginSection("Authoring", defaultOpen: false))
+            if (!BeginSection("Authoring", defaultOpen: true))
             {
                 EndSection();
                 return;
             }
 
             DrawProperty(serializedObject, "_authoringTemplate");
+            DrawTemplateActions(serializedObject, item);
             DrawProperty(serializedObject, "_itemAuthoringNotes");
 
             EndSection();
         }
 
+        private static void DrawTemplateActions(SerializedObject serializedObject, ItemComponent item)
+        {
+            ItemAuthoringTemplate template = GetAuthoringTemplate(serializedObject);
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.HelpBox(
+                "Fill Missing Defaults adds only empty/default template setup. Reapply Template overwrites template-owned fields.",
+                MessageType.None);
+
+            using (new EditorGUI.DisabledScope(item == null || template == ItemAuthoringTemplate.None))
+            {
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("Fill Missing Defaults", GUILayout.Width(150f)))
+                    FillMissingTemplateDefaults(serializedObject, item, template);
+                if (GUILayout.Button("Reapply Template...", GUILayout.Width(150f)))
+                    ReapplyTemplate(serializedObject, item, template);
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
+        private static void FillMissingTemplateDefaults(SerializedObject serializedObject, ItemComponent item, ItemAuthoringTemplate template)
+        {
+            if (item == null || template == ItemAuthoringTemplate.None)
+                return;
+
+            serializedObject.ApplyModifiedProperties();
+            ItemAuthoringEditorUtility.FillMissingTemplateDefaults(item, template, GetItemName(serializedObject, item));
+            serializedObject.Update();
+            ItemRegistry.ScheduleEditorSync();
+        }
+
+        private static void ReapplyTemplate(SerializedObject serializedObject, ItemComponent item, ItemAuthoringTemplate template)
+        {
+            if (item == null || template == ItemAuthoringTemplate.None)
+                return;
+
+            List<string> changes = ItemAuthoringEditorUtility.BuildTemplateOverwritePreview(template);
+            string message = "This will overwrite authored item fields:\n\n- "
+                + string.Join("\n- ", changes)
+                + "\n\nUse Fill Missing Defaults for the non-destructive path.";
+
+            if (!EditorUtility.DisplayDialog("Reapply Item Template", message, "Overwrite Fields", "Cancel"))
+                return;
+
+            serializedObject.ApplyModifiedProperties();
+            ItemAuthoringEditorUtility.ApplyTemplate(item, template, GetItemName(serializedObject, item));
+            serializedObject.Update();
+            ItemRegistry.ScheduleEditorSync();
+        }
+
         // ----- Helpers -----
+
+        private static ItemAuthoringTemplate GetAuthoringTemplate(SerializedObject serializedObject)
+        {
+            SerializedProperty templateProp = serializedObject.FindProperty("_authoringTemplate");
+            return templateProp != null ? (ItemAuthoringTemplate)templateProp.enumValueIndex : ItemAuthoringTemplate.None;
+        }
+
+        private static string GetItemName(SerializedObject serializedObject, ItemComponent item)
+        {
+            SerializedProperty nameProp = serializedObject?.FindProperty("_itemName");
+            if (nameProp != null && !string.IsNullOrWhiteSpace(nameProp.stringValue))
+                return nameProp.stringValue;
+
+            return item != null ? item.ItemName : string.Empty;
+        }
 
         private static ItemType GetItemType(SerializedObject serializedObject)
         {

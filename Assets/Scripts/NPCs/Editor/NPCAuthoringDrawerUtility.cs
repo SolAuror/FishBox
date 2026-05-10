@@ -94,6 +94,7 @@ namespace Sol.Editor
             DrawArchetype(serializedObject);
             DrawProperty(serializedObject, "_canTrade", label: "Trader");
             DrawProperty(serializedObject, "_isHostile", label: "Hostile");
+            DrawArchetypeActions(serializedObject, soul);
             DrawProperty(serializedObject, "_authoringNotes");
 
             EndSection();
@@ -114,6 +115,65 @@ namespace Sol.Editor
             if (serializedObject.targetObject != null)
                 EditorUtility.SetDirty(serializedObject.targetObject);
             NPCRegistry.ScheduleEditorSync();
+        }
+
+        private static void DrawArchetypeActions(SerializedObject serializedObject, NPCSoul soul)
+        {
+            NPCArchetype archetype = GetArchetype(serializedObject);
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.HelpBox(
+                "Fill Missing Defaults adds only empty/default archetype setup. Reapply Archetype overwrites archetype-owned fields.",
+                MessageType.None);
+
+            using (new EditorGUI.DisabledScope(soul == null || archetype == NPCArchetype.None))
+            {
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("Fill Missing Defaults", GUILayout.Width(150f)))
+                    FillMissingArchetypeDefaults(serializedObject, soul, archetype);
+                if (GUILayout.Button("Reapply Archetype...", GUILayout.Width(150f)))
+                    ReapplyArchetype(serializedObject, soul, archetype);
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
+        private static void FillMissingArchetypeDefaults(SerializedObject serializedObject, NPCSoul soul, NPCArchetype archetype)
+        {
+            if (soul == null || archetype == NPCArchetype.None)
+                return;
+
+            serializedObject.ApplyModifiedProperties();
+            NPCAuthoringEditorUtility.FillMissingArchetypeDefaults(soul, archetype, GetCharacterName(serializedObject, soul));
+            serializedObject.Update();
+            NPCRegistry.ScheduleEditorSync();
+        }
+
+        private static void ReapplyArchetype(SerializedObject serializedObject, NPCSoul soul, NPCArchetype archetype)
+        {
+            if (soul == null || archetype == NPCArchetype.None)
+                return;
+
+            List<string> changes = NPCAuthoringEditorUtility.BuildArchetypeOverwritePreview(archetype);
+            string message = "This will reapply the archetype defaults:\n\n- "
+                + string.Join("\n- ", changes)
+                + "\n\nUse Fill Missing Defaults for the non-destructive path.";
+
+            if (!EditorUtility.DisplayDialog("Reapply NPC Archetype", message, "Apply", "Cancel"))
+                return;
+
+            serializedObject.ApplyModifiedProperties();
+            NPCAuthoringEditorUtility.ApplyArchetype(soul, archetype, GetCharacterName(serializedObject, soul));
+            serializedObject.Update();
+            NPCRegistry.ScheduleEditorSync();
+        }
+
+        private static string GetCharacterName(SerializedObject serializedObject, NPCSoul soul)
+        {
+            SerializedProperty nameProp = serializedObject?.FindProperty("_characterName");
+            if (nameProp != null && !string.IsNullOrWhiteSpace(nameProp.stringValue))
+                return nameProp.stringValue;
+
+            return soul != null ? soul.CharacterName : string.Empty;
         }
 
         // ----- Section: AI & Movement -----
@@ -309,7 +369,7 @@ namespace Sol.Editor
             {
                 EditorGUILayout.Space(4f);
                 EditorGUILayout.HelpBox(
-                    "Legacy NpcTrader component still attached. Run Tools/Sol/NPCs/Migrate NpcTrader → AI_NPC to copy values onto AI_NPC and remove it.",
+                    "Legacy NpcTrader component still attached. Run Tools/Sol/NPCs/Migrate NpcTrader -> AI_NPC to copy values onto AI_NPC and remove it.",
                     MessageType.Warning);
             }
 
@@ -346,7 +406,7 @@ namespace Sol.Editor
             if (graphProp != null)
                 DialogueGraphDrawer.Draw(graphProp, aiNpc.GetInstanceID().ToString());
             else
-                EditorGUILayout.HelpBox("AI_NPC has no _dialogueGraph field — recompile required.", MessageType.Warning);
+                EditorGUILayout.HelpBox("AI_NPC has no _dialogueGraph field - recompile required.", MessageType.Warning);
             aiSO.ApplyModifiedProperties();
 
             EndSection();

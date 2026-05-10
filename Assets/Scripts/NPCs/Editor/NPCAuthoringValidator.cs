@@ -42,21 +42,21 @@ namespace Sol.Editor
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Error, $"OwnerId '{soul.OwnerId}' does not match OWN##### format."));
 
             if (string.IsNullOrWhiteSpace(soul.CharacterName))
-                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Character name is empty — quests, dropdowns, and trade UI will fall back to the GameObject name."));
+                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Character name is empty - quests, dropdowns, and trade UI will fall back to the GameObject name."));
 
             GameObject go = soul.gameObject;
             AI_NPC aiNpc = go.GetComponent<AI_NPC>();
             if (aiNpc == null)
             {
-                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Missing AI_NPC component — this NPC will not patrol, chase, or animate."));
+                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Missing AI_NPC component - this NPC will not patrol, chase, or animate."));
             }
             else if (aiNpc.Config == null)
             {
-                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "AI_NPC has no AIConfig — patrol, chase, and idle behaviour will use built-in defaults."));
+                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "AI_NPC has no AIConfig - patrol, chase, and idle behaviour will use built-in defaults."));
             }
 
             if (go.GetComponent<Sol.Inventory>() == null)
-                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "No Inventory component — trade and corpse loot will not work."));
+                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "No Inventory component - trade and corpse loot will not work."));
 
             switch (soul.Archetype)
             {
@@ -73,7 +73,7 @@ namespace Sol.Editor
             ValidateShop(aiNpc, warnings);
 
             if (soul.MaxHealth <= 0f)
-                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Max health is 0 — this NPC will be considered dead immediately."));
+                warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Max health is 0 - this NPC will be considered dead immediately."));
             if (soul.MaxStamina <= 0f)
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Info, "Max stamina is 0."));
 
