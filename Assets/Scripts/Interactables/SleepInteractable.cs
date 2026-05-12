@@ -1,7 +1,6 @@
-﻿using System;
+using System;
 using System.Collections;
 using Sol.Actions;
-using Sol.AI;
 using Sol.HUD;
 using Sol.Locomotion;
 using Sol.ToD;
@@ -10,50 +9,51 @@ using UnityEngine.UI;
 
 namespace Sol
 {
-    /// <summary>
-    /// Bed-specific sleep interaction that reuses the imported sister sleep menu
-    /// without depending on the broader RestPoint / AI rest framework.
-    /// </summary>
     [DisallowMultipleComponent]
     public sealed class SleepInteractable : MonoBehaviour, IInteractable
     {
-        #region Inspector Settings
-        [Tooltip("Inspector: tunes prompt.")]
+        [Header("Prompt")]
         [SerializeField] private string _prompt = "Sleep";
         [SerializeField] private string _displayName = "Bed";
 
-        [Tooltip("Inspector: tunes default hours.")]
+        [Header("Interaction")]
+        [SerializeField] private InteractionPoint _interactionPoint;
+
+        [Header("Sleep")]
         [SerializeField] [Min(1)] private int _defaultHours = 8;
         [SerializeField] [Min(1)] private int _minHours = 1;
-        
-        [Tooltip("Inspector: tunes max hours.")]
         [SerializeField] [Min(1)] private int _maxHours = 24;
         [SerializeField] [Range(0f, 100f)] private float _healthRecoveryPercentPerHour = 12.5f;
         [SerializeField] [Range(0f, 100f)] private float _staminaRecoveryPercentPerHour = 12.5f;
-        
-        [Tooltip("Inspector: tunes sleep fade duration.")]
         [SerializeField] [Min(0f)] private float _sleepFadeDuration = 0.5f;
-        #endregion
 
         private bool _sleepSessionActive;
+        private bool _sleepMenuOpened;
+        private bool _sleepCompleting;
+        private bool _sleepFinished;
+        private bool _sleepSucceeded;
         private Interactor _activeInteractor;
-        private LocomotionInput _activeLocomotionInput;
-        private bool _hadControlSnapshot;
-        private bool _previousPlayerControlEnabled;
-        private bool _isCleaningUp;
+        private Interactor _lastPromptInteractor;
+        private InteractionSession _activeSession;
         private Coroutine _sleepRoutine;
         private GameObject _sleepFadeCanvasObject;
         private CanvasGroup _sleepFadeCanvasGroup;
 
         public string DisplayName => _displayName;
-        public string InteractionPrompt => _sleepSessionActive ? "Sleeping..." : _prompt;
+        public string InteractionPrompt => _sleepSessionActive ? "Sleeping..." : BuildPrompt();
+        public bool SleepInteractionFinished => _sleepFinished;
+        public bool SleepInteractionSucceeded => _sleepSucceeded;
+        public InteractionPoint InteractionPoint => ResolveInteractionPoint();
 
         public bool CanInteract(Interactor interactor)
         {
-            return !_sleepSessionActive
-                && interactor != null
-                && interactor.IsPlayer
-                && interactor.Owner != null;
+            _lastPromptInteractor = interactor;
+
+            if (_sleepSessionActive || interactor == null || !interactor.IsPlayer || interactor.Owner == null)
+                return false;
+
+            InteractionPoint point = ResolveInteractionPoint();
+            return point != null && point.CanInteract(interactor);
         }
 
         public GameAction GetInteraction(Interactor interactor)
@@ -64,70 +64,132 @@ namespace Sol
             return new OpenSleepMenuAction(this, interactor);
         }
 
-        public bool TryOpenSleepMenu(Interactor interactor)
+        public bool BeginSleepInteraction(Interactor interactor)
         {
-            if (!CanInteract(interactor))
+            if (_sleepSessionActive || interactor == null || !interactor.IsPlayer)
                 return false;
+
+            InteractionPoint point = ResolveInteractionPoint();
+            if (point == null)
+            {
+                Debug.LogWarning($"[{nameof(SleepInteractable)}] '{name}' cannot sleep because no InteractionPoint is assigned or present on the bed.", this);
+                return false;
+            }
 
             SleepMenuSystem sleepMenu = SleepMenuSystem.ResolveInstance();
             if (sleepMenu == null)
             {
-                Debug.LogWarning("[BedSleepInteractable] SleepMenuSystem is unavailable.", this);
+                Debug.LogWarning($"[{nameof(SleepInteractable)}] SleepMenuSystem is unavailable.", this);
                 return false;
             }
 
-            BeginSleepSession(interactor);
+            if (!point.TryBeginSession(interactor, out InteractionSession session))
+                return false;
 
+            _sleepSessionActive = true;
+            _sleepMenuOpened = false;
+            _sleepCompleting = false;
+            _sleepFinished = false;
+            _sleepSucceeded = false;
+            _activeInteractor = interactor;
+            _activeSession = session;
+            _activeSession.Ready += HandleInteractionReady;
+
+            if (_activeSession.IsReady)
+                OpenSleepMenuAtReady();
+
+            return true;
+        }
+
+        public void TickSleepInteraction()
+        {
+            if (!_sleepSessionActive || _sleepFinished)
+                return;
+
+            if (_activeSession == null || _activeInteractor == null || _activeInteractor.Owner == null)
+            {
+                CancelSleepInteraction();
+                return;
+            }
+
+            if (_activeSession.IsReady && !_sleepMenuOpened && !_sleepCompleting)
+                OpenSleepMenuAtReady();
+        }
+
+        public void CancelSleepInteraction()
+        {
+            if (!_sleepSessionActive || _sleepFinished)
+                return;
+
+            if (_sleepRoutine != null)
+            {
+                StopCoroutine(_sleepRoutine);
+                _sleepRoutine = null;
+            }
+
+            SleepMenuSystem sleepMenu = SleepMenuSystem.Instance;
+            if (sleepMenu != null && sleepMenu.IsOpen)
+                sleepMenu.Close();
+
+            InteractionPoint point = ResolveInteractionPoint();
+            if (point != null && point.IsInUseBy(_activeInteractor))
+                point.EndUse(completed: false);
+
+            FinishSleepSession(succeeded: false);
+        }
+
+        private void HandleInteractionReady(InteractionSession session)
+        {
+            if (session == _activeSession)
+                OpenSleepMenuAtReady();
+        }
+
+        private void OpenSleepMenuAtReady()
+        {
+            if (!_sleepSessionActive || _sleepMenuOpened || _sleepCompleting)
+                return;
+
+            SleepMenuSystem sleepMenu = SleepMenuSystem.ResolveInstance();
+            if (sleepMenu == null)
+            {
+                CancelSleepInteraction();
+                return;
+            }
+
+            _sleepMenuOpened = true;
             sleepMenu.SetHourRange(_minHours, _maxHours);
             sleepMenu.ConfigureSecondaryPreview(BuildRecoveryPreview);
             sleepMenu.Open(HandleSleepConfirmed, HandleSleepCancelled, _defaultHours);
 
             if (!sleepMenu.IsOpen)
-            {
-                CleanupSleepSession();
-                return false;
-            }
-
-            return true;
-        }
-
-        private void BeginSleepSession(Interactor interactor)
-        {
-            _sleepSessionActive = true;
-            _activeInteractor = interactor;
-            _activeLocomotionInput = interactor.Owner.GetComponent<LocomotionInput>();
-
-            if (_activeLocomotionInput != null)
-            {
-                _previousPlayerControlEnabled = _activeLocomotionInput.IsControlledByPlayer;
-                _hadControlSnapshot = true;
-                _activeLocomotionInput.IsControlledByPlayer = false;
-                _activeLocomotionInput.MovementInput = Vector2.zero;
-                _activeLocomotionInput.LookInput = Vector2.zero;
-                _activeLocomotionInput.InteractPressed = false;
-                _activeLocomotionInput.JumpPressed = false;
-                _activeLocomotionInput.SprintPressed = false;
-            }
-            else
-            {
-                _hadControlSnapshot = false;
-            }
+                CancelSleepInteraction();
         }
 
         private void HandleSleepCancelled()
         {
-            CleanupSleepSession();
+            if (_sleepCompleting || _sleepFinished)
+                return;
+
+            InteractionPoint point = ResolveInteractionPoint();
+            if (point != null && point.IsInUseBy(_activeInteractor))
+                point.EndUse(completed: false);
+
+            FinishSleepSession(succeeded: false);
         }
 
         private void HandleSleepConfirmed(int selectedHours)
         {
+            if (!_sleepSessionActive || _sleepCompleting)
+                return;
+
             int hours = Mathf.Clamp(selectedHours, _minHours, _maxHours);
             if (hours <= 0)
             {
-                CleanupSleepSession();
+                HandleSleepCancelled();
                 return;
             }
 
+            _sleepCompleting = true;
             if (_sleepRoutine != null)
                 StopCoroutine(_sleepRoutine);
 
@@ -146,7 +208,12 @@ namespace Sol
 
             _sleepRoutine = null;
             UIStateOwnership.SetUiCapture(false);
-            CleanupSleepSession();
+
+            InteractionPoint point = ResolveInteractionPoint();
+            if (point != null && point.IsInUseBy(_activeInteractor))
+                point.EndUse(completed: true);
+
+            FinishSleepSession(succeeded: true);
         }
 
         private void ApplySleepEffects(int hours)
@@ -155,35 +222,22 @@ namespace Sol
             if (timeOfDay != null)
                 timeOfDay.AdvanceHours(hours);
             else
-                Debug.LogWarning("[BedSleepInteractable] TimeOfDay not found; sleep could not advance time.", this);
+                Debug.LogWarning($"[{nameof(SleepInteractable)}] TimeOfDay not found; sleep could not advance time.", this);
 
-            float healthDelta = 0f;
             if (_healthRecoveryPercentPerHour > 0f)
             {
                 if (_activeInteractor?.PlayerSoul != null)
-                {
-                    healthDelta = _activeInteractor.PlayerSoul.MaxHealth * (_healthRecoveryPercentPerHour * 0.01f) * hours;
-                    _activeInteractor.PlayerSoul.Heal(healthDelta);
-                }
+                    _activeInteractor.PlayerSoul.Heal(_activeInteractor.PlayerSoul.MaxHealth * (_healthRecoveryPercentPerHour * 0.01f) * hours);
                 else if (_activeInteractor?.NpcSoul != null)
-                {
-                    healthDelta = _activeInteractor.NpcSoul.MaxHealth * (_healthRecoveryPercentPerHour * 0.01f) * hours;
-                    _activeInteractor.NpcSoul.Heal(healthDelta);
-                }
+                    _activeInteractor.NpcSoul.Heal(_activeInteractor.NpcSoul.MaxHealth * (_healthRecoveryPercentPerHour * 0.01f) * hours);
             }
 
             if (_staminaRecoveryPercentPerHour > 0f)
             {
                 if (_activeInteractor?.PlayerSoul != null)
-                {
-                    float staminaDelta = _activeInteractor.PlayerSoul.MaxStamina * (_staminaRecoveryPercentPerHour * 0.01f) * hours;
-                    _activeInteractor.PlayerSoul.RestoreStamina(staminaDelta);
-                }
+                    _activeInteractor.PlayerSoul.RestoreStamina(_activeInteractor.PlayerSoul.MaxStamina * (_staminaRecoveryPercentPerHour * 0.01f) * hours);
                 else if (_activeInteractor?.NpcSoul != null)
-                {
-                    float staminaDelta = _activeInteractor.NpcSoul.MaxStamina * (_staminaRecoveryPercentPerHour * 0.01f) * hours;
-                    _activeInteractor.NpcSoul.RestoreStamina(staminaDelta);
-                }
+                    _activeInteractor.NpcSoul.RestoreStamina(_activeInteractor.NpcSoul.MaxStamina * (_staminaRecoveryPercentPerHour * 0.01f) * hours);
             }
         }
 
@@ -235,11 +289,7 @@ namespace Sol
             if (_sleepFadeCanvasGroup != null)
                 return _sleepFadeCanvasGroup;
 
-            _sleepFadeCanvasObject = new GameObject(
-                "SleepFadeOverlay",
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(CanvasGroup));
+            _sleepFadeCanvasObject = new GameObject("SleepFadeOverlay", typeof(RectTransform), typeof(Canvas), typeof(CanvasGroup));
             int uiLayer = LayerMask.NameToLayer("UI");
             if (uiLayer >= 0)
                 _sleepFadeCanvasObject.layer = uiLayer;
@@ -268,63 +318,77 @@ namespace Sol
             return _sleepFadeCanvasGroup;
         }
 
-        private void CleanupSleepSession()
+        private void FinishSleepSession(bool succeeded)
         {
-            if (_isCleaningUp)
-                return;
+            if (_activeSession != null)
+                _activeSession.Ready -= HandleInteractionReady;
 
-            _isCleaningUp = true;
-            try
+            SleepMenuSystem sleepMenu = SleepMenuSystem.Instance;
+            if (sleepMenu != null)
             {
-                SleepMenuSystem sleepMenu = SleepMenuSystem.Instance;
-                if (_sleepSessionActive && _sleepRoutine == null && sleepMenu != null && sleepMenu.IsOpen)
-                {
-                    sleepMenu.Close();
-                    sleepMenu = SleepMenuSystem.Instance;
-                }
-
-                if (_sleepRoutine != null)
-                {
-                    StopCoroutine(_sleepRoutine);
-                    _sleepRoutine = null;
-                }
-
-                if (sleepMenu != null)
-                {
-                    sleepMenu.SetHourRange(1, 24);
-                    sleepMenu.ResetSecondaryPreview();
-                }
-
-                if (_sleepFadeCanvasGroup != null)
-                    _sleepFadeCanvasGroup.alpha = 0f;
-
-                if (_activeLocomotionInput != null && _hadControlSnapshot)
-                {
-                    _activeLocomotionInput.MovementInput = Vector2.zero;
-                    _activeLocomotionInput.LookInput = Vector2.zero;
-                    _activeLocomotionInput.IsControlledByPlayer = _previousPlayerControlEnabled;
-                }
-
-                _activeInteractor = null;
-                _activeLocomotionInput = null;
-                _hadControlSnapshot = false;
-                _sleepSessionActive = false;
-                UIStateOwnership.SetUiCapture(false);
+                sleepMenu.SetHourRange(1, 24);
+                sleepMenu.ResetSecondaryPreview();
             }
-            finally
-            {
-                _isCleaningUp = false;
-            }
+
+            if (_sleepFadeCanvasGroup != null)
+                _sleepFadeCanvasGroup.alpha = 0f;
+
+            UIStateOwnership.SetUiCapture(false);
+            _sleepSucceeded = succeeded;
+            _sleepFinished = true;
+            _sleepSessionActive = false;
+            _sleepMenuOpened = false;
+            _sleepCompleting = false;
+            _activeInteractor = null;
+            _activeSession = null;
+        }
+
+        private string BuildPrompt()
+        {
+            InteractionPoint point = ResolveInteractionPoint();
+            if (point != null && point.IsOwned && _lastPromptInteractor != null && !point.CanOwnerUse(_lastPromptInteractor))
+                return point.InteractionPrompt;
+
+            if (string.IsNullOrWhiteSpace(_displayName))
+                return _prompt;
+            return $"{_prompt} {_displayName}";
+        }
+
+        private InteractionPoint ResolveInteractionPoint()
+        {
+            if (_interactionPoint != null)
+                return _interactionPoint;
+
+            _interactionPoint = GetComponent<InteractionPoint>()
+                ?? GetComponentInChildren<InteractionPoint>(true)
+                ?? GetComponentInParent<InteractionPoint>();
+
+            return _interactionPoint;
+        }
+
+        private void Reset()
+        {
+            _interactionPoint = GetComponent<InteractionPoint>() ?? GetComponentInChildren<InteractionPoint>(true);
+        }
+
+        private void OnValidate()
+        {
+            _prompt = string.IsNullOrWhiteSpace(_prompt) ? "Sleep" : _prompt.Trim();
+            _displayName = _displayName?.Trim() ?? string.Empty;
+            _defaultHours = Mathf.Max(1, _defaultHours);
+            _minHours = Mathf.Max(1, _minHours);
+            _maxHours = Mathf.Max(_minHours, _maxHours);
+            _sleepFadeDuration = Mathf.Max(0f, _sleepFadeDuration);
         }
 
         private void OnDisable()
         {
-            CleanupSleepSession();
+            CancelSleepInteraction();
         }
 
         private void OnDestroy()
         {
-            CleanupSleepSession();
+            CancelSleepInteraction();
             if (_sleepFadeCanvasObject != null)
                 Destroy(_sleepFadeCanvasObject);
         }

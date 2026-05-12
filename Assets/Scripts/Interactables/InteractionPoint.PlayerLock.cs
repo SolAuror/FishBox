@@ -99,9 +99,9 @@ namespace Sol
 
         protected virtual bool ShouldForceThirdPersonForPlayerInteraction()
         {
-            return _type == InteractionPointType.Work
-                || _type == InteractionPointType.Rest
-                || _type == InteractionPointType.Utility;
+            return EffectiveType == InteractionPointType.Work
+                || EffectiveType == InteractionPointType.Rest
+                || EffectiveType == InteractionPointType.Utility;
         }
 
         private static LocomotionController ResolveLocomotionController(GameObject owner)

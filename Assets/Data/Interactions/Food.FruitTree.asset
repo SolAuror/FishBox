@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d71026dbf454b86b1927f3816bdbf3d, type: 3}
+  m_Name: Food.FruitTree
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.InteractionDefinition
+  _definitionId: Food.FruitTree
+  _prompt: Harvest
+  _displayName: FruitTree
+  _type: 2
+  _allowPlayer: 1
+  _allowNPC: 1
+  _singleOccupancy: 1
+  _maxInteractionRange: 0
+  _npcArrivalTolerance: 0.55
+  _ownershipPolicy: 1
+  _unauthorizedPrompt: Owned
+  _animationType: 6
+  _customClip: {fileID: 0}
+  _readyStatePath: 
+  _readyNormalizedTime: 0.85
+  _completionMode: 0
+  _useDuration: 2
+  _forceThirdPerson: 1
+  _suppressCombat: 1
+  _lockMovement: 1

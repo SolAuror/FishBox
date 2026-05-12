@@ -3,13 +3,14 @@ using UnityEngine;
 namespace Sol.Actions
 {
     /// <summary>
-    /// Opens the bed sleep radial menu for the interacting player.
-    /// Completes immediately because the rest flow is handled by UI and the interactable.
+    /// Runs a staged bed sleep interaction. The radial menu opens only after
+    /// the bed InteractionPoint reaches its animation-ready phase.
     /// </summary>
     public sealed class OpenSleepMenuAction : InteractionAction
     {
         private readonly SleepInteractable _bed;
         private readonly Interactor _interactor;
+        private bool _started;
 
         public bool Succeeded { get; private set; }
 
@@ -26,14 +27,34 @@ namespace Sol.Actions
 
         public override void OnStart()
         {
-            Succeeded = _bed != null && _bed.TryOpenSleepMenu(_interactor);
-            if (!Succeeded)
+            _started = true;
+            if (_bed == null || !_bed.BeginSleepInteraction(_interactor))
             {
+                Succeeded = false;
                 Cancel();
-                return;
             }
+        }
 
-            Complete();
+        public override void OnUpdate()
+        {
+            if (!_started || IsComplete || IsCancelled || _bed == null)
+                return;
+
+            _bed.TickSleepInteraction();
+            if (!_bed.SleepInteractionFinished)
+                return;
+
+            Succeeded = _bed.SleepInteractionSucceeded;
+            if (Succeeded)
+                Complete();
+            else
+                Cancel();
+        }
+
+        public override void OnCancel()
+        {
+            if (_started && _bed != null && !_bed.SleepInteractionFinished)
+                _bed.CancelSleepInteraction();
         }
     }
 }

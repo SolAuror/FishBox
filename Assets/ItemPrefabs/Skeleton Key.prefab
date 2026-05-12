@@ -164,7 +164,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b29fa38d1cfd37e4880771356598f6ab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Grab.ItemComponent
-  _itemId: ITM00006
+  _itemId: ITM00009
   _itemName: Skeleton Key
   _itemType: 8
   _value: 10000
@@ -190,6 +190,7 @@ MonoBehaviour:
   _pickupGrip: {fileID: 0}
   _authoringTemplate: 0
   _itemAuthoringNotes: 
+  _legacyDesignMigratedToRegistry: 1
 --- !u!64 &1512983255082136695
 MeshCollider:
   m_ObjectHideFlags: 0

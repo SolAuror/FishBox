@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: SHP00001_New_Shop
   m_EditorClassIdentifier: Assembly-CSharp::Sol.Rpg.RpgShopDefinition
   _id: SHP00001
-  _displayName: New Shop
+  _displayName: Elsbeths Shop
   _description: 
-  _ownerNpcId: 
+  _ownerNpcId: OWN00003
   _factionId: 
   _gold: 100
   _buyPriceMultiplier: 1
@@ -23,4 +23,16 @@ MonoBehaviour:
   _restockMode: 2
   _restockRealtimeHours: 24
   _restockInGameDays: 1
-  _stock: []
+  _stock:
+  - ItemId: ITM00031
+    MinQuantity: 1
+    MaxQuantity: 1
+    PriceMultiplier: 0
+  - ItemId: ITM00019
+    MinQuantity: 1
+    MaxQuantity: 3
+    PriceMultiplier: 0
+  - ItemId: ITM00020
+    MinQuantity: 0
+    MaxQuantity: 2
+    PriceMultiplier: 0

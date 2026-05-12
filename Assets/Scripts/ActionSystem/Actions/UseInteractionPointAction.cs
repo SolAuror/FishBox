@@ -10,6 +10,8 @@ namespace Sol.Actions
         private bool _startedUse;
         private bool _endedUse;
         private bool _holdUntilCancelled;
+        private bool _waitForReadyBeforeDuration;
+        private bool _readyDurationStarted;
         private bool _completionRequested;
 
         public bool Succeeded { get; private set; }
@@ -46,10 +48,12 @@ namespace Sol.Actions
 
             _startedUse = true;
             _holdUntilCancelled = _interactionPoint.ShouldHoldUntilCancelled(_interactor);
+            _waitForReadyBeforeDuration = _interactionPoint.ShouldWaitForReadyBeforeDuration(_interactor);
+            _readyDurationStarted = !_waitForReadyBeforeDuration;
             _completionRequested = false;
             _remainingTime = _interactionPoint.GetUseDuration(_interactor);
 
-            if (!_holdUntilCancelled && _remainingTime <= 0f)
+            if (!_holdUntilCancelled && !_waitForReadyBeforeDuration && _remainingTime <= 0f)
                 CompleteInteraction();
         }
 
@@ -65,9 +69,23 @@ namespace Sol.Actions
                 return;
             }
 
+            if (_waitForReadyBeforeDuration && !_readyDurationStarted)
+            {
+                if (_interactionPoint.ActiveSession == null || !_interactionPoint.ActiveSession.IsReady)
+                    return;
+
+                _readyDurationStarted = true;
+                _remainingTime = _interactionPoint.GetUseDuration(_interactor);
+                if (!_holdUntilCancelled && _remainingTime <= 0f)
+                {
+                    CompleteInteraction();
+                    return;
+                }
+            }
+
             if (_holdUntilCancelled)
             {
-                if (_completionRequested)
+                if (_completionRequested || (_interactionPoint.ActiveSession != null && _interactionPoint.ActiveSession.CompletionRequested))
                     CompleteInteraction();
                 return;
             }
@@ -92,7 +110,10 @@ namespace Sol.Actions
         public void RequestCompletion()
         {
             if (CanRequestCompletion)
+            {
                 _completionRequested = true;
+                _interactionPoint?.RequestActiveCompletion();
+            }
         }
 
         private void CompleteInteraction()

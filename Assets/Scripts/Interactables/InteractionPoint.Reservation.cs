@@ -9,7 +9,7 @@ namespace Sol
             if (interactor == null || interactor.Owner == null)
                 return false;
 
-            if (!_singleOccupancy)
+            if (!EffectiveSingleOccupancy)
                 return true;
 
             ClearExpiredReservationIfNeeded();

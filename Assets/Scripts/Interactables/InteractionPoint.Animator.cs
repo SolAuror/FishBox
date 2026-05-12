@@ -27,21 +27,21 @@ namespace Sol
             if (animator == null)
                 return;
 
-            if (_animationType == InteractionPointAnimationType.CustomClip && _customClip != null)
+            if (EffectiveAnimationType == InteractionPointAnimationType.CustomClip && EffectiveCustomClip != null)
             {
                 _originalController = animator.runtimeAnimatorController;
                 _clipOverride = new AnimatorOverrideController(animator.runtimeAnimatorController);
-                _clipOverride[CustomClipPlaceholderName] = _customClip;
+                _clipOverride[CustomClipPlaceholderName] = EffectiveCustomClip;
                 animator.runtimeAnimatorController = _clipOverride;
             }
 
             if (HasAnimatorParameter(animator, AnimatorParamInteractionType, AnimatorControllerParameterType.Int))
-                animator.SetInteger(AnimatorParamInteractionType, (int)_animationType);
+                animator.SetInteger(AnimatorParamInteractionType, (int)EffectiveAnimationType);
 
             if (HasAnimatorParameter(animator, AnimatorParamInteractionActive, AnimatorControllerParameterType.Bool))
                 animator.SetBool(AnimatorParamInteractionActive, true);
 
-            if (_animationType == InteractionPointAnimationType.None
+            if (EffectiveAnimationType == InteractionPointAnimationType.None
                 && HasAnimatorParameter(animator, AnimatorParamIsInteracting, AnimatorControllerParameterType.Trigger))
             {
                 animator.SetTrigger(AnimatorParamIsInteracting);
@@ -126,7 +126,13 @@ namespace Sol
         {
             stateHash = 0;
 
-            string statePath = _animationType switch
+            if (!string.IsNullOrWhiteSpace(EffectiveReadyStatePath)
+                && TryResolveAnimatorState(animator, EffectiveReadyStatePath, out stateHash))
+            {
+                return true;
+            }
+
+            string statePath = EffectiveAnimationType switch
             {
                 InteractionPointAnimationType.RestSit => SitEntryStatePath,
                 InteractionPointAnimationType.RestSleep => SleepEntryStatePath,
@@ -137,9 +143,9 @@ namespace Sol
             if (!string.IsNullOrEmpty(statePath))
                 return TryResolveAnimatorState(animator, statePath, out stateHash);
 
-            if (_animationType == InteractionPointAnimationType.WorkForge
-                || _animationType == InteractionPointAnimationType.WorkAnvil
-                || _animationType == InteractionPointAnimationType.WorkFishing)
+            if (EffectiveAnimationType == InteractionPointAnimationType.WorkForge
+                || EffectiveAnimationType == InteractionPointAnimationType.WorkAnvil
+                || EffectiveAnimationType == InteractionPointAnimationType.WorkFishing)
             {
                 for (int i = 0; i < WorkEntryStatePaths.Length; i++)
                 {
@@ -159,6 +165,25 @@ namespace Sol
 
             stateHash = 0;
             return false;
+        }
+
+        private bool IsAnimatorAtReadyPoint(Animator animator)
+        {
+            if (animator == null)
+                return false;
+
+            if (!TryResolveForcedEntryState(animator, out int targetStateHash))
+                return true;
+
+            AnimatorStateInfo current = animator.GetCurrentAnimatorStateInfo(0);
+            if (current.fullPathHash == targetStateHash && current.normalizedTime >= EffectiveReadyNormalizedTime)
+                return true;
+
+            if (!animator.IsInTransition(0))
+                return false;
+
+            AnimatorStateInfo next = animator.GetNextAnimatorStateInfo(0);
+            return next.fullPathHash == targetStateHash && next.normalizedTime >= EffectiveReadyNormalizedTime;
         }
     }
 }

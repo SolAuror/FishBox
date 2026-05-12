@@ -33,11 +33,23 @@ namespace Sol
     {
         private const float ReservationGraceDuration = 4f;
 
+        [Header("Definition")]
+        [SerializeField] private InteractionDefinition _definition;
+        [SerializeField] private bool _overrideDefinitionSettings;
+
         [Header("Interaction Identity")]
         [SerializeField] private string _interactionPointId = string.Empty;
         [SerializeField] private string _prompt = "Use";
         [SerializeField] private string _displayName = string.Empty;
         [SerializeField] private InteractionPointType _type = InteractionPointType.Utility;
+
+        [Header("Ownership")]
+        [OwnerIdDropdown]
+        [SerializeField] private string _ownerId = string.Empty;
+        [SerializeField] private InteractionOwnershipPolicy _ownershipPolicy = InteractionOwnershipPolicy.OwnerOnly;
+        [OwnerIdDropdown]
+        [SerializeField] private string[] _guestOwnerIds;
+        [SerializeField] private string _unauthorizedPrompt = "Owned";
 
         [Header("Use")]
         [SerializeField] private InteractionPointAnimationType _animationType = InteractionPointAnimationType.None;
@@ -72,6 +84,7 @@ namespace Sol
 
         [Header("Events")]
         [SerializeField] private UnityEvent _onUseStarted;
+        [SerializeField] private UnityEvent _onReady;
         [SerializeField] private UnityEvent _onUsed;
 
         private bool _inUse;
@@ -81,11 +94,18 @@ namespace Sol
         private Interactor _reservedInteractor;
         private float _reservationExpiresAt;
         private bool _unsupportedVitalsWarningLogged;
+        private InteractionSession _activeSession;
+        private InteractionEffect[] _interactionEffects;
+        private Interactor _lastPromptInteractor;
 
+        public InteractionDefinition Definition => _definition;
         public string InteractionPointId => _interactionPointId;
-        public string DisplayName => _displayName;
-        public InteractionPointType Type => _type;
-        public InteractionPointAnimationType AnimationType => _animationType;
+        public string DisplayName => EffectiveDisplayName;
+        public InteractionPointType Type => EffectiveType;
+        public InteractionPointAnimationType AnimationType => EffectiveAnimationType;
+        public string OwnerId => EffectiveOwnerId;
+        public bool IsOwned => !string.IsNullOrWhiteSpace(OwnerId);
+        public InteractionSession ActiveSession => _activeSession;
         public Transform AlignPoint => _activeAlignPoint != null ? _activeAlignPoint : GetFirstAlignPoint();
         public bool InUse => _inUse;
         public bool IsAvailable
@@ -93,45 +113,52 @@ namespace Sol
             get
             {
                 ClearExpiredReservationIfNeeded();
-                return !_inUse && (!_singleOccupancy || _reservedInteractor == null);
+                return !_inUse && (!EffectiveSingleOccupancy || _reservedInteractor == null);
             }
         }
-        public float NpcArrivalTolerance => Mathf.Max(0.1f, _npcArrivalTolerance);
+        public float NpcArrivalTolerance => EffectiveNpcArrivalTolerance;
         public float HealthDelta => _healthDelta;
         public float StaminaDelta => _staminaDelta;
         public float HungerDelta => _hungerDelta;
         public float ThirstDelta => _thirstDelta;
 
         public string InteractionPrompt =>
-            string.IsNullOrWhiteSpace(_displayName)
-                ? _prompt
-                : $"{_prompt} {_displayName}";
+            IsInteractionOwnedButUnavailableToLastInteractor()
+                ? EffectiveUnauthorizedPrompt
+                : string.IsNullOrWhiteSpace(EffectiveDisplayName)
+                    ? EffectivePrompt
+                    : $"{EffectivePrompt} {EffectiveDisplayName}";
 
         public virtual bool CanInteract(Interactor interactor)
         {
+            _lastPromptInteractor = interactor;
+
             if (interactor == null || interactor.Owner == null || !interactor.Owner.activeInHierarchy)
                 return false;
 
             ClearExpiredReservationIfNeeded();
 
-            if (!_allowPlayer && interactor.IsPlayer)
+            if (!CanOwnerUse(interactor))
                 return false;
 
-            if (!_allowNPC && !interactor.IsPlayer)
+            if (!EffectiveAllowPlayer && interactor.IsPlayer)
                 return false;
 
-            if (_maxInteractionRange > 0f)
+            if (!EffectiveAllowNPC && !interactor.IsPlayer)
+                return false;
+
+            if (EffectiveMaxInteractionRange > 0f)
             {
                 Vector3 delta = AlignPoint.position - interactor.Transform.position;
                 delta.y = 0f;
-                if (delta.sqrMagnitude > _maxInteractionRange * _maxInteractionRange)
+                if (delta.sqrMagnitude > EffectiveMaxInteractionRange * EffectiveMaxInteractionRange)
                     return false;
             }
 
-            if (_singleOccupancy && _inUse)
+            if (EffectiveSingleOccupancy && _inUse)
                 return false;
 
-            if (_singleOccupancy && IsReservedByAnother(interactor))
+            if (EffectiveSingleOccupancy && IsReservedByAnother(interactor))
                 return false;
 
             return true;
@@ -147,6 +174,15 @@ namespace Sol
             if (!CanInteract(interactor))
                 return false;
 
+            return TryBeginSession(interactor, out _);
+        }
+
+        public virtual bool TryBeginSession(Interactor interactor, out InteractionSession session)
+        {
+            session = null;
+            if (!CanInteract(interactor))
+                return false;
+
             _inUse = true;
             _activeInteractor = interactor;
             _activeAlignPoint = ResolveNearestAlignPoint(interactor.Transform.position);
@@ -154,14 +190,27 @@ namespace Sol
                 ReleaseReservation(interactor);
 
             _activeAnimator = ResolveAnimator(interactor);
+            _activeSession = new InteractionSession(this, interactor);
+            _activeSession.SetState(InteractionSessionState.Reserved);
+            session = _activeSession;
 
             AlignInteractorToPoint(interactor);
-            ApplyInteractionCombatSuppression(interactor);
-            ApplyPlayerInteractionLocomotionLock(interactor);
-            ApplyPlayerInteractionCameraOverride(interactor);
+            _activeSession.SetState(InteractionSessionState.Aligning);
+            if (EffectiveSuppressCombat)
+                ApplyInteractionCombatSuppression(interactor);
+            if (EffectiveLockMovement)
+                ApplyPlayerInteractionLocomotionLock(interactor);
+            if (EffectiveForceThirdPerson)
+                ApplyPlayerInteractionCameraOverride(interactor);
+            _activeSession.SetState(InteractionSessionState.Animating);
             BeginInteractionAnimatorState(_activeAnimator);
             _onUseStarted?.Invoke();
             OnUseStarted(interactor);
+            DispatchEffectStarted(_activeSession);
+
+            if (!RequiresReadyGate())
+                MarkActiveSessionReady();
+
             return true;
         }
 
@@ -171,6 +220,10 @@ namespace Sol
                 return;
 
             Interactor interactor = _activeInteractor;
+            InteractionSession session = _activeSession;
+            if (session != null)
+                session.SetState(completed ? InteractionSessionState.Completing : InteractionSessionState.Cancelling);
+
             EndInteractionAnimatorState(_activeAnimator);
 
             if (completed)
@@ -178,10 +231,12 @@ namespace Sol
                 ApplyActorEffects(interactor);
                 _onUsed?.Invoke();
                 OnUseCompleted(interactor);
+                DispatchEffectCompleted(session);
             }
             else
             {
                 OnUseCancelled(interactor);
+                DispatchEffectCancelled(session);
             }
 
             RestorePlayerInteractionCameraOverride();
@@ -191,6 +246,9 @@ namespace Sol
             _activeInteractor = null;
             _activeAlignPoint = null;
             _inUse = false;
+            if (session != null)
+                session.SetState(InteractionSessionState.Cleanup);
+            _activeSession = null;
             ReleaseReservation();
         }
 
@@ -204,15 +262,85 @@ namespace Sol
 
         public virtual float GetUseDuration(Interactor interactor)
         {
-            return Mathf.Max(0f, _useDuration);
+            return EffectiveUseDuration;
         }
 
         public virtual bool ShouldHoldUntilCancelled(Interactor interactor)
         {
-            return _holdUntilCancelled || _animationType == InteractionPointAnimationType.RestSit;
+            return EffectiveCompletionMode == InteractionCompletionMode.HoldUntilCancelled
+                || EffectiveCompletionMode == InteractionCompletionMode.WaitForReadyThenExternalCompletion
+                || _holdUntilCancelled
+                || EffectiveAnimationType == InteractionPointAnimationType.RestSit;
+        }
+
+        public bool ShouldWaitForReadyBeforeDuration(Interactor interactor)
+        {
+            return EffectiveCompletionMode == InteractionCompletionMode.WaitForReadyThenTimed
+                || EffectiveCompletionMode == InteractionCompletionMode.WaitForReadyThenExternalCompletion
+                || EffectiveAnimationType == InteractionPointAnimationType.RestSleep;
+        }
+
+        public void RequestActiveCompletion()
+        {
+            _activeSession?.RequestCompletion();
+        }
+
+        public void CancelActiveSession()
+        {
+            if (_inUse)
+                EndUse(completed: false);
+        }
+
+        public void MarkActiveSessionReady()
+        {
+            if (_activeSession == null || _activeSession.IsReady)
+                return;
+
+            _activeSession.MarkReady();
+            _activeSession.WaitForCompletion();
+            _onReady?.Invoke();
+            OnUseReady(_activeInteractor);
+            DispatchEffectReady(_activeSession);
+        }
+
+        public bool CanOwnerUse(Interactor interactor)
+        {
+            string ownerId = OwnerId;
+            if (string.IsNullOrWhiteSpace(ownerId))
+                return true;
+
+            InteractionOwnershipPolicy policy = EffectiveOwnershipPolicy;
+            if (policy == InteractionOwnershipPolicy.Public)
+                return true;
+
+            if (interactor?.Owner == null)
+                return false;
+
+            if (ItemOwnershipUtility.IsOwnedBy(ownerId, interactor.Owner))
+                return true;
+
+            if (policy != InteractionOwnershipPolicy.OwnerOrGuests)
+                return false;
+
+            string actorOwnerId = ItemOwnershipUtility.ResolveActorOwnerIdOrEmpty(interactor.Owner);
+            if (string.IsNullOrWhiteSpace(actorOwnerId) || _guestOwnerIds == null)
+                return false;
+
+            for (int i = 0; i < _guestOwnerIds.Length; i++)
+            {
+                string guest = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_guestOwnerIds[i]);
+                if (!string.IsNullOrWhiteSpace(guest)
+                    && string.Equals(guest, actorOwnerId, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         protected virtual void OnUseStarted(Interactor interactor) { }
+        protected virtual void OnUseReady(Interactor interactor) { }
         protected virtual void OnUseCompleted(Interactor interactor) { }
         protected virtual void OnUseCancelled(Interactor interactor) { }
 
@@ -288,6 +416,14 @@ namespace Sol
 
         protected virtual void OnValidate()
         {
+            _ownerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_ownerId);
+            _unauthorizedPrompt = string.IsNullOrWhiteSpace(_unauthorizedPrompt) ? "Owned" : _unauthorizedPrompt.Trim();
+            if (_guestOwnerIds != null)
+            {
+                for (int i = 0; i < _guestOwnerIds.Length; i++)
+                    _guestOwnerIds[i] = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_guestOwnerIds[i]);
+            }
+
             _interactionPointId = EntityCodeUtility.NormalizeOrEmpty(
                 _interactionPointId,
                 EntityCodeUtility.InteractionPointPrefix);
@@ -312,6 +448,7 @@ namespace Sol
         private void Update()
         {
             TickNpcActiveAlignment();
+            TickActiveSessionReadyGate();
         }
 
         private Transform GetFirstAlignPoint()
@@ -361,6 +498,80 @@ namespace Sol
             Vector3 delta = a - b;
             delta.y = 0f;
             return delta.sqrMagnitude;
+        }
+
+        private bool IsInteractionOwnedButUnavailableToLastInteractor()
+        {
+            return IsOwned && _lastPromptInteractor != null && !CanOwnerUse(_lastPromptInteractor);
+        }
+
+        private bool UsesDefinitionDefaults => _definition != null && !_overrideDefinitionSettings;
+        private string EffectivePrompt => UsesDefinitionDefaults ? _definition.Prompt : (string.IsNullOrWhiteSpace(_prompt) ? "Use" : _prompt.Trim());
+        private string EffectiveDisplayName => UsesDefinitionDefaults ? _definition.DisplayName : (_displayName?.Trim() ?? string.Empty);
+        private InteractionPointType EffectiveType => UsesDefinitionDefaults ? _definition.Type : _type;
+        private InteractionPointAnimationType EffectiveAnimationType => UsesDefinitionDefaults ? _definition.AnimationType : _animationType;
+        private AnimationClip EffectiveCustomClip => UsesDefinitionDefaults ? _definition.CustomClip : _customClip;
+        private bool EffectiveAllowPlayer => UsesDefinitionDefaults ? _definition.AllowPlayer : _allowPlayer;
+        private bool EffectiveAllowNPC => UsesDefinitionDefaults ? _definition.AllowNPC : _allowNPC;
+        private bool EffectiveSingleOccupancy => UsesDefinitionDefaults ? _definition.SingleOccupancy : _singleOccupancy;
+        private float EffectiveMaxInteractionRange => UsesDefinitionDefaults ? _definition.MaxInteractionRange : Mathf.Max(0f, _maxInteractionRange);
+        private float EffectiveNpcArrivalTolerance => UsesDefinitionDefaults ? _definition.NpcArrivalTolerance : Mathf.Max(0.1f, _npcArrivalTolerance);
+        private float EffectiveUseDuration => UsesDefinitionDefaults ? _definition.UseDuration : Mathf.Max(0f, _useDuration);
+        private InteractionCompletionMode EffectiveCompletionMode => UsesDefinitionDefaults ? _definition.CompletionMode : (_holdUntilCancelled ? InteractionCompletionMode.HoldUntilCancelled : InteractionCompletionMode.Timed);
+        private InteractionOwnershipPolicy EffectiveOwnershipPolicy => UsesDefinitionDefaults ? _definition.OwnershipPolicy : _ownershipPolicy;
+        private string EffectiveUnauthorizedPrompt => UsesDefinitionDefaults ? _definition.UnauthorizedPrompt : (string.IsNullOrWhiteSpace(_unauthorizedPrompt) ? "Owned" : _unauthorizedPrompt.Trim());
+        private bool EffectiveForceThirdPerson => UsesDefinitionDefaults ? _definition.ForceThirdPerson : ShouldForceThirdPersonForPlayerInteraction();
+        private bool EffectiveSuppressCombat => !UsesDefinitionDefaults || _definition.SuppressCombat;
+        private bool EffectiveLockMovement => !UsesDefinitionDefaults || _definition.LockMovement;
+        private string EffectiveReadyStatePath => UsesDefinitionDefaults ? _definition.ReadyStatePath : string.Empty;
+        private float EffectiveReadyNormalizedTime => UsesDefinitionDefaults ? _definition.ReadyNormalizedTime : 0.85f;
+        private string EffectiveOwnerId => ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_ownerId);
+
+        private bool RequiresReadyGate()
+        {
+            return EffectiveCompletionMode == InteractionCompletionMode.WaitForReadyThenTimed
+                || EffectiveCompletionMode == InteractionCompletionMode.WaitForReadyThenExternalCompletion
+                || EffectiveAnimationType == InteractionPointAnimationType.RestSleep;
+        }
+
+        private void TickActiveSessionReadyGate()
+        {
+            if (_activeSession == null || _activeSession.IsReady || _activeAnimator == null || !RequiresReadyGate())
+                return;
+
+            if (IsAnimatorAtReadyPoint(_activeAnimator))
+                MarkActiveSessionReady();
+        }
+
+        private void DispatchEffectStarted(InteractionSession session)
+        {
+            foreach (InteractionEffect effect in GetInteractionEffects())
+                effect.OnInteractionStarted(session);
+        }
+
+        private void DispatchEffectReady(InteractionSession session)
+        {
+            foreach (InteractionEffect effect in GetInteractionEffects())
+                effect.OnInteractionReady(session);
+        }
+
+        private void DispatchEffectCompleted(InteractionSession session)
+        {
+            foreach (InteractionEffect effect in GetInteractionEffects())
+                effect.OnInteractionCompleted(session);
+        }
+
+        private void DispatchEffectCancelled(InteractionSession session)
+        {
+            foreach (InteractionEffect effect in GetInteractionEffects())
+                effect.OnInteractionCancelled(session);
+        }
+
+        private InteractionEffect[] GetInteractionEffects()
+        {
+            if (_interactionEffects == null)
+                _interactionEffects = GetComponents<InteractionEffect>();
+            return _interactionEffects;
         }
     }
 }

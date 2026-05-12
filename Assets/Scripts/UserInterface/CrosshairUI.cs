@@ -631,12 +631,27 @@ namespace Sol.HUD
 
             if (CurrentInteractable != null
                 && _playerInteractor != null
-                && CurrentInteractable.CanInteract(_playerInteractor))
+                && (CurrentInteractable.CanInteract(_playerInteractor)
+                    || ShouldShowBlockedOwnedInteractionPrompt(CurrentInteractable, _playerInteractor)))
             {
                 return FormatInteractionPrompt(CurrentInteractable.InteractionPrompt);
             }
 
             return string.Empty;
+        }
+
+        private static bool ShouldShowBlockedOwnedInteractionPrompt(IInteractable interactable, Interactor interactor)
+        {
+            if (interactable == null || interactor == null)
+                return false;
+
+            if (interactable is InteractionPoint point)
+                return point.IsOwned && !point.CanOwnerUse(interactor);
+
+            if (interactable is SleepInteractable bed && bed.InteractionPoint != null)
+                return bed.InteractionPoint.IsOwned && !bed.InteractionPoint.CanOwnerUse(interactor);
+
+            return false;
         }
 
         private void ConfigurePromptText()

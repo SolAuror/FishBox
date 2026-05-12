@@ -130,6 +130,29 @@ MonoBehaviour:
     AuthoringTemplate: 0
     AuthoringNotes: 
     Prefab: {fileID: 1181342812492980928, guid: cd1720ef9b3117f439a313b83d79c458, type: 3}
+  - ItemId: ITM00014
+    DisplayName: Empty Glass Bottle
+    ItemType: 4
+    Value: 10
+    Icon: {fileID: 21300000, guid: dab8eaf34f4bae247a848707a10cb27f, type: 3}
+    FlavourText: 
+    IsStackable: 0
+    IsConsumable: 0
+    IsTradeable: 1
+    MaxStackSize: 1
+    UseOccasion: 1
+    UseEffects: []
+    Damage: 0
+    Defense: 0
+    EquipBone: 
+    EquipOffset: {x: 0, y: 0, z: 0}
+    EquipRotation: {x: 0, y: 0, z: 0}
+    EquipDomain: 0
+    WeaponHanding: 0
+    AllowedEquipSlots: 
+    AuthoringTemplate: 0
+    AuthoringNotes: 
+    Prefab: {fileID: 6382334160956226770, guid: 594d2c482362e3e47a1e0b9a847378c2, type: 3}
   - ItemId: ITM00018
     DisplayName: Old Fishing Rod
     ItemType: 4
@@ -259,7 +282,7 @@ MonoBehaviour:
     UseOccasion: 1
     UseEffects:
     - _effectType: 0
-      _amount: 0
+      _amount: 1
     Damage: 0
     Defense: 0
     EquipBone: 
@@ -296,6 +319,56 @@ MonoBehaviour:
     AuthoringTemplate: 0
     AuthoringNotes: 
     Prefab: {fileID: 1312666679401494266, guid: 2c88d2e6f4ef79641b9411c18f411d9b, type: 3}
+  - ItemId: ITM00011
+    DisplayName: Essence Potion
+    ItemType: 7
+    Value: 300
+    Icon: {fileID: 21300000, guid: 0e1be301a54c1124088678dffbe1f161, type: 3}
+    FlavourText: A potion to restore the essence a magic in oneself...
+    IsStackable: 1
+    IsConsumable: 1
+    IsTradeable: 1
+    MaxStackSize: 99
+    UseOccasion: 1
+    UseEffects:
+    - _effectType: 0
+      _amount: 100
+    Damage: 0
+    Defense: 0
+    EquipBone: 
+    EquipOffset: {x: 0, y: 0, z: 0}
+    EquipRotation: {x: 0, y: 0, z: 0}
+    EquipDomain: 0
+    WeaponHanding: 0
+    AllowedEquipSlots: 
+    AuthoringTemplate: 0
+    AuthoringNotes: 
+    Prefab: {fileID: 4347285824642607714, guid: 4953d475b70fc384798a34c543f2de6a, type: 3}
+  - ItemId: ITM00006
+    DisplayName: Vitality Tonic
+    ItemType: 7
+    Value: 100
+    Icon: {fileID: 21300000, guid: 0e1be301a54c1124088678dffbe1f161, type: 3}
+    FlavourText: A potion to restore Vitality...
+    IsStackable: 1
+    IsConsumable: 1
+    IsTradeable: 1
+    MaxStackSize: 99
+    UseOccasion: 1
+    UseEffects:
+    - _effectType: 0
+      _amount: 25
+    Damage: 0
+    Defense: 0
+    EquipBone: 
+    EquipOffset: {x: 0, y: 0, z: 0}
+    EquipRotation: {x: 0, y: 0, z: 0}
+    EquipDomain: 0
+    WeaponHanding: 0
+    AllowedEquipSlots: 
+    AuthoringTemplate: 0
+    AuthoringNotes: 
+    Prefab: {fileID: 4347285824642607714, guid: c8431471cb4f3694c823cf4a80d2b57a, type: 3}
   - ItemId: ITM00019
     DisplayName: Shabby Lure
     ItemType: 10
@@ -319,13 +392,12 @@ MonoBehaviour:
     AuthoringTemplate: 0
     AuthoringNotes: 
     Prefab: {fileID: 3572990517528342952, guid: 72ad4809316ce34419daca094798d08e, type: 3}
-  - ItemId: ITM00006
+  - ItemId: ITM00009
     DisplayName: Skeleton Key
     ItemType: 8
-    Value: 15000
+    Value: 10000
     Icon: {fileID: 21300000, guid: 9a7090b655e7c8742b93e29b324ed00f, type: 3}
-    FlavourText: "A mythic key bestowed to a thief of legend... \nSaid to open ANY
-      lock..."
+    FlavourText: 
     IsStackable: 0
     IsConsumable: 0
     IsTradeable: 1
@@ -343,9 +415,34 @@ MonoBehaviour:
     AuthoringTemplate: 0
     AuthoringNotes: 
     Prefab: {fileID: 437761895070354558, guid: b03e150299b11514aa25553f4eb360c0, type: 3}
+  - ItemId: ITM00013
+    DisplayName: Endurance Tonic
+    ItemType: 7
+    Value: 100
+    Icon: {fileID: 21300000, guid: 0e1be301a54c1124088678dffbe1f161, type: 3}
+    FlavourText: 
+    IsStackable: 1
+    IsConsumable: 1
+    IsTradeable: 1
+    MaxStackSize: 99
+    UseOccasion: 1
+    UseEffects:
+    - _effectType: 0
+      _amount: 100
+    Damage: 0
+    Defense: 0
+    EquipBone: 
+    EquipOffset: {x: 0, y: 0, z: 0}
+    EquipRotation: {x: 0, y: 0, z: 0}
+    EquipDomain: 0
+    WeaponHanding: 0
+    AllowedEquipSlots: 
+    AuthoringTemplate: 0
+    AuthoringNotes: 
+    Prefab: {fileID: 4347285824642607714, guid: 95def502746919a4f8c01eaf8e2c95c1, type: 3}
   - ItemId: ITM00021
     DisplayName: Bait Worm
-    ItemType: 5
+    ItemType: 10
     Value: 5
     Icon: {fileID: 21300000, guid: d9dc8b8cead7fb942b90f62b0981e4f1, type: 3}
     FlavourText: A writhing, squirming worm...
@@ -363,6 +460,6 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
-    AuthoringTemplate: 1
+    AuthoringTemplate: 0
     AuthoringNotes: 
     Prefab: {fileID: 634437170479503239, guid: 5b425e47d44519e4ca0b321c38c9706f, type: 3}
