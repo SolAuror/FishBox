@@ -217,6 +217,9 @@ namespace Sol.SaveLoad
                 Inventory npcInventory = npc.Inventory;
                 if (npcInventory != null)
                     RestoreInventory(npcInventory, saved.Gold, saved.InventoryItems);
+
+                if (npc.ScheduleDefinition != null)
+                    npc.SnapToCurrentScheduleTarget();
             }
         }
 

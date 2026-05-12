@@ -431,6 +431,8 @@ namespace Sol.Editor
             private readonly string _current;
             private readonly Action<string> _onPicked;
             private readonly Dictionary<int, string> _idsByItemId = new Dictionary<int, string>();
+            private readonly Dictionary<string, string> _idsByLabel = new Dictionary<string, string>(StringComparer.Ordinal);
+            private int _nextItemId = 1;
 
             public ReferenceAdvancedDropdown(AdvancedDropdownState state, ReferenceKind kind, bool allowEmpty, string current, Action<string> onPicked)
                 : base(state)
@@ -448,8 +450,7 @@ namespace Sol.Editor
 
                 if (_allowEmpty)
                 {
-                    AdvancedDropdownItem none = new AdvancedDropdownItem(NoneLabel);
-                    _idsByItemId[none.id] = string.Empty;
+                    AdvancedDropdownItem none = CreateSelectableItem(NoneLabel, string.Empty);
                     root.AddChild(none);
                     root.AddSeparator();
                 }
@@ -476,12 +477,20 @@ namespace Sol.Editor
                         leafLabel = menuPath;
                     }
 
-                    AdvancedDropdownItem child = new AdvancedDropdownItem(leafLabel);
-                    _idsByItemId[child.id] = entry.Id;
+                    AdvancedDropdownItem child = CreateSelectableItem(leafLabel, entry.Id);
                     parent.AddChild(child);
                 }
 
                 return root;
+            }
+
+            private ReferenceDropdownItem CreateSelectableItem(string label, string referenceId)
+            {
+                ReferenceDropdownItem item = new ReferenceDropdownItem(label, referenceId);
+                item.id = _nextItemId++;
+                _idsByItemId[item.id] = item.ReferenceId;
+                _idsByLabel[label] = item.ReferenceId;
+                return item;
             }
 
             private static AdvancedDropdownItem GetOrCreateFolder(AdvancedDropdownItem root, string folderPath, Dictionary<string, AdvancedDropdownItem> cache)
@@ -513,10 +522,32 @@ namespace Sol.Editor
 
             protected override void ItemSelected(AdvancedDropdownItem item)
             {
-                if (item == null || !_idsByItemId.TryGetValue(item.id, out string id))
+                if (item == null)
                     return;
 
+                string id;
+                if (item is ReferenceDropdownItem referenceItem)
+                {
+                    id = referenceItem.ReferenceId;
+                }
+                else if (!_idsByItemId.TryGetValue(item.id, out id))
+                {
+                    if (string.IsNullOrEmpty(item.name) || !_idsByLabel.TryGetValue(item.name, out id))
+                        return;
+                }
+
                 _onPicked?.Invoke(id);
+            }
+        }
+
+        private sealed class ReferenceDropdownItem : AdvancedDropdownItem
+        {
+            public readonly string ReferenceId;
+
+            public ReferenceDropdownItem(string name, string referenceId)
+                : base(name)
+            {
+                ReferenceId = referenceId ?? string.Empty;
             }
         }
     }

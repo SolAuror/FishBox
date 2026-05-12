@@ -71,6 +71,7 @@ namespace Sol.Editor
 
             ValidateDialogue(aiNpc, warnings);
             ValidateShop(aiNpc, warnings);
+            ValidateSchedule(aiNpc, warnings);
 
             if (soul.MaxHealth <= 0f)
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Max health is 0 - this NPC will be considered dead immediately."));
@@ -147,6 +148,23 @@ namespace Sol.Editor
 
             if (RpgDefinitionRegistry.Get()?.GetShop(aiNpc.ShopId) == null)
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Assigned shop '{aiNpc.ShopId}' is not in the RPG registry."));
+        }
+
+        private static void ValidateSchedule(AI_NPC aiNpc, List<NPCAuthoringWarning> warnings)
+        {
+            if (aiNpc == null || aiNpc.ScheduleDefinition == null)
+                return;
+
+            List<NpcScheduleAuthoringWarning> scheduleWarnings = NpcScheduleAuthoringValidator.Validate(aiNpc.ScheduleDefinition);
+            for (int i = 0; i < scheduleWarnings.Count; i++)
+            {
+                if (scheduleWarnings[i].Severity == NpcScheduleAuthoringWarningSeverity.Error)
+                {
+                    warnings.Add(new NPCAuthoringWarning(
+                        NPCAuthoringWarningSeverity.Warning,
+                        $"Assigned schedule '{aiNpc.ScheduleDefinition.ScheduleId}' has issue: {scheduleWarnings[i].Message}"));
+                }
+            }
         }
 
         private static bool RequiresQuest(DialogueOptionAction action)

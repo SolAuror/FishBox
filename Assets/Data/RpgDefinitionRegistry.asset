@@ -16,4 +16,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 5a396424b85e47b41b22775c7bbe33c8, type: 2}
   _skills: []
   _factions: []
-  _shops: []
+  _shops:
+  - {fileID: 11400000, guid: b3829dfa747c27449a6790b3ea540a05, type: 2}

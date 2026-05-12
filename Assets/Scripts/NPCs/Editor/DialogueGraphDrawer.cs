@@ -127,6 +127,7 @@ namespace Sol.Editor
             SerializedProperty node = nodesProp.GetArrayElementAtIndex(nodeIndex);
             SerializedProperty idProp = node.FindPropertyRelative(nameof(DialogueNode.NodeId));
             SerializedProperty lineProp = node.FindPropertyRelative(nameof(DialogueNode.SpeakerLine));
+            SerializedProperty visibilityProp = node.FindPropertyRelative(nameof(DialogueNode.Visibility));
             SerializedProperty optsProp = node.FindPropertyRelative(nameof(DialogueNode.Options));
 
             string currentId = idProp != null ? idProp.stringValue : $"node_{nodeIndex}";
@@ -160,6 +161,8 @@ namespace Sol.Editor
                     EditorGUILayout.PropertyField(idProp);
                 if (lineProp != null)
                     EditorGUILayout.PropertyField(lineProp);
+                if (visibilityProp != null)
+                    EditorGUILayout.PropertyField(visibilityProp, includeChildren: true);
 
                 if (optsProp != null)
                     DrawOptionsList(node, optsProp, nodesProp, ownerId);
@@ -249,8 +252,15 @@ namespace Sol.Editor
                 rows += 1;
             if (rule != DialogueVisibilityRule.Always)
             {
-                if (!IsLocalFlagVisibility(rule))
+                if (rule == DialogueVisibilityRule.ScheduleActivity)
+                    rows += 1;
+                else if (rule == DialogueVisibilityRule.ScheduleLocation)
+                    rows += 1;
+                else if (rule == DialogueVisibilityRule.TimeWindow)
+                    rows += 2;
+                else if (!IsLocalFlagVisibility(rule))
                     rows += 1; // QuestId
+
                 if (rule == DialogueVisibilityRule.QuestOnObjective)
                     rows += 1; // RequiredObjectiveIndex
             }
@@ -380,6 +390,10 @@ namespace Sol.Editor
             SerializedProperty ruleProp = visProp.FindPropertyRelative(nameof(DialogueOptionVisibility.Rule));
             SerializedProperty questProp = visProp.FindPropertyRelative(nameof(DialogueOptionVisibility.QuestId));
             SerializedProperty objProp = visProp.FindPropertyRelative(nameof(DialogueOptionVisibility.RequiredObjectiveIndex));
+            SerializedProperty activityProp = visProp.FindPropertyRelative(nameof(DialogueOptionVisibility.ScheduleActivity));
+            SerializedProperty locationProp = visProp.FindPropertyRelative(nameof(DialogueOptionVisibility.ScheduleLocationId));
+            SerializedProperty startProp = visProp.FindPropertyRelative(nameof(DialogueOptionVisibility.StartHour));
+            SerializedProperty endProp = visProp.FindPropertyRelative(nameof(DialogueOptionVisibility.EndHour));
 
             if (ruleProp != null)
             {
@@ -393,6 +407,41 @@ namespace Sol.Editor
 
             if (IsLocalFlagVisibility(rule))
                 return;
+
+            if (rule == DialogueVisibilityRule.ScheduleActivity)
+            {
+                if (activityProp != null)
+                {
+                    EditorGUI.PropertyField(row, activityProp, new GUIContent("Activity"));
+                    row.y += line + space;
+                }
+                return;
+            }
+
+            if (rule == DialogueVisibilityRule.ScheduleLocation)
+            {
+                if (locationProp != null)
+                {
+                    EditorGUI.PropertyField(row, locationProp, new GUIContent("Location Id"));
+                    row.y += line + space;
+                }
+                return;
+            }
+
+            if (rule == DialogueVisibilityRule.TimeWindow)
+            {
+                if (startProp != null)
+                {
+                    EditorGUI.PropertyField(row, startProp, new GUIContent("Start Hour"));
+                    row.y += line + space;
+                }
+                if (endProp != null)
+                {
+                    EditorGUI.PropertyField(row, endProp, new GUIContent("End Hour"));
+                    row.y += line + space;
+                }
+                return;
+            }
 
             if (questProp != null)
             {

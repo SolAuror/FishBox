@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 36fc0226d94e4b278bc1aae6d3cecef5, type: 3}
+  m_Name: SCH00003_GarusDay
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.NpcScheduleDefinition
+  _scheduleId: SCH00003
+  _displayName: Garus Day
+  _description: 
+  _entries:
+  - _startHour: 22
+    _endHour: 6
+    _locationId: FloorBedGarus
+    _activity: 1
+    _waitSeconds: 3
+    _useLocationFacing: 1
+  - _startHour: 6
+    _endHour: 7
+    _locationId: elsbeth_home
+    _activity: 3
+    _waitSeconds: 3
+    _useLocationFacing: 1
+  - _startHour: 8
+    _endHour: 17
+    _locationId: elsbeth_market
+    _activity: 2
+    _waitSeconds: 0
+    _useLocationFacing: 1
+  - _startHour: 18
+    _endHour: 21
+    _locationId: elsbeth_tavern
+    _activity: 4
+    _waitSeconds: 0
+    _useLocationFacing: 1
+  - _startHour: 21
+    _endHour: 22
+    _locationId: elsbeth_home
+    _activity: 0
+    _waitSeconds: 0
+    _useLocationFacing: 1

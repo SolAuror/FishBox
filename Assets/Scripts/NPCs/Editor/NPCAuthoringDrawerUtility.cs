@@ -210,6 +210,8 @@ namespace Sol.Editor
             DrawProperty(aiSO, "patrolPoints", includeChildren: true);
             DrawProperty(aiSO, "patrolPointNavMeshSnapDistance");
             DrawProperty(aiSO, "patrolSplineOverride");
+            DrawProperty(aiSO, "_scheduleDefinition");
+            DrawProperty(aiSO, "_scheduleRefreshSeconds");
             aiSO.ApplyModifiedProperties();
 
             EndSection();

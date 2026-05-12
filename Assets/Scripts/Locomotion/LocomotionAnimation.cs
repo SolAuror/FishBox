@@ -151,10 +151,15 @@ namespace Sol.Locomotion
             //actions
             _animator.SetBool(isAimingHash, _locomotionInput.AimPressed);
             UpdateCombatReadinessAnimatorChannels();
+            if (interactionActive)
+            {
+                _locomotionInput.SetAttackPressedFalse();
+                _locomotionInput.SetReadyTogglePressedFalse();
+            }
             HandleCombatReadyToggle();
 
             bool shouldBlockDefaultAttack = _fishingState != null && _fishingState.ShouldBlockDefaultAttack;
-            if (!shouldBlockDefaultAttack && _locomotionInput.AttackPressed && _validParams.Contains(attackTriggerHash))
+            if (!interactionActive && !shouldBlockDefaultAttack && _locomotionInput.AttackPressed && _validParams.Contains(attackTriggerHash))
             {
                 if (_combatReadiness != null && !_combatReadiness.CanAttack)
                 {

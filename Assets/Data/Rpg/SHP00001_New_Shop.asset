@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 92f4b3054f454bc7a98f7ccba8df7d8d, type: 3}
+  m_Name: SHP00001_New_Shop
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Rpg.RpgShopDefinition
+  _id: SHP00001
+  _displayName: New Shop
+  _description: 
+  _ownerNpcId: 
+  _factionId: 
+  _gold: 100
+  _buyPriceMultiplier: 1
+  _sellPriceMultiplier: 0.5
+  _restockMode: 2
+  _restockRealtimeHours: 24
+  _restockInGameDays: 1
+  _stock: []

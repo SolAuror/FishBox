@@ -1,6 +1,7 @@
 using Sol.Actions;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.Serialization;
 
 namespace Sol
 {
@@ -22,13 +23,16 @@ namespace Sol
         [InspectorName("Rest.Sleep")] RestSleep = 4,
         [InspectorName("Work.Fishing")] WorkFishing = 5,
         [InspectorName("Gather.Fruit")] GatherFruit = 6,
-        [InspectorName("Water.Draw")] DrawWater = 7
+        [InspectorName("Water.Draw")] DrawWater = 7,
+        [InspectorName("Custom Clip")] CustomClip = 100
     }
 
     [DisallowMultipleComponent]
     [AddComponentMenu("Sol/Interactables/Interaction Point")]
-    public class InteractionPoint : MonoBehaviour, IInteractable
+    public partial class InteractionPoint : MonoBehaviour, IInteractable
     {
+        private const float ReservationGraceDuration = 4f;
+
         [Header("Interaction Identity")]
         [SerializeField] private string _interactionPointId = string.Empty;
         [SerializeField] private string _prompt = "Use";
@@ -37,13 +41,28 @@ namespace Sol
 
         [Header("Use")]
         [SerializeField] private InteractionPointAnimationType _animationType = InteractionPointAnimationType.None;
+        [SerializeField] private AnimationClip _customClip;
+        [FormerlySerializedAs("_alignPoint")]
         [SerializeField] private Transform _alignPoint;
+        [SerializeField] private Transform[] _alignPoints;
         [Min(0f)]
         [SerializeField] private float _useDuration = 2f;
         [SerializeField] private bool _holdUntilCancelled;
         [SerializeField] private bool _singleOccupancy = true;
         [SerializeField] private bool _allowPlayer = true;
         [SerializeField] private bool _allowNPC = true;
+        [Min(0f)]
+        [SerializeField] private float _maxInteractionRange = 0f;
+
+        [Header("NPC Alignment")]
+        [Min(0.1f)]
+        [SerializeField] private float _npcArrivalTolerance = 0.55f;
+        [SerializeField] private bool _allowNpcPositionSnapOnUse = false;
+        [Min(0f)]
+        [SerializeField] private float _npcPositionSnapDistance = 0.05f;
+        [SerializeField] private bool _alignNpcRotationWhileUsing = true;
+        [Min(0f)]
+        [SerializeField] private float _npcAlignRotationSpeed = 8f;
 
         [Header("Actor Effects")]
         [SerializeField] private float _healthDelta;
@@ -55,21 +74,29 @@ namespace Sol
         [SerializeField] private UnityEvent _onUseStarted;
         [SerializeField] private UnityEvent _onUsed;
 
-        private const string AnimatorParamInteractionType = "interactionType";
-        private const string AnimatorParamInteractionActive = "interactionActive";
-        private const string AnimatorParamIsInteracting = "isInteracting";
-
         private bool _inUse;
         private Interactor _activeInteractor;
         private Animator _activeAnimator;
+        private Transform _activeAlignPoint;
+        private Interactor _reservedInteractor;
+        private float _reservationExpiresAt;
         private bool _unsupportedVitalsWarningLogged;
 
         public string InteractionPointId => _interactionPointId;
         public string DisplayName => _displayName;
         public InteractionPointType Type => _type;
         public InteractionPointAnimationType AnimationType => _animationType;
-        public Transform AlignPoint => _alignPoint != null ? _alignPoint : transform;
+        public Transform AlignPoint => _activeAlignPoint != null ? _activeAlignPoint : GetFirstAlignPoint();
         public bool InUse => _inUse;
+        public bool IsAvailable
+        {
+            get
+            {
+                ClearExpiredReservationIfNeeded();
+                return !_inUse && (!_singleOccupancy || _reservedInteractor == null);
+            }
+        }
+        public float NpcArrivalTolerance => Mathf.Max(0.1f, _npcArrivalTolerance);
         public float HealthDelta => _healthDelta;
         public float StaminaDelta => _staminaDelta;
         public float HungerDelta => _hungerDelta;
@@ -85,13 +112,26 @@ namespace Sol
             if (interactor == null || interactor.Owner == null || !interactor.Owner.activeInHierarchy)
                 return false;
 
+            ClearExpiredReservationIfNeeded();
+
             if (!_allowPlayer && interactor.IsPlayer)
                 return false;
 
             if (!_allowNPC && !interactor.IsPlayer)
                 return false;
 
+            if (_maxInteractionRange > 0f)
+            {
+                Vector3 delta = AlignPoint.position - interactor.Transform.position;
+                delta.y = 0f;
+                if (delta.sqrMagnitude > _maxInteractionRange * _maxInteractionRange)
+                    return false;
+            }
+
             if (_singleOccupancy && _inUse)
+                return false;
+
+            if (_singleOccupancy && IsReservedByAnother(interactor))
                 return false;
 
             return true;
@@ -109,8 +149,16 @@ namespace Sol
 
             _inUse = true;
             _activeInteractor = interactor;
+            _activeAlignPoint = ResolveNearestAlignPoint(interactor.Transform.position);
+            if (IsReservedBy(interactor))
+                ReleaseReservation(interactor);
+
             _activeAnimator = ResolveAnimator(interactor);
 
+            AlignInteractorToPoint(interactor);
+            ApplyInteractionCombatSuppression(interactor);
+            ApplyPlayerInteractionLocomotionLock(interactor);
+            ApplyPlayerInteractionCameraOverride(interactor);
             BeginInteractionAnimatorState(_activeAnimator);
             _onUseStarted?.Invoke();
             OnUseStarted(interactor);
@@ -136,9 +184,14 @@ namespace Sol
                 OnUseCancelled(interactor);
             }
 
+            RestorePlayerInteractionCameraOverride();
+            ReleasePlayerInteractionLocomotionLock();
+
             _activeAnimator = null;
             _activeInteractor = null;
+            _activeAlignPoint = null;
             _inUse = false;
+            ReleaseReservation();
         }
 
         public bool IsInUseBy(Interactor interactor)
@@ -233,67 +286,6 @@ namespace Sol
             }
         }
 
-        private void BeginInteractionAnimatorState(Animator animator)
-        {
-            if (animator == null)
-                return;
-
-            if (HasAnimatorParameter(animator, AnimatorParamInteractionType, AnimatorControllerParameterType.Int))
-                animator.SetInteger(AnimatorParamInteractionType, (int)_animationType);
-
-            if (HasAnimatorParameter(animator, AnimatorParamInteractionActive, AnimatorControllerParameterType.Bool))
-                animator.SetBool(AnimatorParamInteractionActive, true);
-
-            if (_animationType == InteractionPointAnimationType.None
-                && HasAnimatorParameter(animator, AnimatorParamIsInteracting, AnimatorControllerParameterType.Trigger))
-            {
-                animator.SetTrigger(AnimatorParamIsInteracting);
-            }
-        }
-
-        private void EndInteractionAnimatorState(Animator animator)
-        {
-            if (animator == null)
-                return;
-
-            if (HasAnimatorParameter(animator, AnimatorParamInteractionActive, AnimatorControllerParameterType.Bool))
-                animator.SetBool(AnimatorParamInteractionActive, false);
-
-            if (HasAnimatorParameter(animator, AnimatorParamInteractionType, AnimatorControllerParameterType.Int))
-                animator.SetInteger(AnimatorParamInteractionType, (int)InteractionPointAnimationType.None);
-
-            if (HasAnimatorParameter(animator, AnimatorParamIsInteracting, AnimatorControllerParameterType.Trigger))
-                animator.ResetTrigger(AnimatorParamIsInteracting);
-        }
-
-        private static Animator ResolveAnimator(Interactor interactor)
-        {
-            if (interactor?.Owner == null)
-                return null;
-
-            return interactor.Owner.GetComponent<Animator>()
-                ?? interactor.Owner.GetComponentInChildren<Animator>(true);
-        }
-
-        private static bool HasAnimatorParameter(
-            Animator animator,
-            string parameterName,
-            AnimatorControllerParameterType requiredType)
-        {
-            if (animator == null || string.IsNullOrWhiteSpace(parameterName))
-                return false;
-
-            AnimatorControllerParameter[] parameters = animator.parameters;
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                AnimatorControllerParameter parameter = parameters[i];
-                if (parameter.type == requiredType && parameter.name == parameterName)
-                    return true;
-            }
-
-            return false;
-        }
-
         protected virtual void OnValidate()
         {
             _interactionPointId = EntityCodeUtility.NormalizeOrEmpty(
@@ -313,6 +305,62 @@ namespace Sol
         {
             if (_inUse)
                 EndUse(completed: false);
+
+            ReleaseReservation();
+        }
+
+        private void Update()
+        {
+            TickNpcActiveAlignment();
+        }
+
+        private Transform GetFirstAlignPoint()
+        {
+            if (_alignPoint != null)
+                return _alignPoint;
+
+            if (_alignPoints != null)
+            {
+                for (int i = 0; i < _alignPoints.Length; i++)
+                {
+                    if (_alignPoints[i] != null)
+                        return _alignPoints[i];
+                }
+            }
+
+            return transform;
+        }
+
+        private Transform ResolveNearestAlignPoint(Vector3 fromPosition)
+        {
+            Transform best = _alignPoint;
+            float bestSqr = best != null ? PlanarSqrDistance(best.position, fromPosition) : float.MaxValue;
+
+            if (_alignPoints != null)
+            {
+                for (int i = 0; i < _alignPoints.Length; i++)
+                {
+                    Transform candidate = _alignPoints[i];
+                    if (candidate == null)
+                        continue;
+
+                    float sqr = PlanarSqrDistance(candidate.position, fromPosition);
+                    if (sqr < bestSqr)
+                    {
+                        best = candidate;
+                        bestSqr = sqr;
+                    }
+                }
+            }
+
+            return best != null ? best : transform;
+        }
+
+        private static float PlanarSqrDistance(Vector3 a, Vector3 b)
+        {
+            Vector3 delta = a - b;
+            delta.y = 0f;
+            return delta.sqrMagnitude;
         }
     }
 }

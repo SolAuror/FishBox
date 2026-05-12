@@ -171,14 +171,221 @@ MonoBehaviour:
   _goodbyeOptionLabel: Goodbye
   _speakerIcon: {fileID: 21300000, guid: dab8eaf34f4bae247a848707a10cb27f, type: 3}
   _dialogueGraph:
-    RootNodeId: root
-    Nodes: []
+    RootNodeId: 
+    Nodes:
+    - NodeId: root_home
+      SpeakerLine: Quietly now. The house is barely awake, and neither am I.
+      Visibility:
+        Rule: 9
+        QuestId: 
+        RequiredObjectiveIndex: -1
+        ScheduleActivity: 2
+        ScheduleLocationId: elsbeth_home
+        StartHour: 0
+        EndHour: 24
+      Options:
+      - Label: Trade
+        Action: 2
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
+      - Label: Goodbye
+        Action: 1
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
+    - NodeId: root_market
+      SpeakerLine: Morning prices are kinder before the crowd finds me.
+      Visibility:
+        Rule: 9
+        QuestId: 
+        RequiredObjectiveIndex: -1
+        ScheduleActivity: 2
+        ScheduleLocationId: elsbeth_market
+        StartHour: 0
+        EndHour: 24
+      Options:
+      - Label: Trade
+        Action: 2
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
+      - Label: Goodbye
+        Action: 1
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
+    - NodeId: root_tavern
+      SpeakerLine: The stall is shut. If you want gossip, though, this is the right hour.
+      Visibility:
+        Rule: 9
+        QuestId: 
+        RequiredObjectiveIndex: -1
+        ScheduleActivity: 2
+        ScheduleLocationId: elsbeth_tavern
+        StartHour: 0
+        EndHour: 24
+      Options:
+      - Label: Trade
+        Action: 2
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
+      - Label: Goodbye
+        Action: 1
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
+    - NodeId: root_social
+      SpeakerLine: Breakfast first, bargains second. Unless the bargain is truly excellent.
+      Visibility:
+        Rule: 9
+        QuestId: 
+        RequiredObjectiveIndex: -1
+        ScheduleActivity: 2
+        ScheduleLocationId: elsbeth_social
+        StartHour: 0
+        EndHour: 24
+      Options:
+      - Label: Trade
+        Action: 2
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
+      - Label: Goodbye
+        Action: 1
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
+    - NodeId: root_fallback
+      SpeakerLine: What can I do for you?
+      Visibility:
+        Rule: 0
+        QuestId: 
+        RequiredObjectiveIndex: -1
+        ScheduleActivity: 2
+        ScheduleLocationId: 
+        StartHour: 0
+        EndHour: 24
+      Options:
+      - Label: Trade
+        Action: 2
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
+      - Label: Goodbye
+        Action: 1
+        NextNodeId: 
+        QuestId: 
+        Topic: 
+        LocalFlag: 
+        FlagMutation: 0
+        Visibility:
+          Rule: 0
+          QuestId: 
+          RequiredObjectiveIndex: -1
+          ScheduleActivity: 2
+          ScheduleLocationId: 
+          StartHour: 0
+          EndHour: 24
   config: {fileID: 11400000, guid: c68c8bbfbee74db438c3a68072420ff1, type: 2}
   patrolRoot: {fileID: 0}
   autoUsePatrolRootChildren: 1
   patrolPoints: []
   patrolPointNavMeshSnapDistance: 2
   patrolSplineOverride: {fileID: 0}
+  _scheduleDefinition: {fileID: 11400000, guid: 33a530fc1eb74710aded28a2c218d6cf, type: 2}
+  _scheduleRefreshSeconds: 0.5
   soul: {fileID: 1114985480798751693}
   animator: {fileID: 6426206577485632570}
   fakeCam: {fileID: 0}

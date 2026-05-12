@@ -52,6 +52,6 @@ namespace Sol.AI
                 locoController.IsConversing = false;
         }
         // See partial class files for implementation.
-        public enum State { Idle, Patrol, Chase, Dead }
+        public enum State { Idle, Patrol, Chase, Dead, Travel, Sleep, Work, Eat, Socialize }
     }
 }

@@ -18,7 +18,8 @@ namespace Sol.Editor
         Stats = 4,
         Skills = 5,
         Factions = 6,
-        Shops = 7
+        Shops = 7,
+        Schedules = 8
     }
 
     internal enum SolDatabaseIssueSeverity
@@ -225,6 +226,7 @@ namespace Sol.Editor
             SolDatabaseTab.Factions,
             SolDatabaseTab.Items,
             SolDatabaseTab.NPCs,
+            SolDatabaseTab.Schedules,
             SolDatabaseTab.Shops,
             SolDatabaseTab.Quests
         };
@@ -328,6 +330,7 @@ namespace Sol.Editor
             AddPage(new SolDatabaseFactionsPage());
             AddPage(new SolDatabaseItemPage());
             AddPage(new SolDatabaseNPCPage());
+            AddPage(new SolDatabaseSchedulePage());
             AddPage(new SolDatabaseShopsPage());
             AddPage(new SolDatabaseQuestPage());
         }

@@ -314,11 +314,27 @@ namespace Sol.AI
             for (int i = 0; i < _dialogueGraph.Nodes.Count; i++)
             {
                 DialogueNode n = _dialogueGraph.Nodes[i];
-                if (n != null && string.Equals(n.NodeId, target, System.StringComparison.OrdinalIgnoreCase))
+                if (n != null
+                    && string.Equals(n.NodeId, target, System.StringComparison.OrdinalIgnoreCase)
+                    && IsNodeVisible(n))
+                {
+                    return n;
+                }
+            }
+
+            for (int i = 0; i < _dialogueGraph.Nodes.Count; i++)
+            {
+                DialogueNode n = _dialogueGraph.Nodes[i];
+                if (n != null && IsNodeVisible(n))
                     return n;
             }
 
             return _dialogueGraph.Nodes[0];
+        }
+
+        private bool IsNodeVisible(DialogueNode node)
+        {
+            return node == null || IsOptionVisible(node.Visibility, null);
         }
 
         // ----- Legacy enum-based option handling -----
@@ -605,6 +621,15 @@ namespace Sol.AI
             if (visibility.Rule == DialogueVisibilityRule.LocalFlagNotSet)
                 return !HasConversationFlag(localFlag);
 
+            if (visibility.Rule == DialogueVisibilityRule.ScheduleActivity)
+                return IsCurrentScheduleActivity(visibility.ScheduleActivity);
+
+            if (visibility.Rule == DialogueVisibilityRule.ScheduleLocation)
+                return IsCurrentScheduleLocation(visibility.ScheduleLocationId);
+
+            if (visibility.Rule == DialogueVisibilityRule.TimeWindow)
+                return IsScheduleHourInWindow(visibility.StartHour, visibility.EndHour);
+
             QuestManager qm = QuestManager.Instance;
             if (qm == null)
                 return visibility.Rule == DialogueVisibilityRule.QuestNotStarted;
@@ -635,6 +660,11 @@ namespace Sol.AI
                 default:
                     return true;
             }
+        }
+
+        public bool IsDialogueVisibilityVisibleForTests(DialogueOptionVisibility visibility, string localFlag = null)
+        {
+            return IsOptionVisible(visibility, localFlag);
         }
 
         private static QuestSaveData FindActiveSaveData(QuestManager qm, string questId)

@@ -160,6 +160,7 @@ namespace Sol.AI
             // Build per-frame context once so states don't recalculate.
             Context = new IntentContext(soul);
             ResolvePlayerTarget();
+            UpdateScheduleDriver();
 
             if (canUseNavAgent)
                 agent.speed = GetCurrentTargetSpeed();
@@ -394,6 +395,11 @@ namespace Sol.AI
             states[State.Patrol]   = new AIState_Patrol(this);
             states[State.Chase]    = new AIState_Chase(this);
             states[State.Dead]     = new AIState_Dead(this);
+            states[State.Travel]   = new AIState_Travel(this);
+            states[State.Sleep]    = new AIState_ScheduleActivity(this, State.Sleep, NpcScheduleActivity.Sleep);
+            states[State.Work]     = new AIState_ScheduleActivity(this, State.Work, NpcScheduleActivity.Work);
+            states[State.Eat]      = new AIState_ScheduleActivity(this, State.Eat, NpcScheduleActivity.Eat);
+            states[State.Socialize] = new AIState_ScheduleActivity(this, State.Socialize, NpcScheduleActivity.Socialize);
             activeState = states[State.Idle];
             activeState.Enter();
         }
@@ -421,6 +427,11 @@ namespace Sol.AI
             {
                 State.Dead           => 100,
                 State.Chase          => 30,
+                State.Travel         => 20,
+                State.Sleep          => 20,
+                State.Work           => 20,
+                State.Eat            => 20,
+                State.Socialize      => 20,
                 State.Patrol         => 20,
                 State.Idle           => 10,
                 _                    => 0

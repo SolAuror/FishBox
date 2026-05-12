@@ -28,6 +28,8 @@ namespace Sol.AI
         [TextArea(2, 5)]
         public string SpeakerLine = "";
 
+        public DialogueOptionVisibility Visibility = new();
+
         public List<DialogueOption> Options = new();
     }
 
@@ -87,6 +89,20 @@ namespace Sol.AI
 
         [Tooltip("For QuestOnObjective: the required CurrentObjectiveIndex (-1 = any objective).")]
         public int RequiredObjectiveIndex = -1;
+
+        [Tooltip("For ScheduleActivity: the required current NPC schedule activity.")]
+        public NpcScheduleActivity ScheduleActivity = NpcScheduleActivity.Work;
+
+        [Tooltip("For ScheduleLocation: the required current NPC schedule location id.")]
+        public string ScheduleLocationId = "";
+
+        [Tooltip("For TimeWindow: inclusive start hour in sky-aligned civil time.")]
+        [Range(0f, 24f)]
+        public float StartHour = 0f;
+
+        [Tooltip("For TimeWindow: exclusive end hour in sky-aligned civil time. Can wrap past midnight.")]
+        [Range(0f, 24f)]
+        public float EndHour = 24f;
     }
 
     public enum DialogueVisibilityRule
@@ -99,5 +115,8 @@ namespace Sol.AI
         QuestOnObjective = 5,
         LocalFlagSet = 6,
         LocalFlagNotSet = 7,
+        ScheduleActivity = 8,
+        ScheduleLocation = 9,
+        TimeWindow = 10,
     }
 }

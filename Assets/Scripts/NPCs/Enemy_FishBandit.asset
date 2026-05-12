@@ -18,8 +18,8 @@ MonoBehaviour:
   patrolSampleCount: 8
   loop: 1
   arrivalThreshold: 0.5
-  turnSpeed: 360
-  autoChasePlayer: 1
+  turnSpeed: 250
+  autoChasePlayer: 0
   chaseRadius: 8
-  chaseLoseRadius: 12
+  chaseLoseRadius: 9
   chaseStopDistance: 1.5

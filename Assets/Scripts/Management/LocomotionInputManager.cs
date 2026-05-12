@@ -366,6 +366,18 @@ namespace Sol.Locomotion
         }
 
         #region Perspective
+        public bool TrySetCameraMode(CameraMode mode, bool useTransition)
+        {
+            if (!HasRequiredBindings())
+                TryResolveRuntimeBindings(applyPerspectiveIfNeeded: false);
+
+            if (GetCameraForMode(mode) == null)
+                return false;
+
+            ApplyConfiguredPerspective(mode, useTransition);
+            return true;
+        }
+
         private void SwapPerspective()
         {
             IsThirdPerson = !IsThirdPerson;

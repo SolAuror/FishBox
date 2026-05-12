@@ -82,6 +82,7 @@ namespace Sol
         public const string InteractionPointPrefix = "INP";
         public const string OwnerPrefix = "OWN";
         public const string QuestPrefix = "QST";
+        public const string SchedulePrefix = "SCH";
         public const string DefaultPlayerOwnerId = "PLY00001";
 
         private const int CodeWidth = 5;
