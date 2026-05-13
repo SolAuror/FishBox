@@ -121,7 +121,7 @@ namespace Sol
             if (itemToTransfer == null) return false;
 
             // Target must have room.
-            if (!to.Add(itemToTransfer))
+            if (!to.Add(itemToTransfer, InventoryAddOwnershipMode.PreserveExistingOwner))
             {
                 RollbackExtractedItem(slot, itemToTransfer);
                 return false;
@@ -151,7 +151,7 @@ namespace Sol
             if (itemToTransfer == null) return false;
 
             // Target must have room.
-            if (!npcInv.Add(itemToTransfer))
+            if (!npcInv.Add(itemToTransfer, InventoryAddOwnershipMode.PreserveExistingOwner))
             {
                 RollbackExtractedItem(slot, itemToTransfer);
                 return false;
@@ -184,7 +184,7 @@ namespace Sol
             if (itemToTransfer == null) return false;
 
             // Player must have room.
-            if (!playerInv.Add(itemToTransfer))
+            if (!playerInv.Add(itemToTransfer, InventoryAddOwnershipMode.PreserveExistingOwner))
             {
                 RollbackExtractedItem(slot, itemToTransfer);
                 return false;

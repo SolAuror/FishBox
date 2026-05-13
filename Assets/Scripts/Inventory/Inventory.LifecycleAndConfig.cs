@@ -16,7 +16,7 @@ namespace Sol
             ResolveOwnerIdentity();
             SeedFromInspector();
             NormalizeGoldSlots();
-            SyncContainedItemOwnersToContainer();
+            SyncContainedItemOwnersToInventory();
         }
 
 

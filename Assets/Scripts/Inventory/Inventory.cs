@@ -31,6 +31,12 @@ namespace Sol
         Container = 1
     }
 
+    public enum InventoryAddOwnershipMode
+    {
+        ClaimInventoryOwner = 0,
+        PreserveExistingOwner = 1
+    }
+
     public enum InventoryAccessResult
     {
         Allowed = 0,
@@ -131,5 +137,4 @@ namespace Sol
 #endif
     }
 }
-
 

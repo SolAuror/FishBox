@@ -12,9 +12,9 @@ namespace Sol
     {
 
         /// <summary>Try to add an item. Returns true if it was added.</summary>
-        public bool Add(ItemComponent item)
+        public bool Add(ItemComponent item, InventoryAddOwnershipMode ownershipMode = InventoryAddOwnershipMode.ClaimInventoryOwner)
         {
-            return AddInternal(item, convertGoldToBalance: true);
+            return AddInternal(item, convertGoldToBalance: true, ownershipMode);
         }
 
 
@@ -22,13 +22,13 @@ namespace Sol
         /// Add an item as a physical inventory entry, even if it is a Gold item.
         /// Used for corpse-loot itemization so gold can be visibly looted.
         /// </summary>
-        public bool AddPhysical(ItemComponent item)
+        public bool AddPhysical(ItemComponent item, InventoryAddOwnershipMode ownershipMode = InventoryAddOwnershipMode.ClaimInventoryOwner)
         {
-            return AddInternal(item, convertGoldToBalance: false);
+            return AddInternal(item, convertGoldToBalance: false, ownershipMode);
         }
 
 
-        private bool AddInternal(ItemComponent item, bool convertGoldToBalance)
+        private bool AddInternal(ItemComponent item, bool convertGoldToBalance, InventoryAddOwnershipMode ownershipMode)
         {
             if (item == null) return false;
 
@@ -40,7 +40,7 @@ namespace Sol
                 return true;
             }
 
-            ApplyContainerOwnerToItem(item);
+            ApplyInventoryOwnerToItem(item, ownershipMode);
 
             // Try stacking first.
             if (item.IsStackable)
@@ -127,18 +127,19 @@ namespace Sol
         }
 
 
-        private void ApplyContainerOwnerToItem(ItemComponent item)
+        private void ApplyInventoryOwnerToItem(ItemComponent item, InventoryAddOwnershipMode ownershipMode)
         {
-            if (item == null || !IsWorldContainer || !HasOwner)
+            if (item == null || ownershipMode == InventoryAddOwnershipMode.PreserveExistingOwner || !HasOwner)
                 return;
 
             item.SetOwnerId(OwnerId);
+            item.SetStolen(false);
         }
 
 
-        private void SyncContainedItemOwnersToContainer()
+        private void SyncContainedItemOwnersToInventory()
         {
-            if (!IsWorldContainer || !HasOwner)
+            if (!HasOwner)
                 return;
 
             for (int i = 0; i < _slots.Count; i++)
@@ -208,10 +209,12 @@ namespace Sol
         /// <summary>
         /// Insert a pre-constructed slot, for special cases like uniquely caught fish with FishCode. Returns true if added.
         /// </summary>
-        public bool AddSlot(InventorySlot slot)
+        public bool AddSlot(InventorySlot slot, InventoryAddOwnershipMode ownershipMode = InventoryAddOwnershipMode.ClaimInventoryOwner)
         {
             if (slot == null) return false;
             if (GetCapacityUsedSlotCount() >= _capacity) return false;
+            foreach (ItemComponent item in slot.EnumerateItems())
+                ApplyInventoryOwnerToItem(item, ownershipMode);
             _slots.Add(slot);
             NotifyChanged();
             return true;

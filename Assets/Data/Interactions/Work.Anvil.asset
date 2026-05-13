@@ -27,7 +27,7 @@ MonoBehaviour:
   _customClip: {fileID: 0}
   _readyStatePath: 
   _readyNormalizedTime: 0.85
-  _completionMode: 0
+  _completionMode: 1
   _useDuration: 2
   _forceThirdPerson: 1
   _suppressCombat: 1

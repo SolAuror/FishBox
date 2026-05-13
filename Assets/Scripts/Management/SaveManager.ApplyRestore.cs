@@ -341,7 +341,7 @@ namespace Sol.SaveLoad
                     continue;
                 }
 
-                if (!inventory.Add(item))
+                if (!inventory.Add(item, InventoryAddOwnershipMode.PreserveExistingOwner))
                 {
                     Destroy(item.gameObject);
                     continue;
@@ -372,7 +372,7 @@ namespace Sol.SaveLoad
                     if (item == null)
                         continue;
 
-                    if (!inventory.Add(item))
+                    if (!inventory.Add(item, InventoryAddOwnershipMode.PreserveExistingOwner))
                         Destroy(item.gameObject);
                 }
             }

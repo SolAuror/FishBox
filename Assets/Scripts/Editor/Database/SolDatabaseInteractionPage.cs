@@ -81,8 +81,9 @@ namespace Sol.Editor
                     _definitions.Add(definition);
             }
 
-            _points.AddRange(Object.FindObjectsByType<InteractionPoint>(FindObjectsInactive.Include, FindObjectsSortMode.None));
-            _beds.AddRange(Object.FindObjectsByType<SleepInteractable>(FindObjectsInactive.Include, FindObjectsSortMode.None));
+            AddSceneInteractions();
+            AddPrefabInteractions();
+            PruneDestroyedReferences();
             _rowsDirty = true;
             RebuildRowsIfNeeded();
         }
@@ -103,18 +104,26 @@ namespace Sol.Editor
             RefreshIndex();
             for (int i = 0; i < _definitions.Count; i++)
             {
-                if (string.Equals(_definitions[i].DefinitionId, id, System.StringComparison.OrdinalIgnoreCase))
+                InteractionDefinition definition = _definitions[i];
+                if (definition == null)
+                    continue;
+
+                if (string.Equals(definition.DefinitionId, id, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    SelectObject(_definitions[i]);
+                    SelectObject(definition);
                     return true;
                 }
             }
 
             for (int i = 0; i < _points.Count; i++)
             {
-                if (string.Equals(_points[i].InteractionPointId, id, System.StringComparison.OrdinalIgnoreCase))
+                InteractionPoint point = _points[i];
+                if (point == null)
+                    continue;
+
+                if (string.Equals(point.InteractionPointId, id, System.StringComparison.OrdinalIgnoreCase))
                 {
-                    SelectObject(_points[i]);
+                    SelectObject(point);
                     return true;
                 }
             }
@@ -124,15 +133,35 @@ namespace Sol.Editor
 
         public override List<SolDatabaseIssue> CollectIssues()
         {
+            PruneDestroyedReferences();
             List<SolDatabaseIssue> issues = new();
             for (int i = 0; i < _definitions.Count; i++)
-                AddIssues(issues, _definitions[i], _definitions[i].DefinitionId, _definitions[i].name, GetWarnings(_definitions[i]));
+            {
+                InteractionDefinition definition = _definitions[i];
+                if (definition == null)
+                    continue;
+
+                AddIssues(issues, definition, definition.DefinitionId, definition.name, GetWarnings(definition));
+            }
 
             for (int i = 0; i < _points.Count; i++)
-                AddIssues(issues, _points[i], _points[i].InteractionPointId, _points[i].name, GetWarnings(_points[i]));
+            {
+                InteractionPoint point = _points[i];
+                if (point == null)
+                    continue;
+
+                AddIssues(issues, point, point.InteractionPointId, point.name, GetWarnings(point));
+            }
 
             for (int i = 0; i < _beds.Count; i++)
-                AddIssues(issues, _beds[i], _beds[i].InteractionPoint != null ? _beds[i].InteractionPoint.InteractionPointId : _beds[i].name, _beds[i].name, GetWarnings(_beds[i]));
+            {
+                SleepInteractable bed = _beds[i];
+                if (bed == null)
+                    continue;
+
+                InteractionPoint point = bed.InteractionPoint;
+                AddIssues(issues, bed, point != null ? point.InteractionPointId : bed.name, bed.name, GetWarnings(bed));
+            }
 
             return issues;
         }
@@ -170,6 +199,8 @@ namespace Sol.Editor
             EditorGUILayout.BeginVertical();
             if (_selected == null)
             {
+                _selected = null;
+                _selectedSerializedObject = null;
                 EditorGUILayout.HelpBox("Select an interaction definition, scene point, or bed.", MessageType.Info);
                 DrawSummary();
                 EditorGUILayout.EndVertical();
@@ -194,7 +225,7 @@ namespace Sol.Editor
         private void DrawSummary()
         {
             EditorGUILayout.Space(6f);
-            EditorGUILayout.LabelField("Open Scene", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Project + Open Scene", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("Definitions", _definitions.Count.ToString());
             EditorGUILayout.LabelField("Interaction Points", _points.Count.ToString());
             EditorGUILayout.LabelField("Beds", _beds.Count.ToString());
@@ -239,11 +270,17 @@ namespace Sol.Editor
             {
                 case ViewMode.SceneAudit:
                     for (int i = 0; i < _points.Count; i++)
-                        _rows.Add(BuildPointRow(_points[i]));
+                    {
+                        if (_points[i] != null)
+                            _rows.Add(BuildPointRow(_points[i]));
+                    }
                     break;
                 case ViewMode.Beds:
                     for (int i = 0; i < _beds.Count; i++)
-                        _rows.Add(BuildBedRow(_beds[i]));
+                    {
+                        if (_beds[i] != null)
+                            _rows.Add(BuildBedRow(_beds[i]));
+                    }
                     break;
                 case ViewMode.Ownership:
                     for (int i = 0; i < _points.Count; i++)
@@ -254,7 +291,10 @@ namespace Sol.Editor
                     break;
                 default:
                     for (int i = 0; i < _definitions.Count; i++)
-                        _rows.Add(BuildDefinitionRow(_definitions[i]));
+                    {
+                        if (_definitions[i] != null)
+                            _rows.Add(BuildDefinitionRow(_definitions[i]));
+                    }
                     break;
             }
 
@@ -291,26 +331,32 @@ namespace Sol.Editor
 
         private Row BuildPointRow(InteractionPoint point)
         {
+            if (point == null)
+                return BuildMissingRow("Missing InteractionPoint");
+
             List<InteractionAuthoringWarning> warnings = GetWarnings(point);
-            string owner = point != null && point.IsOwned ? point.OwnerId : "Public";
-            string title = point != null ? point.name : "<missing>";
-            string subtitle = point != null ? $"{point.AnimationType} / {owner}" : string.Empty;
+            string owner = point.IsOwned ? point.OwnerId : "Public";
+            string title = point.name;
+            string subtitle = $"{point.AnimationType} / {owner}";
             return new Row
             {
                 Context = point,
-                Id = point != null ? point.InteractionPointId : string.Empty,
+                Id = point.InteractionPointId,
                 Title = title,
                 Subtitle = subtitle,
-                SearchText = $"{title} {subtitle}".ToLowerInvariant(),
+                SearchText = $"{title} {subtitle} {AssetDatabase.GetAssetPath(point)}".ToLowerInvariant(),
                 WarningCount = warnings.Count
             };
         }
 
         private Row BuildBedRow(SleepInteractable bed)
         {
+            if (bed == null)
+                return BuildMissingRow("Missing SleepInteractable");
+
             List<InteractionAuthoringWarning> warnings = GetWarnings(bed);
-            InteractionPoint point = bed != null ? bed.InteractionPoint : null;
-            string title = bed != null ? bed.name : "<missing>";
+            InteractionPoint point = bed.InteractionPoint;
+            string title = bed.name;
             string subtitle = point != null ? $"{point.AnimationType} / {(point.IsOwned ? point.OwnerId : "Public")}" : "Missing InteractionPoint";
             return new Row
             {
@@ -320,6 +366,16 @@ namespace Sol.Editor
                 Subtitle = subtitle,
                 SearchText = $"{title} {subtitle}".ToLowerInvariant(),
                 WarningCount = warnings.Count
+            };
+        }
+
+        private static Row BuildMissingRow(string title)
+        {
+            return new Row
+            {
+                Title = title,
+                Subtitle = "Destroyed or unloaded reference",
+                SearchText = title.ToLowerInvariant()
             };
         }
 
@@ -358,13 +414,24 @@ namespace Sol.Editor
 
         private void SelectObject(Object context)
         {
+            if (context == null)
+            {
+                _selected = null;
+                _selectedSerializedObject = null;
+                Window?.Repaint();
+                return;
+            }
+
             _selected = context;
-            _selectedSerializedObject = context != null ? new SerializedObject(context) : null;
+            _selectedSerializedObject = new SerializedObject(context);
             Window?.Repaint();
         }
 
         private static string GetContextSubtitle(Object context)
         {
+            if (context == null)
+                return string.Empty;
+
             if (context is InteractionDefinition definition)
                 return AssetDatabase.GetAssetPath(definition);
             if (context is InteractionPoint point)
@@ -392,6 +459,82 @@ namespace Sol.Editor
             align.transform.localPosition = Vector3.forward;
             Selection.activeTransform = align.transform;
             RefreshIndex();
+        }
+
+        private void AddSceneInteractions()
+        {
+            InteractionPoint[] scenePoints = Object.FindObjectsByType<InteractionPoint>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < scenePoints.Length; i++)
+                AddPoint(scenePoints[i]);
+
+            SleepInteractable[] sceneBeds = Object.FindObjectsByType<SleepInteractable>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < sceneBeds.Length; i++)
+                AddBed(sceneBeds[i]);
+        }
+
+        private void AddPrefabInteractions()
+        {
+            string[] prefabGuids = AssetDatabase.FindAssets("t:Prefab", new[] { "Assets" });
+            for (int i = 0; i < prefabGuids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(prefabGuids[i]);
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (prefab == null)
+                    continue;
+
+                InteractionPoint[] prefabPoints = prefab.GetComponentsInChildren<InteractionPoint>(true);
+                for (int j = 0; j < prefabPoints.Length; j++)
+                    AddPoint(prefabPoints[j]);
+
+                SleepInteractable[] prefabBeds = prefab.GetComponentsInChildren<SleepInteractable>(true);
+                for (int j = 0; j < prefabBeds.Length; j++)
+                    AddBed(prefabBeds[j]);
+            }
+        }
+
+        private void AddPoint(InteractionPoint point)
+        {
+            if (point == null || _points.Contains(point))
+                return;
+
+            _points.Add(point);
+        }
+
+        private void AddBed(SleepInteractable bed)
+        {
+            if (bed == null || _beds.Contains(bed))
+                return;
+
+            _beds.Add(bed);
+        }
+
+        private void PruneDestroyedReferences()
+        {
+            _definitions.RemoveAll(definition => definition == null);
+            _points.RemoveAll(point => point == null);
+            _beds.RemoveAll(bed => bed == null);
+
+            if (_selected == null)
+            {
+                _selected = null;
+                _selectedSerializedObject = null;
+            }
+
+            List<Object> staleKeys = null;
+            foreach (Object key in _warningCache.Keys)
+            {
+                if (key != null)
+                    continue;
+
+                staleKeys ??= new List<Object>();
+                staleKeys.Add(key);
+            }
+
+            if (staleKeys == null)
+                return;
+
+            for (int i = 0; i < staleKeys.Count; i++)
+                _warningCache.Remove(staleKeys[i]);
         }
 
         private void ApplyFirstDefinitionToSelectedPoint()

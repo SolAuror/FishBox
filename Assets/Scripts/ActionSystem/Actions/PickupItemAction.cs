@@ -78,7 +78,10 @@ namespace Sol.Actions
             }
 
             bool inventoryAtCapacity = Context.Inventory.Count >= Context.Inventory.Capacity;
-            bool added = Context.Inventory.Add(_item);
+            InventoryAddOwnershipMode ownershipMode = markedStolen
+                ? InventoryAddOwnershipMode.PreserveExistingOwner
+                : InventoryAddOwnershipMode.ClaimInventoryOwner;
+            bool added = Context.Inventory.Add(_item, ownershipMode);
             if (!added && markedStolen)
                 _item.SetStolen(false);
 
