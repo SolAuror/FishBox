@@ -20,6 +20,9 @@ namespace Sol.Editor
             if (showWarnings && item != null)
                 DrawWarnings(item);
 
+            if (DrawRegistryBackedInspector(serializedObject, item))
+                return;
+
             DrawBasicSection(serializedObject, item);
             DrawAuthoringSection(serializedObject, item);
             DrawInventorySection(serializedObject);
@@ -28,6 +31,172 @@ namespace Sol.Editor
             DrawFishingSection(item);
             DrawOwnershipSection(serializedObject);
             DrawPrefabWorldSection(serializedObject);
+        }
+
+        private static bool DrawRegistryBackedInspector(SerializedObject itemObject, ItemComponent item)
+        {
+            if (item == null)
+                return false;
+
+            ItemRegistry registry = ItemRegistry.Get();
+            int entryIndex = FindRegistryEntryIndex(registry, item);
+            if (registry == null || entryIndex < 0)
+                return false;
+
+            SerializedObject registryObject = new(registry);
+            registryObject.Update();
+            SerializedProperty entries = registryObject.FindProperty("_entries");
+            if (entries == null || entryIndex >= entries.arraySize)
+                return false;
+
+            SerializedProperty entry = entries.GetArrayElementAtIndex(entryIndex);
+            DrawRegistryIdentitySection(entry, itemObject, item);
+            DrawRegistryAuthoringSection(entry, item);
+            SolDatabaseItemPage.DrawInventoryRulesSection(entry);
+            SolDatabaseItemPage.DrawUseDefinitionSection(entry);
+            SolDatabaseItemPage.DrawEquipmentDefinitionSection(entry);
+            DrawFishingSection(item);
+            DrawOwnershipSection(itemObject);
+            DrawPrefabWorldSection(itemObject);
+
+            if (registryObject.ApplyModifiedProperties())
+            {
+                registry.Entries[entryIndex]?.Normalize();
+                EditorUtility.SetDirty(registry);
+                ItemRegistry.NotifyEditorDefinitionsChanged();
+            }
+
+            return true;
+        }
+
+        private static void DrawRegistryIdentitySection(SerializedProperty entry, SerializedObject itemObject, ItemComponent item)
+        {
+            if (!BeginSection("Basic", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
+            SerializedProperty displayName = entry.FindPropertyRelative("DisplayName");
+            if (displayName != null)
+            {
+                EditorGUILayout.LabelField("Item Name", EditorStyles.miniLabel);
+                GUIStyle bigField = new(EditorStyles.textField) { fontSize = 14, fixedHeight = 22f };
+                displayName.stringValue = EditorGUILayout.TextField(displayName.stringValue ?? string.Empty, bigField);
+            }
+
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUILayout.PropertyField(entry.FindPropertyRelative("ItemId"));
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.FlexibleSpace();
+            using (new EditorGUI.DisabledScope(item == null))
+            {
+                if (GUILayout.Button("Regenerate ItemId...", GUILayout.Width(150f)))
+                    RegenerateItemId(itemObject, item);
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.PropertyField(entry.FindPropertyRelative("ItemType"));
+            EditorGUILayout.PropertyField(entry.FindPropertyRelative("Value"));
+            EditorGUILayout.PropertyField(entry.FindPropertyRelative("Icon"));
+            EditorGUILayout.PropertyField(entry.FindPropertyRelative("FlavourText"));
+            EndSection();
+        }
+
+        private static void DrawRegistryAuthoringSection(SerializedProperty entry, ItemComponent item)
+        {
+            if (!BeginSection("Authoring", defaultOpen: true))
+            {
+                EndSection();
+                return;
+            }
+
+            SerializedProperty templateProp = entry.FindPropertyRelative("AuthoringTemplate");
+            EditorGUILayout.PropertyField(templateProp);
+            DrawRegistryTemplateActions(entry, item);
+            EditorGUILayout.PropertyField(entry.FindPropertyRelative("AuthoringNotes"));
+            EndSection();
+        }
+
+        private static void DrawRegistryTemplateActions(SerializedProperty entry, ItemComponent item)
+        {
+            SerializedProperty templateProp = entry.FindPropertyRelative("AuthoringTemplate");
+            ItemAuthoringTemplate template = templateProp != null
+                ? (ItemAuthoringTemplate)templateProp.enumValueIndex
+                : ItemAuthoringTemplate.None;
+
+            EditorGUILayout.Space(4f);
+            EditorGUILayout.HelpBox(
+                "Fill Missing Defaults adds prefab setup only where empty/default. Reapply Template overwrites template-owned prefab setup; item design values remain in ItemRegistry.",
+                MessageType.None);
+
+            using (new EditorGUI.DisabledScope(item == null || template == ItemAuthoringTemplate.None))
+            {
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("Fill Missing Defaults", GUILayout.Width(150f)))
+                {
+                    entry.serializedObject.ApplyModifiedProperties();
+                    ItemAuthoringEditorUtility.FillMissingTemplateDefaults(item, template, GetRegistryDisplayName(entry, item));
+                    entry.serializedObject.Update();
+                    ItemRegistry.ScheduleEditorSync();
+                }
+                if (GUILayout.Button("Reapply Template...", GUILayout.Width(150f)))
+                {
+                    ReapplyRegistryTemplate(entry, item, template);
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+        }
+
+        private static void ReapplyRegistryTemplate(SerializedProperty entry, ItemComponent item, ItemAuthoringTemplate template)
+        {
+            List<string> changes = ItemAuthoringEditorUtility.BuildTemplateOverwritePreview(template);
+            string message = "This will overwrite visual prefab setup fields:\n\n- "
+                + string.Join("\n- ", changes)
+                + "\n\nItem design values remain authoritative in ItemRegistry.";
+
+            if (!EditorUtility.DisplayDialog("Reapply Item Template", message, "Overwrite Fields", "Cancel"))
+                return;
+
+            entry.serializedObject.ApplyModifiedProperties();
+            ItemAuthoringEditorUtility.ApplyTemplate(item, template, GetRegistryDisplayName(entry, item));
+            entry.serializedObject.Update();
+            ItemRegistry.ScheduleEditorSync();
+        }
+
+        private static string GetRegistryDisplayName(SerializedProperty entry, ItemComponent item)
+        {
+            SerializedProperty displayName = entry.FindPropertyRelative("DisplayName");
+            if (displayName != null && !string.IsNullOrWhiteSpace(displayName.stringValue))
+                return displayName.stringValue;
+
+            return item != null ? item.ItemName : string.Empty;
+        }
+
+        private static int FindRegistryEntryIndex(ItemRegistry registry, ItemComponent item)
+        {
+            if (registry?.Entries == null || item == null)
+                return -1;
+
+            for (int i = 0; i < registry.Entries.Count; i++)
+            {
+                ItemRegistry.Entry entry = registry.Entries[i];
+                if (entry == null)
+                    continue;
+
+                if (entry.Prefab == item)
+                    return i;
+
+                if (!string.IsNullOrWhiteSpace(item.ItemId)
+                    && string.Equals(entry.ItemId, item.ItemId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         public static void DrawWarnings(ItemComponent item)

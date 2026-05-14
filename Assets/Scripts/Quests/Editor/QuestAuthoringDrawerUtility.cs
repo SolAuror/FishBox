@@ -155,7 +155,7 @@ namespace Sol.Editor
                 EditorGUILayout.BeginHorizontal();
                 GUILayout.FlexibleSpace();
                 if (GUILayout.Button("Open in NPC Database", GUILayout.Width(180f)))
-                    NPCDatabaseWindow.SelectByOwnerId(giver);
+                    SolDatabaseWindow.Open(SolDatabaseTab.NPCs, giver);
                 EditorGUILayout.EndHorizontal();
             }
 
@@ -218,7 +218,7 @@ namespace Sol.Editor
                 using (new EditorGUI.DisabledScope(string.IsNullOrWhiteSpace(element.stringValue)))
                 {
                     if (GUI.Button(openRect, new GUIContent("→", "Select prerequisite quest")))
-                        QuestDatabaseWindow.SelectByQuestId(element.stringValue);
+                        SolDatabaseWindow.Open(SolDatabaseTab.Quests, element.stringValue);
                 }
             };
             return list;
@@ -374,7 +374,7 @@ namespace Sol.Editor
                 using (new EditorGUI.DisabledScope(itemId == null || string.IsNullOrWhiteSpace(itemId.stringValue)))
                 {
                     if (GUI.Button(openRect, new GUIContent("→", "Select reward item")))
-                        ItemDatabaseWindow.SelectByItemId(itemId.stringValue);
+                        SolDatabaseWindow.Open(SolDatabaseTab.Items, itemId.stringValue);
                 }
 
                 if (count != null)

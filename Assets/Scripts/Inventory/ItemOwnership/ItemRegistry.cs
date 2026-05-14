@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
@@ -113,6 +114,7 @@ namespace Sol
         private const string DefaultAssetPath = "Assets/Data/ItemRegistry.asset";
         private static bool _editorSyncScheduled;
         private static bool _isEditorSynchronizing;
+        private static bool _editorDefinitionsChangedScheduled;
 #endif
 
         public static ItemRegistry Get()
@@ -144,6 +146,22 @@ namespace Sol
                 return FindEntry(itemId);
 
             return FindEntry(prefab.ItemId);
+        }
+
+        public Entry GetDefinitionForPrefab(ItemComponent prefab)
+        {
+            if (prefab == null)
+                return null;
+
+            EnsureLookup();
+            for (int i = 0; i < _entries.Count; i++)
+            {
+                Entry entry = _entries[i];
+                if (entry != null && entry.Prefab == prefab)
+                    return entry;
+            }
+
+            return GetDefinition(prefab.ItemId);
         }
 
         public ItemComponent GetVisualPrefab(string itemId)
@@ -250,11 +268,31 @@ namespace Sol
 
 #if UNITY_EDITOR
             ScheduleEditorSync();
+            NotifyEditorDefinitionsChanged();
 #endif
         }
 
 #if UNITY_EDITOR
         internal static bool IsEditorSyncInProgress => _isEditorSynchronizing;
+        public static event Action EditorDefinitionsChanged;
+
+        public static void NotifyEditorDefinitionsChanged()
+        {
+            if (_instance != null)
+                _instance._lookup = null;
+
+            if (_editorDefinitionsChangedScheduled)
+                return;
+
+            _editorDefinitionsChangedScheduled = true;
+            EditorApplication.delayCall += ExecuteEditorDefinitionsChanged;
+        }
+
+        private static void ExecuteEditorDefinitionsChanged()
+        {
+            _editorDefinitionsChangedScheduled = false;
+            EditorDefinitionsChanged?.Invoke();
+        }
 
         [InitializeOnLoadMethod]
         private static void InitializeEditorHooks()
@@ -312,6 +350,7 @@ namespace Sol
                 registry._lookup = null;
                 EditorUtility.SetDirty(registry);
                 AssetDatabase.SaveAssets();
+                NotifyEditorDefinitionsChanged();
             }
 
             Debug.Log($"[ItemRegistry] Migrated prefab design into {migrated} registry item definition(s).");
@@ -444,6 +483,7 @@ namespace Sol
                 _lookup = null;
                 EditorUtility.SetDirty(this);
                 AssetDatabase.SaveAssets();
+                NotifyEditorDefinitionsChanged();
             }
         }
 

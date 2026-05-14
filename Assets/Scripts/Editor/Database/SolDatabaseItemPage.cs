@@ -7,6 +7,9 @@ namespace Sol.Editor
 {
     internal sealed class SolDatabaseItemPage : SolDatabasePageBase
     {
+        private const float PreviewHeight = 220f;
+        private const float PreviewRotationSpeed = 20f;
+
         internal enum ItemFilter
         {
             All,
@@ -63,9 +66,31 @@ namespace Sol.Editor
         private ItemRegistry.Entry _selectedEntry;
         private int _selectedEntryIndex = -1;
         private SerializedObject _registrySerializedObject;
+        private readonly SolDatabaseItemPreview _preview = new();
+        private bool _previewAutoRotate = true;
+        private double _lastPreviewTime;
 
         public override SolDatabaseTab Tab => SolDatabaseTab.Items;
         public override string DisplayName => "Items";
+
+        public override void Dispose()
+        {
+            _preview.Dispose();
+        }
+
+        public override void CommitPendingEdits()
+        {
+            if (_registrySerializedObject == null || _selectedEntry == null)
+                return;
+
+            if (_registrySerializedObject.ApplyModifiedProperties())
+            {
+                _selectedEntry.Normalize();
+                EditorUtility.SetDirty(_registrySerializedObject.targetObject);
+                RefreshRow(_selectedEntry);
+                ItemRegistry.NotifyEditorDefinitionsChanged();
+            }
+        }
 
         public override void DrawToolbar()
         {
@@ -254,7 +279,8 @@ namespace Sol.Editor
             EditorGUILayout.LabelField(_selectedEntry.Prefab != null ? ItemAuthoringEditorUtility.GetPrefabPath(_selectedEntry.Prefab) : "No visual/world prefab", EditorStyles.miniLabel);
             EditorGUILayout.Space(4f);
 
-            DrawWarnings(_selectedEntry);
+            DrawSelectedPreview();
+            EditorGUILayout.Space(4f);
 
             _registrySerializedObject.Update();
             DrawSelectedRegistryEntry(_registrySerializedObject);
@@ -263,7 +289,10 @@ namespace Sol.Editor
                 _selectedEntry.Normalize();
                 EditorUtility.SetDirty(registry);
                 RefreshRow(_selectedEntry);
+                ItemRegistry.NotifyEditorDefinitionsChanged();
             }
+
+            DrawWarnings(_selectedEntry);
 
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -421,10 +450,98 @@ namespace Sol.Editor
 
         private void SelectEntry(ItemRegistry.Entry entry, int entryIndex)
         {
+            if (_selectedEntry != entry)
+            {
+                CommitPendingEdits();
+                ClearEditorTextFocus();
+            }
+
             _selectedEntry = entry;
             _selectedEntryIndex = entryIndex;
             _registrySerializedObject = ItemRegistry.Get() != null ? new SerializedObject(ItemRegistry.Get()) : null;
+            _preview.SetItem(_selectedEntry?.Prefab);
+            _lastPreviewTime = 0d;
             Window?.Repaint();
+        }
+
+        private void DrawSelectedPreview()
+        {
+            _preview.SetItem(_selectedEntry?.Prefab);
+
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Preview", EditorStyles.boldLabel);
+            GUILayout.FlexibleSpace();
+            _previewAutoRotate = GUILayout.Toggle(_previewAutoRotate, "Auto Rotate", GUILayout.Width(92f));
+            if (GUILayout.Button("Reset", GUILayout.Width(58f)))
+            {
+                _preview.ResetRotation();
+                _lastPreviewTime = 0d;
+            }
+            EditorGUILayout.EndHorizontal();
+
+            Rect previewRect = GUILayoutUtility.GetRect(1f, PreviewHeight, GUILayout.ExpandWidth(true), GUILayout.Height(PreviewHeight));
+            if (Event.current.type == EventType.Repaint)
+            {
+                DrawPreviewBackground(previewRect);
+                if (_preview.HasRenderablePreview)
+                {
+                    RotatePreviewIfNeeded();
+                    Texture texture = _preview.Render(previewRect);
+                    if (texture != null)
+                        GUI.DrawTexture(previewRect, texture, ScaleMode.StretchToFill, alphaBlend: false);
+                    else
+                        DrawPreviewFallback(previewRect, "Preview render failed.");
+                }
+                else
+                {
+                    DrawPreviewFallback(previewRect, _selectedEntry?.Prefab == null
+                        ? "No visual/world prefab assigned."
+                        : "Selected prefab has no renderers to preview.");
+                }
+            }
+
+            EditorGUILayout.EndVertical();
+
+            if (_previewAutoRotate && _preview.HasRenderablePreview)
+                Window?.Repaint();
+        }
+
+        private void RotatePreviewIfNeeded()
+        {
+            if (!_previewAutoRotate)
+            {
+                _lastPreviewTime = 0d;
+                return;
+            }
+
+            double now = EditorApplication.timeSinceStartup;
+            if (_lastPreviewTime <= 0d)
+            {
+                _lastPreviewTime = now;
+                return;
+            }
+
+            float delta = Mathf.Clamp((float)(now - _lastPreviewTime), 0f, 0.1f);
+            _lastPreviewTime = now;
+            _preview.Rotate(delta * PreviewRotationSpeed);
+        }
+
+        private static void DrawPreviewBackground(Rect rect)
+        {
+            EditorGUI.DrawRect(rect, new Color(0.11f, 0.12f, 0.13f, 1f));
+            Rect border = new(rect.x, rect.y, rect.width, 1f);
+            EditorGUI.DrawRect(border, new Color(1f, 1f, 1f, 0.12f));
+        }
+
+        private static void DrawPreviewFallback(Rect rect, string message)
+        {
+            GUIStyle style = new(EditorStyles.centeredGreyMiniLabel)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                wordWrap = true
+            };
+            GUI.Label(rect, message, style);
         }
 
         private void CreateNewItem()
@@ -556,7 +673,7 @@ namespace Sol.Editor
             DrawDefinitionAuthoringSection(entry);
         }
 
-        private static void DrawDefinitionSection(SerializedProperty entry)
+        internal static void DrawDefinitionSection(SerializedProperty entry)
         {
             EditorGUILayout.LabelField("Definition", EditorStyles.boldLabel);
             using (new EditorGUI.DisabledScope(true))
@@ -569,7 +686,7 @@ namespace Sol.Editor
             EditorGUILayout.Space(4f);
         }
 
-        private static void DrawInventoryRulesSection(SerializedProperty entry)
+        internal static void DrawInventoryRulesSection(SerializedProperty entry)
         {
             EditorGUILayout.LabelField("Inventory Rules", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("IsStackable"));
@@ -580,7 +697,7 @@ namespace Sol.Editor
             EditorGUILayout.Space(4f);
         }
 
-        private static void DrawUseDefinitionSection(SerializedProperty entry)
+        internal static void DrawUseDefinitionSection(SerializedProperty entry)
         {
             SerializedProperty effects = entry.FindPropertyRelative("UseEffects");
             SerializedProperty consumable = entry.FindPropertyRelative("IsConsumable");
@@ -593,7 +710,7 @@ namespace Sol.Editor
             EditorGUILayout.Space(4f);
         }
 
-        private static void DrawEquipmentDefinitionSection(SerializedProperty entry)
+        internal static void DrawEquipmentDefinitionSection(SerializedProperty entry)
         {
             SerializedProperty itemType = entry.FindPropertyRelative("ItemType");
             if (itemType == null || !ItemTypeRules.ShowEquipmentSection((ItemType)itemType.enumValueIndex))
@@ -613,7 +730,7 @@ namespace Sol.Editor
             EditorGUILayout.Space(4f);
         }
 
-        private static void DrawVisualPrefabSection(SerializedProperty entry)
+        internal static void DrawVisualPrefabSection(SerializedProperty entry)
         {
             EditorGUILayout.LabelField("Visual / World Prefab", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("Prefab"));
@@ -647,7 +764,7 @@ namespace Sol.Editor
             EditorGUILayout.Space(4f);
         }
 
-        private static void DrawDefinitionAuthoringSection(SerializedProperty entry)
+        internal static void DrawDefinitionAuthoringSection(SerializedProperty entry)
         {
             EditorGUILayout.LabelField("Authoring", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("AuthoringTemplate"));

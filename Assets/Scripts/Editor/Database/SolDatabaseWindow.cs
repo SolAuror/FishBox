@@ -56,7 +56,7 @@ namespace Sol.Editor
         }
     }
 
-    internal interface ISolDatabasePage
+    internal interface ISolDatabasePage : IDisposable
     {
         SolDatabaseTab Tab { get; }
         string DisplayName { get; }
@@ -66,6 +66,7 @@ namespace Sol.Editor
         void DrawPage();
         bool SelectById(string id);
         List<SolDatabaseIssue> CollectIssues();
+        void CommitPendingEdits();
     }
 
     internal abstract class SolDatabasePageBase : ISolDatabasePage
@@ -93,6 +94,21 @@ namespace Sol.Editor
         public abstract void DrawPage();
         public abstract bool SelectById(string id);
         public abstract List<SolDatabaseIssue> CollectIssues();
+
+        public virtual void CommitPendingEdits()
+        {
+        }
+
+        public virtual void Dispose()
+        {
+        }
+
+        protected static void ClearEditorTextFocus()
+        {
+            GUI.FocusControl(null);
+            EditorGUIUtility.editingTextField = false;
+            GUIUtility.keyboardControl = 0;
+        }
 
         protected void DrawSearchField(Action onChanged)
         {
@@ -300,8 +316,25 @@ namespace Sol.Editor
 
         private void OnEnable()
         {
+            ItemRegistry.EditorDefinitionsChanged -= OnItemRegistryDefinitionsChanged;
+            ItemRegistry.EditorDefinitionsChanged += OnItemRegistryDefinitionsChanged;
             EnsurePages();
             RefreshAll();
+        }
+
+        private void OnDisable()
+        {
+            ItemRegistry.EditorDefinitionsChanged -= OnItemRegistryDefinitionsChanged;
+            foreach (ISolDatabasePage page in _pages.Values)
+                page.Dispose();
+
+            _pages.Clear();
+        }
+
+        private void OnItemRegistryDefinitionsChanged()
+        {
+            RefreshAll();
+            Repaint();
         }
 
         private void OnProjectChange()
@@ -356,8 +389,19 @@ namespace Sol.Editor
             if (!_pages.ContainsKey(tab))
                 tab = SolDatabaseTab.Overview;
 
+            if (_pages.TryGetValue(_selectedTab, out ISolDatabasePage currentPage))
+                currentPage.CommitPendingEdits();
+
+            ClearEditorTextFocus();
             _selectedTab = tab;
             LastOpenedTab = tab;
+        }
+
+        private static void ClearEditorTextFocus()
+        {
+            GUI.FocusControl(null);
+            EditorGUIUtility.editingTextField = false;
+            GUIUtility.keyboardControl = 0;
         }
 
         private void DrawMainToolbar()

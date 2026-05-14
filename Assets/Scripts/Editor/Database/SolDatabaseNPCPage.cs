@@ -60,6 +60,19 @@ namespace Sol.Editor
         public override SolDatabaseTab Tab => SolDatabaseTab.NPCs;
         public override string DisplayName => "NPCs";
 
+        public override void CommitPendingEdits()
+        {
+            if (_selectedSerializedObject == null || _selectedSoul == null)
+                return;
+
+            if (_selectedSerializedObject.ApplyModifiedProperties())
+            {
+                EditorUtility.SetDirty(_selectedSoul);
+                NPCRegistry.ScheduleEditorSync();
+                RefreshRow(_selectedSoul);
+            }
+        }
+
         public override void DrawToolbar()
         {
             if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
@@ -241,13 +254,15 @@ namespace Sol.Editor
             EditorGUILayout.Space(4f);
 
             _selectedSerializedObject.Update();
-            NPCAuthoringDrawerUtility.DrawNPCInspector(_selectedSerializedObject, _selectedSoul);
+            NPCAuthoringDrawerUtility.DrawNPCInspector(_selectedSerializedObject, _selectedSoul, showWarnings: false);
             if (_selectedSerializedObject.ApplyModifiedProperties())
             {
                 EditorUtility.SetDirty(_selectedSoul);
                 NPCRegistry.ScheduleEditorSync();
                 RefreshRow(_selectedSoul);
             }
+
+            DrawWarnings(_selectedSoul);
 
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -385,9 +400,33 @@ namespace Sol.Editor
 
         private void SelectSoul(NPCSoul soul)
         {
+            if (_selectedSoul != soul)
+            {
+                CommitPendingEdits();
+                ClearEditorTextFocus();
+            }
+
             _selectedSoul = soul;
             _selectedSerializedObject = _selectedSoul != null ? new SerializedObject(_selectedSoul) : null;
             Window?.Repaint();
+        }
+
+        private void DrawWarnings(NPCSoul soul)
+        {
+            List<NPCAuthoringWarning> warnings = GetWarnings(soul);
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                MessageType type = warnings[i].Severity switch
+                {
+                    NPCAuthoringWarningSeverity.Error => MessageType.Error,
+                    NPCAuthoringWarningSeverity.Warning => MessageType.Warning,
+                    _ => MessageType.Info
+                };
+                EditorGUILayout.HelpBox(warnings[i].Message, type);
+            }
+
+            if (warnings.Count > 0)
+                EditorGUILayout.Space(4f);
         }
 
         private static NPCArchetype DrawArchetypeToolbarPopup(NPCArchetype current, params GUILayoutOption[] options)

@@ -50,6 +50,18 @@ namespace Sol.Editor
         public override SolDatabaseTab Tab => SolDatabaseTab.Schedules;
         public override string DisplayName => "Schedules";
 
+        public override void CommitPendingEdits()
+        {
+            if (_selectedSerializedObject == null || _selectedSchedule == null)
+                return;
+
+            if (_selectedSerializedObject.ApplyModifiedProperties())
+            {
+                EditorUtility.SetDirty(_selectedSchedule);
+                RefreshRow(_selectedSchedule);
+            }
+        }
+
         public override void DrawToolbar()
         {
             if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
@@ -187,7 +199,6 @@ namespace Sol.Editor
             DetailScroll = EditorGUILayout.BeginScrollView(DetailScroll);
             EditorGUILayout.LabelField(DisplayLabel(_selectedSchedule), EditorStyles.largeLabel);
             EditorGUILayout.LabelField(AssetDatabase.GetAssetPath(_selectedSchedule), EditorStyles.miniLabel);
-            DrawWarnings(_selectedSchedule);
 
             _selectedSerializedObject.Update();
             SerializedProperty iterator = _selectedSerializedObject.GetIterator();
@@ -204,6 +215,8 @@ namespace Sol.Editor
                 EditorUtility.SetDirty(_selectedSchedule);
                 RefreshRow(_selectedSchedule);
             }
+
+            DrawWarnings(_selectedSchedule);
 
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -286,6 +299,12 @@ namespace Sol.Editor
 
         private void SelectSchedule(NpcScheduleDefinition schedule)
         {
+            if (_selectedSchedule != schedule)
+            {
+                CommitPendingEdits();
+                ClearEditorTextFocus();
+            }
+
             _selectedSchedule = schedule;
             _selectedSerializedObject = schedule != null ? new SerializedObject(schedule) : null;
             Window?.Repaint();

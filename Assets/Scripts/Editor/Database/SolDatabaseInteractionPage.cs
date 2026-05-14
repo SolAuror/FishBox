@@ -44,6 +44,19 @@ namespace Sol.Editor
         public override SolDatabaseTab Tab => SolDatabaseTab.Interactions;
         public override string DisplayName => "Interactions";
 
+        public override void CommitPendingEdits()
+        {
+            if (_selectedSerializedObject == null || _selected == null)
+                return;
+
+            if (_selectedSerializedObject.ApplyModifiedProperties())
+            {
+                EditorUtility.SetDirty(_selected);
+                _warningCache.Remove(_selected);
+                RefreshIndex();
+            }
+        }
+
         public override void DrawToolbar()
         {
             if (GUILayout.Button("Create Presets", EditorStyles.toolbarButton, GUILayout.Width(98f)))
@@ -215,8 +228,8 @@ namespace Sol.Editor
             EditorGUILayout.LabelField(GetContextSubtitle(_selected), EditorStyles.miniLabel);
             EditorGUILayout.Space(4f);
 
-            DrawWarnings(_selected);
             DrawSelectedInspector();
+            DrawWarnings(_selected);
 
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -414,6 +427,12 @@ namespace Sol.Editor
 
         private void SelectObject(Object context)
         {
+            if (_selected != context)
+            {
+                CommitPendingEdits();
+                ClearEditorTextFocus();
+            }
+
             if (context == null)
             {
                 _selected = null;

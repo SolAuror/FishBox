@@ -69,6 +69,19 @@ namespace Sol.Editor
         public override SolDatabaseTab Tab => SolDatabaseTab.Quests;
         public override string DisplayName => "Quests";
 
+        public override void CommitPendingEdits()
+        {
+            if (_selectedSerializedObject == null || _selectedQuest == null)
+                return;
+
+            if (_selectedSerializedObject.ApplyModifiedProperties())
+            {
+                EditorUtility.SetDirty(_selectedQuest);
+                QuestRegistry.ScheduleEditorSync();
+                RefreshRow(_selectedQuest);
+            }
+        }
+
         public override void DrawToolbar()
         {
             if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
@@ -252,13 +265,15 @@ namespace Sol.Editor
             EditorGUILayout.Space(4f);
 
             _selectedSerializedObject.Update();
-            QuestAuthoringDrawerUtility.DrawQuestInspector(_selectedSerializedObject, _selectedQuest);
+            QuestAuthoringDrawerUtility.DrawQuestInspector(_selectedSerializedObject, _selectedQuest, showWarnings: false);
             if (_selectedSerializedObject.ApplyModifiedProperties())
             {
                 EditorUtility.SetDirty(_selectedQuest);
                 QuestRegistry.ScheduleEditorSync();
                 RefreshRow(_selectedQuest);
             }
+
+            DrawWarnings(_selectedQuest);
 
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -626,10 +641,34 @@ namespace Sol.Editor
 
         private void SelectQuest(QuestDefinition quest)
         {
+            if (_selectedQuest != quest)
+            {
+                CommitPendingEdits();
+                ClearEditorTextFocus();
+            }
+
             _selectedQuest = quest;
             QuestAuthoringDrawerUtility.ClearFocusedObjective();
             _selectedSerializedObject = _selectedQuest != null ? new SerializedObject(_selectedQuest) : null;
             Window?.Repaint();
+        }
+
+        private void DrawWarnings(QuestDefinition quest)
+        {
+            List<QuestAuthoringWarning> warnings = GetWarnings(quest);
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                MessageType type = warnings[i].Severity switch
+                {
+                    QuestAuthoringWarningSeverity.Error => MessageType.Error,
+                    QuestAuthoringWarningSeverity.Warning => MessageType.Warning,
+                    _ => MessageType.Info
+                };
+                EditorGUILayout.HelpBox(warnings[i].Message, type);
+            }
+
+            if (warnings.Count > 0)
+                EditorGUILayout.Space(4f);
         }
 
         private void CreateNewQuest()

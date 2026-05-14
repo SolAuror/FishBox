@@ -223,12 +223,6 @@ namespace Sol.Editor
 
                 foreach (SolDatabaseWindow window in Resources.FindObjectsOfTypeAll<SolDatabaseWindow>())
                     window.Repaint();
-                foreach (ItemDatabaseWindow window in Resources.FindObjectsOfTypeAll<ItemDatabaseWindow>())
-                    window.Repaint();
-                foreach (NPCDatabaseWindow window in Resources.FindObjectsOfTypeAll<NPCDatabaseWindow>())
-                    window.Repaint();
-                foreach (QuestDatabaseWindow window in Resources.FindObjectsOfTypeAll<QuestDatabaseWindow>())
-                    window.Repaint();
 
                 switch (kind)
                 {

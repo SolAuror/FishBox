@@ -52,6 +52,19 @@ namespace Sol.Editor
         protected abstract IReadOnlyList<TDefinition> GetDefinitions(RpgDefinitionRegistry registry);
         protected abstract string BuildSubtitle(TDefinition definition);
 
+        public override void CommitPendingEdits()
+        {
+            if (_selectedSerializedObject == null || _selectedDefinition == null)
+                return;
+
+            if (_selectedSerializedObject.ApplyModifiedProperties())
+            {
+                EditorUtility.SetDirty(_selectedDefinition);
+                RpgDefinitionRegistry.ScheduleEditorSync();
+                RefreshRow(_selectedDefinition);
+            }
+        }
+
         public override void DrawToolbar()
         {
             if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
@@ -220,7 +233,6 @@ namespace Sol.Editor
             EditorGUILayout.LabelField(RpgDefinitionEditorUtility.GetAssetPath(_selectedDefinition), EditorStyles.miniLabel);
             EditorGUILayout.Space(4f);
 
-            DrawWarnings(_selectedDefinition);
             DrawSerializedObject(_selectedSerializedObject);
 
             if (_selectedSerializedObject.ApplyModifiedProperties())
@@ -229,6 +241,8 @@ namespace Sol.Editor
                 RpgDefinitionRegistry.ScheduleEditorSync();
                 RefreshRow(_selectedDefinition);
             }
+
+            DrawWarnings(_selectedDefinition);
 
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
@@ -367,6 +381,12 @@ namespace Sol.Editor
 
         private void SelectDefinition(TDefinition definition)
         {
+            if (_selectedDefinition != definition)
+            {
+                CommitPendingEdits();
+                ClearEditorTextFocus();
+            }
+
             _selectedDefinition = definition;
             _selectedSerializedObject = _selectedDefinition != null ? new SerializedObject(_selectedDefinition) : null;
             Window?.Repaint();
