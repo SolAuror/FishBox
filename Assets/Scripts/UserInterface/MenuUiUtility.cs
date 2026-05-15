@@ -256,6 +256,8 @@ namespace Sol.HUD
                 return string.Empty;
 
             List<string> stats = new(4);
+            if (item.Weight > 0f)
+                stats.Add($"Weight: {item.Weight:0.#}");
             if (item.Damage > 0f)
                 stats.Add($"Damage: {item.Damage:0.#}");
             if (item.Defense > 0f)
@@ -266,6 +268,26 @@ namespace Sol.HUD
                 stats.Add($"Owner ID: {item.ItemOwnerId}");
 
             return string.Join("\n", stats);
+        }
+
+        public static string BuildWeightText(ItemComponent item)
+        {
+            return item != null && item.Weight > 0f ? $"{item.Weight:0.#}" : "-";
+        }
+
+        public static string BuildDamageText(ItemComponent item)
+        {
+            return item != null && item.Damage > 0f ? $"{item.Damage:0.#}" : "-";
+        }
+
+        public static string BuildArmorText(ItemComponent item)
+        {
+            return item != null && item.Defense > 0f ? $"{item.Defense:0.#}" : "-";
+        }
+
+        public static string BuildValueText(ItemComponent item)
+        {
+            return item != null && item.Value > 0 ? $"{item.Value}" : "-";
         }
 
         public static string[] BuildCompactInventoryStatTexts(ItemComponent item)

@@ -99,6 +99,7 @@ namespace Sol.Editor
 
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("ItemType"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("Value"));
+            EditorGUILayout.PropertyField(entry.FindPropertyRelative("Weight"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("Icon"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("FlavourText"));
             EndSection();
@@ -252,6 +253,7 @@ namespace Sol.Editor
 
             DrawProperty(serializedObject, "_itemType");
             DrawProperty(serializedObject, "_value");
+            DrawProperty(serializedObject, "_weight");
             DrawProperty(serializedObject, "_icon");
             DrawProperty(serializedObject, "_flavourText");
 

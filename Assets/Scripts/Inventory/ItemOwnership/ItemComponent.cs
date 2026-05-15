@@ -149,6 +149,8 @@ namespace Sol.Grab
         [SerializeField] private Sprite _icon;
 
         [Header("Properties")]
+        [Tooltip("Inspector: tunes weight.")]
+        [SerializeField] [Min(0f)] private float _weight;
         [Tooltip("Inspector: tunes is stackable.")]
         [SerializeField] private bool _isStackable;
         [SerializeField] private bool _isConsumable;
@@ -207,6 +209,7 @@ namespace Sol.Grab
         public bool HasOwner => !string.IsNullOrWhiteSpace(ItemOwnerId);
         public bool IsStolen => _isStolen;
         public int Value => Definition != null ? Definition.Value : _value;
+        public float Weight => Definition != null ? Definition.Weight : _weight;
         public string FlavourText => Definition != null ? Definition.FlavourText : _flavourText;
         public Sprite Icon => Definition != null ? Definition.Icon : _icon;
         public bool IsStackable => Definition != null ? Definition.IsStackable : _isStackable;
@@ -232,6 +235,7 @@ namespace Sol.Grab
         public string LegacyItemName => _itemName;
         public ItemType LegacyType => _itemType;
         public int LegacyValue => _value;
+        public float LegacyWeight => _weight;
         public string LegacyFlavourText => _flavourText;
         public Sprite LegacyIcon => _icon;
         public bool LegacyIsStackable => _isStackable;
@@ -468,6 +472,7 @@ namespace Sol.Grab
         {
             _itemName = string.IsNullOrWhiteSpace(_itemName) ? "Item" : _itemName.Trim();
             _value = _itemType == ItemType.Gold ? 1 : Mathf.Max(0, _value);
+            _weight = Mathf.Max(0f, _weight);
             _maxStackSize = Mathf.Max(1, _maxStackSize);
             _itemId = Sol.EntityCodeUtility.NormalizeOrEmpty(_itemId, Sol.EntityCodeUtility.ItemPrefix);
             _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_itemOwnerId);

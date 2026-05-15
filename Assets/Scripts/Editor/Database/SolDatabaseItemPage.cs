@@ -681,6 +681,7 @@ namespace Sol.Editor
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("DisplayName"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("ItemType"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("Value"));
+            EditorGUILayout.PropertyField(entry.FindPropertyRelative("Weight"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("Icon"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("FlavourText"));
             EditorGUILayout.Space(4f);

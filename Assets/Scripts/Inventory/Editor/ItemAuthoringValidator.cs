@@ -263,6 +263,7 @@ namespace Sol.Editor
             if (!string.Equals(item.LegacyItemName, definition.DisplayName, System.StringComparison.Ordinal)
                 || item.LegacyType != definition.ItemType
                 || item.LegacyValue != definition.Value
+                || !Mathf.Approximately(item.LegacyWeight, definition.Weight)
                 || item.LegacyIcon != definition.Icon)
             {
                 warnings.Add(new ItemAuthoringWarning(

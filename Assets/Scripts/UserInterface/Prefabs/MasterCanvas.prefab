@@ -15030,6 +15030,7 @@ MonoBehaviour:
   _tooltip: {fileID: 31794123836455765}
   _contextMenu: {fileID: 3456997319838725115}
   _closeButton: {fileID: 5487761962779403169}
+  _menuTabs: {fileID: 6123456789012345678}
 --- !u!223 &383368989698329541
 Canvas:
   m_ObjectHideFlags: 0
@@ -32934,6 +32935,7 @@ GameObject:
   - component: {fileID: 3991254056074605941}
   - component: {fileID: 1842559164882468714}
   - component: {fileID: 9042116544002088337}
+  - component: {fileID: 6123456789012345678}
   m_Layer: 5
   m_Name: InventoryPanelUI
   m_TagString: Untagged
@@ -33060,6 +33062,60 @@ MonoBehaviour:
   _slotPrefab: {fileID: 8879761332672125136, guid: 90f748dad4d21f64ab8700b92765dd92, type: 3}
   _capacityText: {fileID: 1860410818170517738}
   _goldText: {fileID: 3582239282229797349}
+  _enableSearchAndSorting: 0
+  _presentationMode: 0
+  _searchInput: {fileID: 0}
+  _sortNameButton: {fileID: 0}
+  _sortWeightButton: {fileID: 0}
+  _sortDamageButton: {fileID: 0}
+  _sortArmorButton: {fileID: 0}
+  _sortValueButton: {fileID: 0}
+--- !u!114 &6123456789012345678
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8779395086485442904}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a0dcdf816754aa4ab4dc3de39b57f34, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.HUD.PlayerMenuTabs
+  _tabs:
+  - Id: 0
+    Label: Inventory
+    Icon: {fileID: 0}
+    TargetPanel: {fileID: 0}
+    Enabled: 1
+  - Id: 1
+    Label: Character
+    Icon: {fileID: 0}
+    TargetPanel: {fileID: 0}
+    Enabled: 1
+  - Id: 2
+    Label: Spells
+    Icon: {fileID: 0}
+    TargetPanel: {fileID: 0}
+    Enabled: 1
+  - Id: 3
+    Label: Skills
+    Icon: {fileID: 0}
+    TargetPanel: {fileID: 0}
+    Enabled: 1
+  - Id: 4
+    Label: Quest Log
+    Icon: {fileID: 0}
+    TargetPanel: {fileID: 0}
+    Enabled: 1
+  _tabRoot: {fileID: 0}
+  _placeholderPanel: {fileID: 0}
+  _placeholderTitle: {fileID: 0}
+  _placeholderHint: {fileID: 0}
+  _tabDefaultSprite: {fileID: 21300000, guid: eec9d9e32c8b4e9ba5e4f281a7c51c10, type: 3}
+  _tabHoverSprite: {fileID: 21300000, guid: b73a5332a72b46469380af2a8f4cd03a, type: 3}
+  _tabActiveSprite: {fileID: 21300000, guid: 4e39823bb6b94d80a69a515064873a60, type: 3}
+  _tabDisabledSprite: {fileID: 21300000, guid: 2192ccb7d6684dd99e8f9188a0524e1f, type: 3}
 --- !u!1 &8821027661007728493
 GameObject:
   m_ObjectHideFlags: 0

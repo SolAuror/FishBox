@@ -29,6 +29,7 @@ namespace Sol
             public string DisplayName = "Item";
             public ItemType ItemType = ItemType.Material;
             [Min(0)] public int Value;
+            [Min(0f)] public float Weight;
             public Sprite Icon;
             [TextArea] public string FlavourText = string.Empty;
             public bool IsStackable;
@@ -58,6 +59,7 @@ namespace Sol
                 FlavourText = FlavourText ?? string.Empty;
                 MaxStackSize = Mathf.Max(1, MaxStackSize);
                 Value = ItemType == ItemType.Gold ? 1 : Mathf.Max(0, Value);
+                Weight = Mathf.Max(0f, Weight);
                 if (ItemType == ItemType.Gold)
                 {
                     IsStackable = true;
@@ -82,6 +84,7 @@ namespace Sol
                 DisplayName = item.LegacyItemName;
                 ItemType = item.LegacyType;
                 Value = item.LegacyValue;
+                Weight = item.LegacyWeight;
                 Icon = item.LegacyIcon;
                 FlavourText = item.LegacyFlavourText;
                 IsStackable = item.LegacyIsStackable;
@@ -633,6 +636,7 @@ namespace Sol
                         && string.Equals(current.DisplayName, incoming.DisplayName, System.StringComparison.Ordinal)
                         && current.ItemType == incoming.ItemType
                         && current.Value == incoming.Value
+                        && Mathf.Approximately(current.Weight, incoming.Weight)
                         && current.Icon == incoming.Icon
                         && current.IsStackable == incoming.IsStackable
                         && current.IsConsumable == incoming.IsConsumable

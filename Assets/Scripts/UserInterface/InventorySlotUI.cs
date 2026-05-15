@@ -17,6 +17,12 @@ namespace Sol.HUD
         Trade
     }
 
+    public enum InventorySlotPresentationMode
+    {
+        Compact,
+        InventoryTable
+    }
+
     /// <summary>
     /// Single row in the inventory list UI. Handles hover, left-click
     /// (primary action), and right-click (context menu).
@@ -33,6 +39,11 @@ namespace Sol.HUD
         [Tooltip("Inspector: tunes stat text1.")]
         [SerializeField] private TextMeshProUGUI _statText1;
         [SerializeField] private TextMeshProUGUI _statText2;
+        [Header("Optional Table Columns")]
+        [SerializeField] private TextMeshProUGUI _weightText;
+        [SerializeField] private TextMeshProUGUI _damageText;
+        [SerializeField] private TextMeshProUGUI _armorText;
+        [SerializeField] private TextMeshProUGUI _valueText;
         [Tooltip("Inspector: tunes highlight.")]
         [SerializeField] private Image _highlight;
         [Header("Stolen Indicator")]
@@ -61,8 +72,10 @@ namespace Sol.HUD
         private Func<InventorySlot, int> _selectedQuantityProvider;
         private Equipment _equipment;
         private InventorySlotDisplayMode _displayMode;
+        private InventorySlotPresentationMode _presentationMode;
         private bool _suppressTooltip;
         private bool _isHovered;
+        private bool _runtimeTableColumnsCreated;
 
         public InventorySlot Slot => _slot;
 
@@ -79,7 +92,8 @@ namespace Sol.HUD
             InventorySlotDisplayMode displayMode = InventorySlotDisplayMode.Inventory,
             bool suppressTooltip = false,
             Func<InventorySlot, bool> isSelectedPredicate = null,
-            Func<InventorySlot, int> selectedQuantityProvider = null)
+            Func<InventorySlot, int> selectedQuantityProvider = null,
+            InventorySlotPresentationMode presentationMode = InventorySlotPresentationMode.Compact)
         {
             if (_equipment != null) _equipment.OnChanged -= RefreshEquippedTint;
 
@@ -93,6 +107,9 @@ namespace Sol.HUD
             _onHoverOverride = onHoverOverride;
             _onHoverExitOverride = onHoverExitOverride;
             _displayMode = displayMode;
+            _presentationMode = displayMode == InventorySlotDisplayMode.Trade
+                ? InventorySlotPresentationMode.Compact
+                : presentationMode;
             _suppressTooltip = suppressTooltip;
             _isSelectedPredicate = isSelectedPredicate;
             _selectedQuantityProvider = selectedQuantityProvider;
@@ -248,6 +265,14 @@ namespace Sol.HUD
 
         private void ApplyStatTexts(ItemComponent item)
         {
+            if (_presentationMode == InventorySlotPresentationMode.InventoryTable)
+            {
+                EnsureTableColumnTexts();
+                ApplyInventoryTableTexts(item);
+                return;
+            }
+
+            SetTableColumnsVisible(false);
             string[] values = _displayMode == InventorySlotDisplayMode.Trade
                 ? BuildTradeStatTexts(item)
                 : BuildInventoryStatTexts(item);
@@ -255,6 +280,100 @@ namespace Sol.HUD
             SetStatText(_statText, values[0]);
             SetStatText(_statText1, values[1]);
             SetStatText(_statText2, values[2]);
+        }
+
+        private void ApplyInventoryTableTexts(ItemComponent item)
+        {
+            SetTableColumnsVisible(true);
+
+            SetStatText(_weightText != null ? _weightText : _statText, ItemPresentationUtility.BuildWeightText(item));
+
+            bool hasDedicatedCombatColumns = _damageText != null || _armorText != null;
+            if (hasDedicatedCombatColumns)
+            {
+                SetStatText(_damageText, ItemPresentationUtility.BuildDamageText(item));
+                SetStatText(_armorText, ItemPresentationUtility.BuildArmorText(item));
+                SetStatText(_statText1, string.Empty);
+            }
+            else
+            {
+                string damage = ItemPresentationUtility.BuildDamageText(item);
+                string armor = ItemPresentationUtility.BuildArmorText(item);
+                SetStatText(_statText1, $"{damage} / {armor}");
+            }
+
+            SetStatText(_valueText != null ? _valueText : _statText2, ItemPresentationUtility.BuildValueText(item));
+
+            if (_weightText != null && _weightText != _statText)
+                SetStatText(_statText, string.Empty);
+            if (_valueText != null && _valueText != _statText2)
+                SetStatText(_statText2, string.Empty);
+        }
+
+        private void EnsureTableColumnTexts()
+        {
+            if (_weightText != null && _damageText != null && _armorText != null && _valueText != null)
+                return;
+
+            if (_runtimeTableColumnsCreated)
+                return;
+
+            TextMeshProUGUI template = _statText2 ?? _statText1 ?? _statText ?? _nameText;
+            if (template == null)
+                return;
+
+            _weightText ??= CreateRuntimeColumnText("WeightText", template, 0.58f, 0.70f);
+            _damageText ??= CreateRuntimeColumnText("DamageText", template, 0.70f, 0.80f);
+            _armorText ??= CreateRuntimeColumnText("ArmorText", template, 0.80f, 0.90f);
+            _valueText ??= CreateRuntimeColumnText("ValueText", template, 0.90f, 0.99f);
+            _runtimeTableColumnsCreated = true;
+
+            if (_nameText != null && _nameText.rectTransform != null)
+            {
+                RectTransform rt = _nameText.rectTransform;
+                rt.anchorMin = new Vector2(0.17f, rt.anchorMin.y);
+                rt.anchorMax = new Vector2(0.56f, rt.anchorMax.y);
+                rt.offsetMin = new Vector2(0f, rt.offsetMin.y);
+                rt.offsetMax = new Vector2(0f, rt.offsetMax.y);
+            }
+        }
+
+        private TextMeshProUGUI CreateRuntimeColumnText(string childName, TextMeshProUGUI template, float anchorMinX, float anchorMaxX)
+        {
+            GameObject go = new(childName, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+            go.layer = gameObject.layer;
+            RectTransform rt = go.GetComponent<RectTransform>();
+            rt.SetParent(transform, false);
+            rt.anchorMin = new Vector2(anchorMinX, 0f);
+            rt.anchorMax = new Vector2(anchorMaxX, 1f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+
+            TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
+            text.font = template.font;
+            text.fontSharedMaterial = template.fontSharedMaterial;
+            text.fontSize = Mathf.Max(12f, template.fontSize);
+            text.color = template.color;
+            text.alignment = TextAlignmentOptions.MidlineRight;
+            text.raycastTarget = false;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
+            return text;
+        }
+
+        private void SetTableColumnsVisible(bool visible)
+        {
+            SetColumnVisible(_weightText, visible);
+            SetColumnVisible(_damageText, visible);
+            SetColumnVisible(_armorText, visible);
+            SetColumnVisible(_valueText, visible);
+        }
+
+        private static void SetColumnVisible(TextMeshProUGUI label, bool visible)
+        {
+            if (label != null)
+                label.gameObject.SetActive(visible);
         }
 
         private void UpdateStolenIndicator(ItemComponent item)
@@ -333,4 +452,3 @@ namespace Sol.HUD
         }
     }
 }
-

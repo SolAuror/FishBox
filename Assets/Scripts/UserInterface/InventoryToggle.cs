@@ -17,6 +17,7 @@ namespace Sol.HUD
         [SerializeField] private ContextMenuUI _contextMenu;
         [Tooltip("Inspector: tunes close button.")]
         [SerializeField] private Button _closeButton;
+        [SerializeField] private PlayerMenuTabs _menuTabs;
         #endregion
 
         public bool IsOpen { get; private set; }
@@ -80,9 +81,11 @@ namespace Sol.HUD
             }
 
             UIStateOwnership.CloseConflictingUi(nameof(InventoryToggle));
+            EnsurePlayerMenuWired();
             IsOpen = true;
 
             _inventoryPanel.SetActive(true);
+            _menuTabs?.Select(PlayerMenuTabId.Inventory);
 
             UIStateOwnership.SetUiCapture(true);
         }
@@ -138,6 +141,24 @@ namespace Sol.HUD
 
             if (closeTransform != null)
                 _closeButton = closeTransform.GetComponent<Button>();
+        }
+
+        private void EnsurePlayerMenuWired()
+        {
+            if (_inventoryPanel == null)
+                return;
+
+            InventoryUI inventoryUi = _inventoryPanel.GetComponent<InventoryUI>()
+                ?? _inventoryPanel.GetComponentInChildren<InventoryUI>(true);
+            if (inventoryUi == null)
+                return;
+
+            if (_menuTabs == null)
+                _menuTabs = _inventoryPanel.GetComponent<PlayerMenuTabs>();
+            if (_menuTabs == null)
+                _menuTabs = _inventoryPanel.AddComponent<PlayerMenuTabs>();
+
+            _menuTabs.ConfigureInventoryShell(inventoryUi);
         }
 
         private void EnsureCloseButtonWired()
