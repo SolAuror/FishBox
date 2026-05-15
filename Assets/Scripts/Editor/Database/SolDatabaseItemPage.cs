@@ -294,11 +294,84 @@ namespace Sol.Editor
             RefreshIndex();
         }
 
+        protected override void DoBulkDelete(IReadOnlyList<ItemRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                ItemComponent item = rows[i]?.Item;
+                if (item == null)
+                    continue;
+                string path = AssetDatabase.GetAssetPath(item.gameObject);
+                if (!string.IsNullOrWhiteSpace(path))
+                    AssetDatabase.DeleteAsset(path);
+            }
+            ItemRegistry.ScheduleEditorSync();
+        }
+
+        protected override void DoBulkDuplicate(IReadOnlyList<ItemRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                ItemComponent item = rows[i]?.Item;
+                if (item == null)
+                    continue;
+                ItemAuthoringEditorUtility.DuplicateItemPrefab(item);
+            }
+            ItemRegistry.ScheduleEditorSync();
+        }
+
+        protected override void BuildBulkMenuExtras(GenericMenu menu)
+        {
+            List<ItemRow> rows = GetBulkSelectedRows();
+            int templatable = 0;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                ItemRegistry.Entry entry = rows[i]?.Entry;
+                if (entry?.Prefab != null && entry.AuthoringTemplate != ItemAuthoringTemplate.None)
+                    templatable++;
+            }
+
+            string label = $"Apply template to {templatable} selected";
+            if (templatable == 0)
+                menu.AddDisabledItem(new GUIContent(label));
+            else
+                menu.AddItem(new GUIContent(label), false, () => BulkApplyTemplate(rows));
+        }
+
+        private void BulkApplyTemplate(List<ItemRow> rows)
+        {
+            if (!EditorUtility.DisplayDialog(
+                "Reapply Templates",
+                $"Reapply each entry's AuthoringTemplate to its prefab? Visual prefab setup fields will be overwritten on {rows.Count} item(s) (entries without a template are skipped).",
+                "Overwrite", "Cancel"))
+                return;
+
+            try
+            {
+                AssetDatabase.StartAssetEditing();
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    ItemRegistry.Entry entry = rows[i]?.Entry;
+                    if (entry?.Prefab == null || entry.AuthoringTemplate == ItemAuthoringTemplate.None)
+                        continue;
+                    ItemAuthoringEditorUtility.ApplyTemplate(entry.Prefab, entry.AuthoringTemplate, entry.NameOrId);
+                }
+            }
+            finally
+            {
+                AssetDatabase.StopAssetEditing();
+                AssetDatabase.SaveAssets();
+            }
+
+            ItemRegistry.ScheduleEditorSync();
+            RefreshIndex();
+        }
+
         // -- Row drawing ---------------------------------------------------------------
 
         protected override void DrawRow(Rect rowRect, ItemRow row)
         {
-            DrawRowChrome(rowRect, IsSelected(row), () => SetSelectedRow(row));
+            DrawRowChrome(rowRect, IsSelected(row), () => HandleRowClick(row));
             DrawIcon(rowRect, row.Icon);
 
             Rect textRect = TextColumnRect(rowRect);

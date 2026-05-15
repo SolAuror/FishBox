@@ -237,7 +237,7 @@ namespace Sol.Editor
 
         protected override void DrawRow(Rect rect, Row row)
         {
-            DrawRowChrome(rect, IsSelected(row), () => SetSelectedRow(row));
+            DrawRowChrome(rect, IsSelected(row), () => HandleRowClick(row));
             DrawIcon(rect, row.Context != null ? AssetDatabase.GetCachedIcon(AssetDatabase.GetAssetPath(row.Context)) : null);
 
             Rect text = TextColumnRect(rect);

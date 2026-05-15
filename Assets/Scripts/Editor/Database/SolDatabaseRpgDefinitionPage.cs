@@ -183,11 +183,37 @@ namespace Sol.Editor
             RpgDefinitionRegistry.ForceEditorSyncNow();
         }
 
+        protected override void DoBulkDelete(IReadOnlyList<DefinitionRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                TDefinition definition = rows[i]?.Definition;
+                if (definition == null)
+                    continue;
+                string path = RpgDefinitionEditorUtility.GetAssetPath(definition);
+                if (!string.IsNullOrWhiteSpace(path))
+                    AssetDatabase.DeleteAsset(path);
+            }
+            RpgDefinitionRegistry.ScheduleEditorSync();
+        }
+
+        protected override void DoBulkDuplicate(IReadOnlyList<DefinitionRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                TDefinition source = rows[i]?.Definition;
+                if (source == null)
+                    continue;
+                RpgDefinitionEditorUtility.DuplicateDefinition(source, IdPrefix);
+            }
+            RpgDefinitionRegistry.ScheduleEditorSync();
+        }
+
         // -- Row drawing ---------------------------------------------------------------
 
         protected override void DrawRow(Rect rowRect, DefinitionRow row)
         {
-            DrawRowChrome(rowRect, IsSelected(row), () => SetSelectedRow(row));
+            DrawRowChrome(rowRect, IsSelected(row), () => HandleRowClick(row));
             DrawIcon(rowRect, AssetDatabase.GetCachedIcon(row.AssetPath));
 
             Rect textRect = TextColumnRect(rowRect);

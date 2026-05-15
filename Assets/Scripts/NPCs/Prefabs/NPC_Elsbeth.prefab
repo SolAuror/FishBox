@@ -400,7 +400,7 @@ MonoBehaviour:
   _scheduleRefreshSeconds: 0.5
   _showScheduleRoute: 1
   _scheduleRoutePreviewMode: 0
-  _shopId: 
+  _shopId: SHP00001
   _goldLootItemId: 
   _goldLootItemTemplate: {fileID: 0}
   _maxGoldItemizeAttemptsPerOpen: 2000
@@ -603,8 +603,12 @@ MonoBehaviour:
   _gold: 46
   _containerType: 0
   _inspectorContents:
-  - _itemId: 
-    Quantity: 1
+  - _itemId: ITM00012
+    Quantity: 10
+  - _itemId: ITM00001
+    Quantity: 5
+  - _itemId: ITM00006
+    Quantity: 3
   _owner: {fileID: 0}
   _ownerId: 
   _isLocked: 0

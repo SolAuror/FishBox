@@ -1359,6 +1359,7 @@ GameObject:
   - component: {fileID: 8610558482071577541}
   - component: {fileID: 3606666919602049045}
   - component: {fileID: 2201453678901234571}
+  - component: {fileID: 946590604252461158}
   m_Layer: 10
   m_Name: NPC_Garus
   m_TagString: NPC
@@ -1455,6 +1456,7 @@ MonoBehaviour:
   _dialogueGraph:
     RootNodeId: root
     Nodes: []
+  _conversationFlags: []
   config: {fileID: 11400000, guid: c68c8bbfbee74db438c3a68072420ff1, type: 2}
   patrolRoot: {fileID: 0}
   autoUsePatrolRootChildren: 1
@@ -1469,6 +1471,11 @@ MonoBehaviour:
   deathAnimDuration: 2
   deathHoldNormalizedTime: 0.82
   ragdollAfterDeath: 1
+  _scheduleDefinition: {fileID: 0}
+  _scheduleRefreshSeconds: 0.5
+  _showScheduleRoute: 1
+  _scheduleRoutePreviewMode: 0
+  _shopId: 
   _goldLootItemId: 
   _goldLootItemTemplate: {fileID: 0}
   _maxGoldItemizeAttemptsPerOpen: 2000
@@ -1484,7 +1491,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a853cd72f4831540a479ce74c027d67, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Sol.AI.NPCSoul
-  _soulType: 0
+  _entityType: 0
   _characterName: Garus
   _ownerId: OWN00004
   _healthStat:
@@ -1498,8 +1505,11 @@ MonoBehaviour:
   _stamina: 100
   _maxStamina: 100
   _soulStatsMigrated: 1
-  _authoringTemplate: 4
+  _npcArchetype: 1
+  _canTrade: 0
+  _isHostile: 0
   _authoringNotes: 
+  _identityMigratedV2: 1
 --- !u!114 &6086372019348665044
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1845,6 +1855,30 @@ MonoBehaviour:
   _fallbackDuration: 0.18
   _fallbackLeanDegrees: 8
   _fallbackSettleSpeed: 18
+--- !u!114 &946590604252461158
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4089207878467959076}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e20d3eb8d704a4f9b8b8d5968e2b7f5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Combat.BasicMeleeAttack
+  _damage: 10
+  _range: 1.6
+  _radius: 0.55
+  _cooldown: 0.45
+  _minForwardDot: 0.2
+  _closeRangeArcBypassRadius: 0.85
+  _hitHeightOffset: 1
+  _targetLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _originOverride: {fileID: 0}
+  _defaultAttackStyle: 0
 --- !u!1 &4100392470388779022
 GameObject:
   m_ObjectHideFlags: 0

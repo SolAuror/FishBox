@@ -248,11 +248,37 @@ namespace Sol.Editor
             NPCRegistry.ForceEditorSyncNow();
         }
 
+        protected override void DoBulkDelete(IReadOnlyList<NPCRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                NPCSoul soul = rows[i]?.Soul;
+                if (soul == null)
+                    continue;
+                string path = NPCAuthoringEditorUtility.GetPrefabPath(soul);
+                if (!string.IsNullOrWhiteSpace(path))
+                    AssetDatabase.DeleteAsset(path);
+            }
+            NPCRegistry.ScheduleEditorSync();
+        }
+
+        protected override void DoBulkDuplicate(IReadOnlyList<NPCRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                NPCSoul soul = rows[i]?.Soul;
+                if (soul == null)
+                    continue;
+                NPCAuthoringEditorUtility.DuplicateNPCPrefab(soul);
+            }
+            NPCRegistry.ScheduleEditorSync();
+        }
+
         // -- Row drawing ---------------------------------------------------------------
 
         protected override void DrawRow(Rect rowRect, NPCRow row)
         {
-            DrawRowChrome(rowRect, IsSelected(row), () => SetSelectedRow(row));
+            DrawRowChrome(rowRect, IsSelected(row), () => HandleRowClick(row));
             DrawIcon(rowRect, row.Icon);
 
             Rect textRect = TextColumnRect(rowRect);

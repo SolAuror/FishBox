@@ -296,6 +296,32 @@ namespace Sol.Editor
             RefreshIndex();
         }
 
+        protected override void DoBulkDelete(IReadOnlyList<QuestRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                QuestDefinition quest = rows[i]?.Quest;
+                if (quest == null)
+                    continue;
+                string path = QuestAuthoringEditorUtility.GetAssetPath(quest);
+                if (!string.IsNullOrWhiteSpace(path))
+                    AssetDatabase.DeleteAsset(path);
+            }
+            QuestRegistry.ScheduleEditorSync();
+        }
+
+        protected override void DoBulkDuplicate(IReadOnlyList<QuestRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                QuestDefinition source = rows[i]?.Quest;
+                if (source == null)
+                    continue;
+                QuestAuthoringEditorUtility.DuplicateQuestAsset(source);
+            }
+            QuestRegistry.ScheduleEditorSync();
+        }
+
         // -- Page layout (3 panes) -----------------------------------------------------
 
         public override void DrawPage()
@@ -312,7 +338,7 @@ namespace Sol.Editor
 
         protected override void DrawRow(Rect rowRect, QuestRow row)
         {
-            DrawRowChrome(rowRect, IsSelected(row), () => SetSelectedRow(row));
+            DrawRowChrome(rowRect, IsSelected(row), () => HandleRowClick(row));
             DrawIcon(rowRect, row.Icon);
 
             Rect textRect = TextColumnRect(rowRect);

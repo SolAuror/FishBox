@@ -191,11 +191,42 @@ namespace Sol.Editor
             OnSelectAssetClicked();
         }
 
+        protected override void DoBulkDelete(IReadOnlyList<ScheduleRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                NpcScheduleDefinition schedule = rows[i]?.Schedule;
+                if (schedule == null)
+                    continue;
+                string path = AssetDatabase.GetAssetPath(schedule);
+                if (!string.IsNullOrWhiteSpace(path))
+                    AssetDatabase.DeleteAsset(path);
+            }
+        }
+
+        protected override void DoBulkDuplicate(IReadOnlyList<ScheduleRow> rows)
+        {
+            for (int i = 0; i < rows.Count; i++)
+            {
+                NpcScheduleDefinition source = rows[i]?.Schedule;
+                if (source == null)
+                    continue;
+                string sourcePath = AssetDatabase.GetAssetPath(source);
+                string folder = Path.GetDirectoryName(sourcePath)?.Replace("\\", "/") ?? SolDatabaseStyles.Folders.NpcSchedules;
+                string copyName = $"{NextScheduleId()}_{DisplayLabel(source)}_Copy";
+                string targetPath = AssetDatabase.GenerateUniqueAssetPath($"{folder}/{SanitizeFileName(copyName)}.asset");
+                if (!AssetDatabase.CopyAsset(sourcePath, targetPath))
+                    continue;
+                NpcScheduleDefinition copy = AssetDatabase.LoadAssetAtPath<NpcScheduleDefinition>(targetPath);
+                ApplyIdentity(copy, NextScheduleId(), $"{DisplayLabel(source)} Copy");
+            }
+        }
+
         // -- Row drawing ---------------------------------------------------------------
 
         protected override void DrawRow(Rect rowRect, ScheduleRow row)
         {
-            DrawRowChrome(rowRect, IsSelected(row), () => SetSelectedRow(row));
+            DrawRowChrome(rowRect, IsSelected(row), () => HandleRowClick(row));
             DrawIcon(rowRect, AssetDatabase.GetCachedIcon(row.AssetPath));
 
             Rect textRect = TextColumnRect(rowRect);
