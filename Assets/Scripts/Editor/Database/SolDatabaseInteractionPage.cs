@@ -37,6 +37,7 @@ namespace Sol.Editor
             public string Subtitle;
             public string SearchText;
             public int WarningCount;
+            public string WarningTooltip;
             public bool IsOwned;
         }
 
@@ -139,7 +140,8 @@ namespace Sol.Editor
                 Title = title,
                 Subtitle = subtitle,
                 SearchText = $"{title} {subtitle} {path}".ToLowerInvariant(),
-                WarningCount = warnings.Count
+                WarningCount = warnings.Count,
+                WarningTooltip = JoinWarningMessages(warnings)
             };
         }
 
@@ -158,6 +160,7 @@ namespace Sol.Editor
                 Subtitle = subtitle,
                 SearchText = $"{title} {subtitle} {AssetDatabase.GetAssetPath(point)}".ToLowerInvariant(),
                 WarningCount = warnings.Count,
+                WarningTooltip = JoinWarningMessages(warnings),
                 IsOwned = point.IsOwned
             };
         }
@@ -177,6 +180,7 @@ namespace Sol.Editor
                 Subtitle = subtitle,
                 SearchText = $"{title} {subtitle}".ToLowerInvariant(),
                 WarningCount = warnings.Count,
+                WarningTooltip = JoinWarningMessages(warnings),
                 IsOwned = point != null && point.IsOwned
             };
         }
@@ -244,7 +248,7 @@ namespace Sol.Editor
             GUI.Label(new Rect(text.x, rect.y + 5f, text.width, EditorGUIUtility.singleLineHeight), row.Title, EditorStyles.boldLabel);
             GUI.Label(new Rect(text.x, rect.y + 22f, text.width, EditorGUIUtility.singleLineHeight), row.Subtitle, EditorStyles.miniLabel);
             GUI.Label(new Rect(text.x, rect.y + 39f, text.width, EditorGUIUtility.singleLineHeight), row.Id, EditorStyles.miniLabel);
-            DrawWarningBadge(rect, row.WarningCount);
+            DrawWarningBadge(rect, row.WarningCount, row.WarningTooltip);
         }
 
         // -- Detail --------------------------------------------------------------------
@@ -474,6 +478,19 @@ namespace Sol.Editor
             if (context is SleepInteractable bed && bed.InteractionPoint != null)
                 return bed.InteractionPoint.InteractionPointId;
             return string.Empty;
+        }
+
+        private static string JoinWarningMessages(List<InteractionAuthoringWarning> warnings)
+        {
+            if (warnings == null || warnings.Count == 0)
+                return null;
+            System.Text.StringBuilder sb = new();
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                if (i > 0) sb.Append('\n');
+                sb.Append(warnings[i].Message);
+            }
+            return sb.ToString();
         }
 
         private List<InteractionAuthoringWarning> GetWarnings(UnityEngine.Object context)

@@ -45,6 +45,7 @@ namespace Sol.Editor
             public string SearchText;
             public Texture Icon;
             public int WarningCount;
+            public string WarningTooltip;
         }
 
         private const float QuestLeftPaneWidth = 340f;
@@ -149,7 +150,8 @@ namespace Sol.Editor
                 AssetPath = path,
                 SearchText = $"{title} {questId} {giverName} {objectiveSearchText} {path}".ToLowerInvariant(),
                 Icon = AssetDatabase.GetCachedIcon(path),
-                WarningCount = warnings.Count
+                WarningCount = warnings.Count,
+                WarningTooltip = JoinWarningMessages(warnings)
             };
         }
 
@@ -351,7 +353,7 @@ namespace Sol.Editor
             string flags = BuildFlagSummary(row);
             GUI.Label(metaRect, $"{row.GiverName}  |  {row.ObjectiveCount} obj{flags}", EditorStyles.miniLabel);
             GUI.Label(pathRect, row.AssetPath, EditorStyles.miniLabel);
-            DrawWarningBadge(rowRect, row.WarningCount);
+            DrawWarningBadge(rowRect, row.WarningCount, row.WarningTooltip);
         }
 
         private static string BuildFlagSummary(QuestRow row)
@@ -433,8 +435,78 @@ namespace Sol.Editor
             DrawPrerequisiteChain(quest);
             EditorGUILayout.Space(8f);
             DrawObjectiveTimeline(quest);
+            EditorGUILayout.Space(8f);
+            DrawRelated(quest);
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
+        }
+
+        private void DrawRelated(QuestDefinition quest)
+        {
+            EditorGUILayout.LabelField("Related", EditorStyles.boldLabel);
+
+            bool drewAny = false;
+
+            if (!string.IsNullOrWhiteSpace(quest.GiverNpcName))
+            {
+                EditorGUILayout.BeginHorizontal();
+                GUILayout.Label("Giver:", GUILayout.Width(56f));
+                if (SolDatabaseStyles.LinkButton(quest.GiverNpcName))
+                    Window.NavigateTo(SolDatabaseTab.NPCs, quest.GiverNpcName);
+                EditorGUILayout.EndHorizontal();
+                drewAny = true;
+            }
+
+            if (quest.Reward?.Items != null)
+            {
+                for (int i = 0; i < quest.Reward.Items.Count; i++)
+                {
+                    ItemReward reward = quest.Reward.Items[i];
+                    if (reward == null || string.IsNullOrWhiteSpace(reward.ItemId))
+                        continue;
+                    EditorGUILayout.BeginHorizontal();
+                    GUILayout.Label("Reward:", GUILayout.Width(56f));
+                    if (SolDatabaseStyles.LinkButton(reward.ItemId))
+                        Window.NavigateTo(SolDatabaseTab.Items, reward.ItemId);
+                    EditorGUILayout.EndHorizontal();
+                    drewAny = true;
+                }
+            }
+
+            if (quest.Objectives != null)
+            {
+                for (int i = 0; i < quest.Objectives.Count; i++)
+                {
+                    QuestObjective objective = quest.Objectives[i];
+                    if (objective == null)
+                        continue;
+
+                    if (!string.IsNullOrWhiteSpace(objective.NpcName))
+                    {
+                        EditorGUILayout.BeginHorizontal();
+                        GUILayout.Label($"Obj {i + 1} NPC:", GUILayout.Width(80f));
+                        if (SolDatabaseStyles.LinkButton(objective.NpcName))
+                            Window.NavigateTo(SolDatabaseTab.NPCs, objective.NpcName);
+                        EditorGUILayout.EndHorizontal();
+                        drewAny = true;
+                    }
+
+                    foreach (string itemId in objective.EnumerateAcceptableItemIds())
+                    {
+                        if (string.IsNullOrWhiteSpace(itemId))
+                            continue;
+                        EditorGUILayout.BeginHorizontal();
+                        GUILayout.Label($"Obj {i + 1} item:", GUILayout.Width(80f));
+                        if (SolDatabaseStyles.LinkButton(itemId))
+                            Window.NavigateTo(SolDatabaseTab.Items, itemId);
+                        EditorGUILayout.EndHorizontal();
+                        drewAny = true;
+                    }
+                }
+            }
+
+            if (!drewAny)
+                EditorGUILayout.LabelField("(no cross-tab references)", EditorStyles.miniLabel);
         }
 
         private void DrawPrerequisiteChain(QuestDefinition quest)
@@ -648,6 +720,19 @@ namespace Sol.Editor
         }
 
         // -- Helpers -------------------------------------------------------------------
+
+        private static string JoinWarningMessages(List<QuestAuthoringWarning> warnings)
+        {
+            if (warnings == null || warnings.Count == 0)
+                return null;
+            System.Text.StringBuilder sb = new();
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                if (i > 0) sb.Append('\n');
+                sb.Append(warnings[i].Message);
+            }
+            return sb.ToString();
+        }
 
         private List<QuestAuthoringWarning> GetWarnings(QuestDefinition quest)
         {

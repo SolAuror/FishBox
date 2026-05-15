@@ -45,6 +45,18 @@ namespace Sol.Editor
             public const string Interactions = "Assets/Data/Interactions";
         }
 
+        public static bool LinkButton(string label, params GUILayoutOption[] options)
+        {
+            Color previous = GUI.contentColor;
+            GUI.contentColor = LinkColor;
+            GUIStyle style = new(EditorStyles.label) { richText = true };
+            bool clicked = GUILayout.Button(label, style, options);
+            GUI.contentColor = previous;
+            Rect rect = GUILayoutUtility.GetLastRect();
+            EditorGUIUtility.AddCursorRect(rect, MouseCursor.Link);
+            return clicked;
+        }
+
         public static void EnsureFolder(string assetPath)
         {
             if (string.IsNullOrWhiteSpace(assetPath) || AssetDatabase.IsValidFolder(assetPath))

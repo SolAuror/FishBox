@@ -32,6 +32,11 @@ namespace Sol.Editor
 
         private readonly HashSet<string> _selectedIds = new(StringComparer.OrdinalIgnoreCase);
         private string _anchorRowId;
+        private readonly List<string> _recentIds = new();
+        private const int RecentCapacity = 5;
+        private const char RecentSeparator = (char)0x1F;
+        private string _searchControlName;
+        private bool _focusSearchOnNextDraw;
 
         protected TRow SelectedRow;
         protected SerializedObject SelectedSerializedObject;
@@ -150,6 +155,7 @@ namespace Sol.Editor
         private string SortPrefsKey => $"{PrefsPrefix}.Sort";
         private string IssuesOnlyPrefsKey => $"{PrefsPrefix}.IssuesOnly";
         private string LastSelectedIdPrefsKey => $"{PrefsPrefix}.LastSelectedId";
+        private string RecentIdsPrefsKey => $"{PrefsPrefix}.RecentIds";
 
         private void LoadPrefs()
         {
@@ -168,7 +174,38 @@ namespace Sol.Editor
                 _sort = (TSort)Enum.ToObject(typeof(TSort), sortValue);
 
             _issuesOnly = EditorPrefs.GetBool(IssuesOnlyPrefsKey, false);
+
+            string recentRaw = EditorPrefs.GetString(RecentIdsPrefsKey, string.Empty);
+            _recentIds.Clear();
+            if (!string.IsNullOrEmpty(recentRaw))
+            {
+                string[] parts = recentRaw.Split(RecentSeparator);
+                for (int i = 0; i < parts.Length && _recentIds.Count < RecentCapacity; i++)
+                {
+                    if (!string.IsNullOrWhiteSpace(parts[i]))
+                        _recentIds.Add(parts[i]);
+                }
+            }
+
             _filteredRowsDirty = true;
+        }
+
+        private void SaveRecentPrefs()
+        {
+            if (!_prefsLoaded)
+                return;
+            EditorPrefs.SetString(RecentIdsPrefsKey, string.Join(RecentSeparator.ToString(), _recentIds));
+        }
+
+        private void PushRecent(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+                return;
+            _recentIds.RemoveAll(existing => string.Equals(existing, id, StringComparison.OrdinalIgnoreCase));
+            _recentIds.Insert(0, id);
+            while (_recentIds.Count > RecentCapacity)
+                _recentIds.RemoveAt(_recentIds.Count - 1);
+            SaveRecentPrefs();
         }
 
         private void SavePrefs()
@@ -202,6 +239,7 @@ namespace Sol.Editor
                 }
 
                 DrawBulkButton();
+                DrawRecentDropdown();
             }
             else
             {
@@ -299,6 +337,8 @@ namespace Sol.Editor
 
         public override void DrawPage()
         {
+            HandleKeyboardShortcuts();
+
             EditorGUILayout.BeginHorizontal();
             DrawLeftPane();
             DrawRightPane();
@@ -312,7 +352,7 @@ namespace Sol.Editor
             EditorGUILayout.BeginVertical(GUILayout.Width(LeftPaneWidth));
 
             string searchBefore = Search;
-            DrawSearchField(() => _filteredRowsDirty = true);
+            DrawNamedSearchField();
             if (!string.Equals(searchBefore, Search, StringComparison.Ordinal))
                 SavePrefs();
 
@@ -488,7 +528,10 @@ namespace Sol.Editor
             _anchorRowId = id;
             _selectedIds.Clear();
             if (!string.IsNullOrWhiteSpace(id))
+            {
                 _selectedIds.Add(id);
+                PushRecent(id);
+            }
 
             if (changed)
                 OnSelectionChanged(row);
@@ -604,6 +647,10 @@ namespace Sol.Editor
             SelectedRow = row;
             UnityEngine.Object soTarget = row != null ? GetSerializedObjectTarget(row) : null;
             SelectedSerializedObject = soTarget != null ? new SerializedObject(soTarget) : null;
+
+            string id = row != null ? GetRowId(row) : null;
+            if (!string.IsNullOrWhiteSpace(id))
+                PushRecent(id);
 
             if (changed)
                 OnSelectionChanged(row);
@@ -741,6 +788,161 @@ namespace Sol.Editor
             }
         }
 
+        // -- Keyboard / focus --------------------------------------------------------------
+
+        private void DrawNamedSearchField()
+        {
+            if (_searchControlName == null)
+                _searchControlName = $"SolDatabaseSearch.{Tab}";
+
+            EditorGUILayout.BeginHorizontal(EditorStyles.toolbar);
+            GUI.SetNextControlName(_searchControlName);
+            EditorGUI.BeginChangeCheck();
+            Search = GUILayout.TextField(Search, GUI.skin.FindStyle("ToolbarSearchTextField"), GUILayout.MinWidth(120f));
+            bool changed = EditorGUI.EndChangeCheck();
+            if (GUILayout.Button(GUIContent.none, GUI.skin.FindStyle("ToolbarSearchCancelButton")))
+            {
+                Search = string.Empty;
+                GUI.FocusControl(null);
+                changed = true;
+            }
+            EditorGUILayout.EndHorizontal();
+            if (changed)
+                _filteredRowsDirty = true;
+
+            if (_focusSearchOnNextDraw && Event.current.type == EventType.Repaint)
+            {
+                _focusSearchOnNextDraw = false;
+                EditorGUI.FocusTextInControl(_searchControlName);
+            }
+        }
+
+        private void FocusSearchField()
+        {
+            _focusSearchOnNextDraw = true;
+            Window?.Repaint();
+        }
+
+        private void HandleKeyboardShortcuts()
+        {
+            Event e = Event.current;
+            if (e.type != EventType.KeyDown)
+                return;
+
+            bool searchFocused = GUI.GetNameOfFocusedControl() == _searchControlName;
+
+            // Ctrl/Cmd+F always reaches us — even from the search field — to toggle focus.
+            if (e.keyCode == KeyCode.F && (e.control || e.command))
+            {
+                FocusSearchField();
+                e.Use();
+                return;
+            }
+
+            if (searchFocused || EditorGUIUtility.editingTextField)
+                return;
+
+            switch (e.keyCode)
+            {
+                case KeyCode.UpArrow:
+                    NavigateRow(-1);
+                    e.Use();
+                    break;
+                case KeyCode.DownArrow:
+                    NavigateRow(+1);
+                    e.Use();
+                    break;
+                case KeyCode.F2:
+                    if (SelectedRow != null)
+                    {
+                        OnSelectAssetClicked();
+                        e.Use();
+                    }
+                    break;
+                case KeyCode.Delete:
+                case KeyCode.Backspace:
+                    if (SupportsBulkOps && _selectedIds.Count > 0)
+                    {
+                        ConfirmAndBulkDelete();
+                        e.Use();
+                    }
+                    break;
+                case KeyCode.N:
+                    if ((e.control || e.command) && ShowDefaultToolbarOps)
+                    {
+                        OnNewClicked();
+                        e.Use();
+                    }
+                    break;
+                case KeyCode.D:
+                    if ((e.control || e.command) && SelectedRow != null && ShowDefaultToolbarOps)
+                    {
+                        OnDuplicateClicked();
+                        e.Use();
+                    }
+                    break;
+            }
+        }
+
+        private void NavigateRow(int delta)
+        {
+            if (FilteredRows.Count == 0)
+                return;
+
+            int currentIndex = -1;
+            if (SelectedRow != null)
+            {
+                for (int i = 0; i < FilteredRows.Count; i++)
+                {
+                    if (ReferenceEquals(FilteredRows[i], SelectedRow))
+                    {
+                        currentIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            int next = Mathf.Clamp(currentIndex + delta, 0, FilteredRows.Count - 1);
+            if (next == currentIndex && currentIndex >= 0)
+                return;
+            SetSelectedRow(FilteredRows[next]);
+        }
+
+        // -- Recent dropdown ---------------------------------------------------------------
+
+        protected virtual bool ShowRecentDropdown => ShowDefaultToolbarOps;
+
+        protected void DrawRecentDropdown()
+        {
+            if (!ShowRecentDropdown || _recentIds.Count == 0)
+                return;
+
+            if (!GUILayout.Button("Recent ▾", EditorStyles.toolbarDropDown, GUILayout.Width(72f)))
+                return;
+
+            GenericMenu menu = new();
+            for (int i = 0; i < _recentIds.Count; i++)
+            {
+                string id = _recentIds[i];
+                TRow row = FindRowById(id);
+                string label = row != null ? FormatRecentLabel(row) : $"{id} (not found)";
+                if (row != null)
+                {
+                    string captured = id;
+                    menu.AddItem(new GUIContent(label), false, () => SelectById(captured));
+                }
+                else
+                {
+                    menu.AddDisabledItem(new GUIContent(label));
+                }
+            }
+
+            menu.ShowAsContext();
+        }
+
+        /// <summary>Label shown in the Recent dropdown. Defaults to the row id; override for richer formatting.</summary>
+        protected virtual string FormatRecentLabel(TRow row) => GetRowId(row) ?? string.Empty;
+
         // -- Bulk actions -------------------------------------------------------------------
 
         /// <summary>Currently-selected rows, resolved from <see cref="SelectedIds"/>.</summary>
@@ -763,7 +965,8 @@ namespace Sol.Editor
                 return;
 
             string preview = BuildBulkPreview(rows, max: 10);
-            string message = $"Delete {rows.Count} entries? This cannot be undone.\n\n{preview}";
+            string entriesWord = rows.Count == 1 ? "entry" : "entries";
+            string message = $"Delete {rows.Count} {entriesWord}? This cannot be undone.\n\n{preview}";
             if (!EditorUtility.DisplayDialog($"Delete {rows.Count} {DisplayName}", message, "Delete", "Cancel"))
                 return;
 

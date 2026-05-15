@@ -42,6 +42,7 @@ namespace Sol.Editor
             public string SearchText;
             public Texture Icon;
             public int WarningCount;
+            public string WarningTooltip;
             public bool IsConsumable;
             public bool IsEquipable;
             public bool IsStackable;
@@ -147,6 +148,7 @@ namespace Sol.Editor
                 SearchText = $"{itemName} {itemId} {typeName} {path}".ToLowerInvariant(),
                 Icon = icon,
                 WarningCount = warnings.Count,
+                WarningTooltip = JoinWarningMessages(warnings),
                 IsConsumable = entry != null && (entry.IsConsumable || ItemTypeRules.IsConsumableType(entry.ItemType)),
                 IsEquipable = entry != null && ItemTypeRules.IsEquipableType(entry.ItemType),
                 IsStackable = entry != null && entry.IsStackable,
@@ -382,7 +384,7 @@ namespace Sol.Editor
             GUI.Label(titleRect, $"{row.ItemName} ({row.ItemId})", EditorStyles.boldLabel);
             GUI.Label(metaRect, $"{row.TypeName}  Value {row.Value}", EditorStyles.miniLabel);
             GUI.Label(pathRect, row.PrefabPath, EditorStyles.miniLabel);
-            DrawWarningBadge(rowRect, row.WarningCount);
+            DrawWarningBadge(rowRect, row.WarningCount, row.WarningTooltip);
         }
 
         // -- Detail --------------------------------------------------------------------
@@ -589,6 +591,19 @@ namespace Sol.Editor
         }
 
         // -- Helpers -------------------------------------------------------------------
+
+        private static string JoinWarningMessages(List<ItemAuthoringWarning> warnings)
+        {
+            if (warnings == null || warnings.Count == 0)
+                return null;
+            System.Text.StringBuilder sb = new();
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                if (i > 0) sb.Append('\n');
+                sb.Append(warnings[i].Message);
+            }
+            return sb.ToString();
+        }
 
         private List<ItemAuthoringWarning> GetWarnings(ItemRegistry.Entry entry)
         {

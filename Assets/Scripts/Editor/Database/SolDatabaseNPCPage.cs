@@ -38,6 +38,7 @@ namespace Sol.Editor
             public string SearchText;
             public Texture Icon;
             public int WarningCount;
+            public string WarningTooltip;
             public bool HasTrader;
             public bool IsHostile;
             public bool MissingAIConfig;
@@ -123,6 +124,7 @@ namespace Sol.Editor
                 SearchText = $"{name} {ownerId} {soul.EntityKind} {soul.Archetype} {path}".ToLowerInvariant(),
                 Icon = icon,
                 WarningCount = warnings.Count,
+                WarningTooltip = JoinWarnings(warnings),
                 HasTrader = aiNpc != null && aiNpc.IsTrader,
                 IsHostile = soul.IsHostile,
                 MissingAIConfig = aiNpc != null && aiNpc.Config == null
@@ -293,7 +295,7 @@ namespace Sol.Editor
             string archetypeTag = row.Archetype != NPCArchetype.None ? $"  [{FormatArchetype(row.Archetype)}]" : string.Empty;
             GUI.Label(metaRect, $"{row.EntityKind}{traderTag}{hostileTag}{archetypeTag}", EditorStyles.miniLabel);
             GUI.Label(pathRect, row.PrefabPath, EditorStyles.miniLabel);
-            DrawWarningBadge(rowRect, row.WarningCount);
+            DrawWarningBadge(rowRect, row.WarningCount, row.WarningTooltip);
         }
 
         // -- Detail --------------------------------------------------------------------
@@ -443,6 +445,19 @@ namespace Sol.Editor
                     return Rows[i];
             }
             return null;
+        }
+
+        private static string JoinWarnings(List<NPCAuthoringWarning> warnings)
+        {
+            if (warnings == null || warnings.Count == 0)
+                return null;
+            System.Text.StringBuilder sb = new();
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                if (i > 0) sb.Append('\n');
+                sb.Append(warnings[i].Message);
+            }
+            return sb.ToString();
         }
 
         private List<NPCAuthoringWarning> GetWarnings(NPCSoul soul)

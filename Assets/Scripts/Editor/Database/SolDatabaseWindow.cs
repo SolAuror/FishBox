@@ -177,13 +177,16 @@ namespace Sol.Editor
             return false;
         }
 
-        protected static void DrawWarningBadge(Rect rowRect, int warningCount)
+        protected static void DrawWarningBadge(Rect rowRect, int warningCount, string tooltip = null)
         {
             if (warningCount <= 0)
                 return;
 
             Rect warningRect = new(rowRect.xMax - 38f, rowRect.y + 6f, 34f, EditorGUIUtility.singleLineHeight);
-            GUI.Label(warningRect, $"! {warningCount}", EditorStyles.miniBoldLabel);
+            GUIContent content = string.IsNullOrEmpty(tooltip)
+                ? new GUIContent($"! {warningCount}")
+                : new GUIContent($"! {warningCount}", tooltip);
+            GUI.Label(warningRect, content, EditorStyles.miniBoldLabel);
         }
 
         protected static void DrawIcon(Rect rowRect, Texture icon)
@@ -287,6 +290,19 @@ namespace Sol.Editor
 
             if (issue.Context != null)
                 EditorGUIUtility.PingObject(issue.Context);
+        }
+
+        /// <summary>
+        /// Switch to the given tab and select the row with the supplied id. No-ops if the id
+        /// is missing — useful as a cross-reference click target from other tabs.
+        /// </summary>
+        public void NavigateTo(SolDatabaseTab tab, string id)
+        {
+            EnsurePages();
+            SelectTab(tab);
+            if (_pages.TryGetValue(tab, out ISolDatabasePage page) && !string.IsNullOrWhiteSpace(id))
+                page.SelectById(id);
+            Repaint();
         }
 
         internal List<SolDatabaseIssue> CollectIssues(bool includeOverview = false)

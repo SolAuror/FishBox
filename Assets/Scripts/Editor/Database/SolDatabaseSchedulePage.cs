@@ -31,6 +31,7 @@ namespace Sol.Editor
             public string AssetPath;
             public string SearchText;
             public int WarningCount;
+            public string WarningTooltip;
         }
 
         private readonly Dictionary<NpcScheduleDefinition, List<NpcScheduleAuthoringWarning>> _warningCache = new();
@@ -99,7 +100,8 @@ namespace Sol.Editor
                 Subtitle = subtitle,
                 AssetPath = path,
                 SearchText = $"{label} {id} {subtitle} {path}".ToLowerInvariant(),
-                WarningCount = warnings.Count
+                WarningCount = warnings.Count,
+                WarningTooltip = JoinWarningMessages(warnings)
             };
         }
 
@@ -233,7 +235,7 @@ namespace Sol.Editor
             GUI.Label(new Rect(textRect.x, rowRect.y + 5f, textRect.width, EditorGUIUtility.singleLineHeight), $"{row.DisplayName} ({row.Id})", EditorStyles.boldLabel);
             GUI.Label(new Rect(textRect.x, rowRect.y + 22f, textRect.width, EditorGUIUtility.singleLineHeight), row.Subtitle, EditorStyles.miniLabel);
             GUI.Label(new Rect(textRect.x, rowRect.y + 39f, textRect.width, EditorGUIUtility.singleLineHeight), row.AssetPath, EditorStyles.miniLabel);
-            DrawWarningBadge(rowRect, row.WarningCount);
+            DrawWarningBadge(rowRect, row.WarningCount, row.WarningTooltip);
         }
 
         // -- Detail --------------------------------------------------------------------
@@ -313,6 +315,19 @@ namespace Sol.Editor
         }
 
         // -- Helpers -------------------------------------------------------------------
+
+        private static string JoinWarningMessages(List<NpcScheduleAuthoringWarning> warnings)
+        {
+            if (warnings == null || warnings.Count == 0)
+                return null;
+            System.Text.StringBuilder sb = new();
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                if (i > 0) sb.Append('\n');
+                sb.Append(warnings[i].Message);
+            }
+            return sb.ToString();
+        }
 
         private List<NpcScheduleAuthoringWarning> GetWarnings(NpcScheduleDefinition schedule)
         {
