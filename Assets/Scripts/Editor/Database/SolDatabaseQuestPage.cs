@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Sol.AI;
 using Sol.Quests;
@@ -6,7 +7,7 @@ using UnityEngine;
 
 namespace Sol.Editor
 {
-    internal sealed class SolDatabaseQuestPage : SolDatabasePageBase
+    internal sealed class SolDatabaseQuestPage : SolDatabaseListPage<SolDatabaseQuestPage.QuestRow, SolDatabaseQuestPage.QuestFilter, SolDatabaseQuestPage.QuestSort>
     {
         internal enum QuestFilter
         {
@@ -46,172 +47,272 @@ namespace Sol.Editor
             public int WarningCount;
         }
 
-        private const float LeftPaneWidth = 340f;
+        private const float QuestLeftPaneWidth = 340f;
         private const float FlowPaneWidth = 340f;
 
-        private readonly List<QuestDefinition> _quests = new();
-        private readonly List<QuestRow> _rows = new();
-        private readonly List<QuestRow> _filteredRows = new();
         private readonly Dictionary<QuestDefinition, List<QuestAuthoringWarning>> _warningCache = new();
 
         private Vector2 _flowScroll;
-        private string _lastFilterSearch = null;
-        private QuestFilter _filter = QuestFilter.All;
-        private QuestFilter _lastFilter = (QuestFilter)(-1);
-        private QuestSort _sort = QuestSort.QuestId;
-        private QuestSort _lastSort = (QuestSort)(-1);
-        private bool _filteredRowsDirty = true;
         private QuestAuthoringTemplate _newTemplate = QuestAuthoringTemplate.None;
-        private QuestDefinition _selectedQuest;
-        private SerializedObject _selectedSerializedObject;
         private bool _showFlowPanel = true;
 
         public override SolDatabaseTab Tab => SolDatabaseTab.Quests;
         public override string DisplayName => "Quests";
 
+        protected override float LeftPaneWidth => QuestLeftPaneWidth;
+        protected override string EmptyDetailMessage => "Select a quest from the database list.";
+
         public override void CommitPendingEdits()
         {
-            if (_selectedSerializedObject == null || _selectedQuest == null)
+            if (SelectedSerializedObject == null || SelectedRow?.Quest == null)
                 return;
 
-            if (_selectedSerializedObject.ApplyModifiedProperties())
+            if (SelectedSerializedObject.ApplyModifiedProperties())
             {
-                EditorUtility.SetDirty(_selectedQuest);
+                EditorUtility.SetDirty(SelectedRow.Quest);
                 QuestRegistry.ScheduleEditorSync();
-                RefreshRow(_selectedQuest);
+                RefreshRow(SelectedRow);
             }
         }
 
-        public override void DrawToolbar()
+        protected override void OnSelectionChanged(QuestRow newRow)
         {
-            if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
-                CreateNewQuest();
-            _newTemplate = (QuestAuthoringTemplate)EditorGUILayout.EnumPopup(_newTemplate, EditorStyles.toolbarPopup, GUILayout.Width(120f));
-            using (new EditorGUI.DisabledScope(_selectedQuest == null))
+            QuestAuthoringDrawerUtility.ClearFocusedObjective();
+        }
+
+        // -- Row contract --------------------------------------------------------------
+
+        protected override UnityEngine.Object GetRowAsset(QuestRow row) => row?.Quest;
+        protected override string GetRowId(QuestRow row) => row?.Quest?.QuestId;
+        protected override string GetRowSearchText(QuestRow row) => row?.SearchText;
+        protected override int GetRowWarningCount(QuestRow row) => row?.WarningCount ?? 0;
+
+        protected override void OnBeforeLoadRows()
+        {
+            _warningCache.Clear();
+        }
+
+        protected override void LoadRows()
+        {
+            QuestRegistry registry = QuestRegistry.Get();
+            if (registry?.Quests == null)
+                return;
+
+            HashSet<QuestDefinition> seen = new();
+            for (int i = 0; i < registry.Quests.Count; i++)
             {
-                if (GUILayout.Button("Duplicate", EditorStyles.toolbarButton, GUILayout.Width(76f)))
-                    DuplicateSelectedQuest();
-                if (GUILayout.Button("Reveal Asset", EditorStyles.toolbarButton, GUILayout.Width(92f)))
-                    RevealSelectedAsset();
-                if (GUILayout.Button("Select", EditorStyles.toolbarButton, GUILayout.Width(54f)))
-                    SelectCurrentAsset();
+                QuestDefinition quest = registry.Quests[i];
+                if (quest == null || !seen.Add(quest))
+                    continue;
+                Rows.Add(BuildRow(quest));
             }
-            if (GUILayout.Button("Rebuild Registry", EditorStyles.toolbarButton, GUILayout.Width(108f)))
+        }
+
+        protected override QuestRow RebuildRow(QuestRow row)
+        {
+            if (row?.Quest == null)
+                return row;
+            _warningCache.Remove(row.Quest);
+            return BuildRow(row.Quest);
+        }
+
+        private QuestRow BuildRow(QuestDefinition quest)
+        {
+            string path = QuestAuthoringEditorUtility.GetAssetPath(quest);
+            List<QuestAuthoringWarning> warnings = GetWarnings(quest);
+            NPCRegistry npcRegistry = NPCRegistry.Get();
+            NPCSoul giverPrefab = !string.IsNullOrWhiteSpace(quest.GiverNpcName) && npcRegistry != null
+                ? npcRegistry.GetPrefab(quest.GiverNpcName)
+                : null;
+            string giverName = giverPrefab != null
+                ? (string.IsNullOrWhiteSpace(giverPrefab.CharacterName) ? giverPrefab.name : giverPrefab.CharacterName)
+                : (string.IsNullOrWhiteSpace(quest.GiverNpcName) ? "<board>" : quest.GiverNpcName);
+
+            string title = string.IsNullOrWhiteSpace(quest.Title) ? quest.name : quest.Title.Trim();
+            string questId = string.IsNullOrWhiteSpace(quest.QuestId) ? "<missing>" : quest.QuestId.Trim();
+            int objectiveCount = quest.Objectives?.Count ?? 0;
+            string objectiveSearchText = BuildObjectiveSearchText(quest);
+
+            return new QuestRow
+            {
+                Quest = quest,
+                QuestId = questId,
+                Title = title,
+                GiverName = giverName,
+                GiverOwnerId = quest.GiverNpcName,
+                ObjectiveCount = objectiveCount,
+                AutoOffer = quest.AutoOffer,
+                Repeatable = quest.Repeatable,
+                IsTimed = quest.IsTimed,
+                MissingGiver = !string.IsNullOrWhiteSpace(quest.GiverNpcName) && giverPrefab == null,
+                HasOrphanedPrereqs = HasOrphanedPrereqs(quest),
+                AssetPath = path,
+                SearchText = $"{title} {questId} {giverName} {objectiveSearchText} {path}".ToLowerInvariant(),
+                Icon = AssetDatabase.GetCachedIcon(path),
+                WarningCount = warnings.Count
+            };
+        }
+
+        private static string BuildObjectiveSearchText(QuestDefinition quest)
+        {
+            if (quest.Objectives == null || quest.Objectives.Count == 0)
+                return string.Empty;
+            System.Text.StringBuilder sb = new();
+            for (int i = 0; i < quest.Objectives.Count; i++)
+            {
+                QuestObjective objective = quest.Objectives[i];
+                if (objective == null) continue;
+                sb.Append(objective.Type).Append(' ');
+                if (!string.IsNullOrWhiteSpace(objective.DisplayText))
+                    sb.Append(objective.DisplayText).Append(' ');
+                if (!string.IsNullOrWhiteSpace(objective.NpcName))
+                    sb.Append(objective.NpcName).Append(' ');
+            }
+            return sb.ToString();
+        }
+
+        private static bool HasOrphanedPrereqs(QuestDefinition quest)
+        {
+            IReadOnlyList<string> prereqs = quest.PrerequisiteQuestIds;
+            if (prereqs == null || prereqs.Count == 0)
+                return false;
+            QuestRegistry registry = QuestRegistry.Get();
+            if (registry == null)
+                return false;
+            for (int i = 0; i < prereqs.Count; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(prereqs[i]) && registry.Find(prereqs[i]) == null)
+                    return true;
+            }
+            return false;
+        }
+
+        protected override bool MatchesCustomFilter(QuestRow row, QuestFilter filter)
+        {
+            if (row?.Quest == null)
+                return false;
+
+            return filter switch
+            {
+                QuestFilter.AutoOffer => row.AutoOffer,
+                QuestFilter.Repeatable => row.Repeatable,
+                QuestFilter.Timed => row.IsTimed,
+                QuestFilter.Untimed => !row.IsTimed,
+                QuestFilter.MissingGiver => row.MissingGiver,
+                QuestFilter.HasWarnings => row.WarningCount > 0,
+                QuestFilter.OrphanedPrereqs => row.HasOrphanedPrereqs,
+                _ => true
+            };
+        }
+
+        protected override void SortRows(List<QuestRow> rows, QuestSort sort)
+        {
+            switch (sort)
+            {
+                case QuestSort.Title:
+                    rows.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.Title, b.Title));
+                    break;
+                case QuestSort.GiverName:
+                    rows.Sort((a, b) =>
+                    {
+                        int cmp = StringComparer.OrdinalIgnoreCase.Compare(a.GiverName, b.GiverName);
+                        return cmp != 0 ? cmp : StringComparer.OrdinalIgnoreCase.Compare(a.QuestId, b.QuestId);
+                    });
+                    break;
+                default:
+                    rows.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.QuestId, b.QuestId));
+                    break;
+            }
+        }
+
+        internal static bool RowMatchesFilters(QuestRow row, string search, QuestFilter filter)
+        {
+            if (row == null || row.Quest == null)
+                return false;
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                string needle = search.Trim().ToLowerInvariant();
+                if (row.SearchText == null || row.SearchText.IndexOf(needle, StringComparison.Ordinal) < 0)
+                    return false;
+            }
+
+            return filter switch
+            {
+                QuestFilter.AutoOffer => row.AutoOffer,
+                QuestFilter.Repeatable => row.Repeatable,
+                QuestFilter.Timed => row.IsTimed,
+                QuestFilter.Untimed => !row.IsTimed,
+                QuestFilter.MissingGiver => row.MissingGiver,
+                QuestFilter.HasWarnings => row.WarningCount > 0,
+                QuestFilter.OrphanedPrereqs => row.HasOrphanedPrereqs,
+                _ => true
+            };
+        }
+
+        // -- Toolbar -------------------------------------------------------------------
+
+        protected override void DrawToolbarBeforeRowOps()
+        {
+            _newTemplate = (QuestAuthoringTemplate)EditorGUILayout.EnumPopup(_newTemplate, EditorStyles.toolbarPopup, GUILayout.Width(SolDatabaseStyles.ButtonXXL));
+        }
+
+        protected override void DrawToolbarTrailing()
+        {
+            if (GUILayout.Button("Rebuild Registry", EditorStyles.toolbarButton, GUILayout.Width(SolDatabaseStyles.ButtonXL)))
                 RebuildRegistry();
             _showFlowPanel = GUILayout.Toggle(_showFlowPanel, "Flow", EditorStyles.toolbarButton, GUILayout.Width(48f));
         }
+
+        protected override void OnNewClicked()
+        {
+            QuestDefinition created = QuestAuthoringEditorUtility.CreateQuestAsset(_newTemplate);
+            RefreshIndex();
+            SetSelectedRowByAsset(created);
+            OnSelectAssetClicked();
+        }
+
+        protected override void OnDuplicateClicked()
+        {
+            QuestDefinition source = SelectedRow?.Quest;
+            if (source == null)
+                return;
+            QuestDefinition duplicated = QuestAuthoringEditorUtility.DuplicateQuestAsset(source);
+            RefreshIndex();
+            SetSelectedRowByAsset(duplicated);
+            OnSelectAssetClicked();
+        }
+
+        protected override void OnRevealClicked()
+        {
+            string path = SelectedRow?.Quest != null ? QuestAuthoringEditorUtility.GetAssetPath(SelectedRow.Quest) : null;
+            if (!string.IsNullOrWhiteSpace(path))
+                EditorUtility.RevealInFinder(path);
+        }
+
+        private void RebuildRegistry()
+        {
+            QuestRegistry.ForceEditorSyncNow();
+            RefreshIndex();
+        }
+
+        // -- Page layout (3 panes) -----------------------------------------------------
 
         public override void DrawPage()
         {
             EditorGUILayout.BeginHorizontal();
             DrawLeftPane();
-            DrawCenterPane();
+            DrawRightPane();
             if (_showFlowPanel)
                 DrawFlowPane();
             EditorGUILayout.EndHorizontal();
         }
 
-        public override void RefreshIndex()
+        // -- Row drawing ---------------------------------------------------------------
+
+        protected override void DrawRow(Rect rowRect, QuestRow row)
         {
-            _quests.Clear();
-            _rows.Clear();
-            InvalidateWarningCache();
-            QuestRegistry registry = QuestRegistry.Get();
-            if (registry?.Quests != null)
-            {
-                HashSet<QuestDefinition> seen = new();
-                for (int i = 0; i < registry.Quests.Count; i++)
-                {
-                    QuestDefinition quest = registry.Quests[i];
-                    if (quest == null || !seen.Add(quest))
-                        continue;
-                    _quests.Add(quest);
-                    _rows.Add(BuildRow(quest));
-                }
-            }
-
-            _filteredRowsDirty = true;
-            RebuildFilteredRowsIfNeeded();
-            if (_selectedQuest != null && !_quests.Contains(_selectedQuest))
-                SelectQuest(null);
-        }
-
-        public override bool SelectById(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                return false;
-
-            RefreshIndex();
-            for (int i = 0; i < _quests.Count; i++)
-            {
-                QuestDefinition quest = _quests[i];
-                if (quest == null)
-                    continue;
-                if (string.Equals(quest.QuestId, id, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    SelectQuest(quest);
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public override List<SolDatabaseIssue> CollectIssues()
-        {
-            List<SolDatabaseIssue> issues = new();
-            QuestRegistry registry = QuestRegistry.Get();
-            List<QuestAuthoringWarning> registryWarnings = QuestAuthoringValidator.ValidateRegistry(registry);
-            for (int i = 0; i < registryWarnings.Count; i++)
-            {
-                QuestAuthoringWarning warning = registryWarnings[i];
-                issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, string.Empty, "Quest Registry", warning.Message, registry));
-            }
-
-            for (int i = 0; i < _quests.Count; i++)
-            {
-                QuestDefinition quest = _quests[i];
-                if (quest == null)
-                    continue;
-
-                string label = string.IsNullOrWhiteSpace(quest.Title) ? quest.name : quest.Title;
-                List<QuestAuthoringWarning> warnings = GetWarnings(quest);
-                for (int j = 0; j < warnings.Count; j++)
-                {
-                    QuestAuthoringWarning warning = warnings[j];
-                    issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, quest.QuestId, label, warning.Message, quest));
-                }
-            }
-
-            return issues;
-        }
-
-        private void DrawLeftPane()
-        {
-            EditorGUILayout.BeginVertical(GUILayout.Width(LeftPaneWidth));
-
-            DrawSearchField(() => _filteredRowsDirty = true);
-
-            EditorGUI.BeginChangeCheck();
-            EditorGUILayout.BeginHorizontal();
-            _filter = (QuestFilter)EditorGUILayout.EnumPopup(_filter);
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Sort", GUILayout.Width(32f));
-            _sort = (QuestSort)EditorGUILayout.EnumPopup(_sort);
-            EditorGUILayout.EndHorizontal();
-            if (EditorGUI.EndChangeCheck())
-                _filteredRowsDirty = true;
-
-            RebuildFilteredRowsIfNeeded();
-            DrawVirtualizedRows(_filteredRows.Count, "No quests match the current filters.", (rect, index) => DrawQuestRow(rect, _filteredRows[index]));
-            EditorGUILayout.EndVertical();
-        }
-
-        private void DrawQuestRow(Rect rowRect, QuestRow row)
-        {
-            DrawRowChrome(rowRect, row.Quest == _selectedQuest, () => SelectQuest(row.Quest));
+            DrawRowChrome(rowRect, IsSelected(row), () => SetSelectedRow(row));
             DrawIcon(rowRect, row.Icon);
 
             Rect textRect = TextColumnRect(rowRect);
@@ -236,54 +337,66 @@ namespace Sol.Editor
             return flags;
         }
 
-        private void DrawCenterPane()
+        // -- Detail --------------------------------------------------------------------
+
+        protected override void DrawDetail(QuestRow row)
         {
-            EditorGUILayout.BeginVertical();
-            if (_selectedQuest == null)
-            {
-                EditorGUILayout.HelpBox("Select a quest from the database list.", MessageType.Info);
-                EditorGUILayout.EndVertical();
+            QuestDefinition quest = row.Quest;
+            if (quest == null)
                 return;
-            }
 
-            if (_selectedSerializedObject == null || _selectedSerializedObject.targetObject != _selectedQuest)
-                _selectedSerializedObject = new SerializedObject(_selectedQuest);
-
-            DetailScroll = EditorGUILayout.BeginScrollView(DetailScroll);
             EditorGUILayout.BeginHorizontal();
-            string headerName = string.IsNullOrWhiteSpace(_selectedQuest.Title) ? _selectedQuest.name : _selectedQuest.Title;
+            string headerName = string.IsNullOrWhiteSpace(quest.Title) ? quest.name : quest.Title;
             EditorGUILayout.LabelField(headerName, EditorStyles.largeLabel);
             GUILayout.FlexibleSpace();
-            using (new EditorGUI.DisabledScope(_selectedQuest.AuthoringTemplate == QuestAuthoringTemplate.None))
+            using (new EditorGUI.DisabledScope(quest.AuthoringTemplate == QuestAuthoringTemplate.None))
             {
                 if (GUILayout.Button("Reapply...", GUILayout.Width(84f)))
                     ReapplyTemplateForSelected();
             }
             EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.LabelField(QuestAuthoringEditorUtility.GetAssetPath(_selectedQuest), EditorStyles.miniLabel);
+            EditorGUILayout.LabelField(QuestAuthoringEditorUtility.GetAssetPath(quest), EditorStyles.miniLabel);
             EditorGUILayout.Space(4f);
 
-            _selectedSerializedObject.Update();
-            QuestAuthoringDrawerUtility.DrawQuestInspector(_selectedSerializedObject, _selectedQuest, showWarnings: false);
-            if (_selectedSerializedObject.ApplyModifiedProperties())
+            SelectedSerializedObject.Update();
+            QuestAuthoringDrawerUtility.DrawQuestInspector(SelectedSerializedObject, quest, showWarnings: false);
+            if (SelectedSerializedObject.ApplyModifiedProperties())
             {
-                EditorUtility.SetDirty(_selectedQuest);
+                EditorUtility.SetDirty(quest);
                 QuestRegistry.ScheduleEditorSync();
-                RefreshRow(_selectedQuest);
+                RefreshRow(row);
             }
 
-            DrawWarnings(_selectedQuest);
-
-            EditorGUILayout.EndScrollView();
-            EditorGUILayout.EndVertical();
+            DrawWarnings(quest);
         }
+
+        private void DrawWarnings(QuestDefinition quest)
+        {
+            List<QuestAuthoringWarning> warnings = GetWarnings(quest);
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                MessageType type = warnings[i].Severity switch
+                {
+                    QuestAuthoringWarningSeverity.Error => MessageType.Error,
+                    QuestAuthoringWarningSeverity.Warning => MessageType.Warning,
+                    _ => MessageType.Info
+                };
+                EditorGUILayout.HelpBox(warnings[i].Message, type);
+            }
+
+            if (warnings.Count > 0)
+                EditorGUILayout.Space(4f);
+        }
+
+        // -- Flow pane (3rd column) ----------------------------------------------------
 
         private void DrawFlowPane()
         {
             EditorGUILayout.BeginVertical(GUILayout.Width(FlowPaneWidth));
             EditorGUILayout.LabelField("Flow", EditorStyles.boldLabel);
-            if (_selectedQuest == null)
+            QuestDefinition quest = SelectedRow?.Quest;
+            if (quest == null)
             {
                 EditorGUILayout.HelpBox("Select a quest to inspect prerequisite chain and objective timeline.", MessageType.Info);
                 EditorGUILayout.EndVertical();
@@ -291,9 +404,9 @@ namespace Sol.Editor
             }
 
             _flowScroll = EditorGUILayout.BeginScrollView(_flowScroll);
-            DrawPrerequisiteChain(_selectedQuest);
+            DrawPrerequisiteChain(quest);
             EditorGUILayout.Space(8f);
-            DrawObjectiveTimeline(_selectedQuest);
+            DrawObjectiveTimeline(quest);
             EditorGUILayout.EndScrollView();
             EditorGUILayout.EndVertical();
         }
@@ -306,14 +419,14 @@ namespace Sol.Editor
             if (cycle)
                 EditorGUILayout.HelpBox("Cycle detected; chain rendering is truncated.", MessageType.Error);
 
-            HashSet<string> walked = new(System.StringComparer.OrdinalIgnoreCase);
+            HashSet<string> walked = new(StringComparer.OrdinalIgnoreCase);
             DrawUpstream(quest, registry, walked, depth: 0, cycle);
 
             walked.Clear();
             walked.Add(quest.QuestId ?? string.Empty);
             DrawSelfNode(quest);
 
-            HashSet<string> downstreamWalked = new(System.StringComparer.OrdinalIgnoreCase) { quest.QuestId ?? string.Empty };
+            HashSet<string> downstreamWalked = new(StringComparer.OrdinalIgnoreCase) { quest.QuestId ?? string.Empty };
             DrawDownstream(quest, registry, downstreamWalked, depth: 0);
         }
 
@@ -368,7 +481,7 @@ namespace Sol.Editor
                 bool referencesUs = false;
                 for (int j = 0; j < prereqs.Count; j++)
                 {
-                    if (string.Equals(prereqs[j], quest.QuestId, System.StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(prereqs[j], quest.QuestId, StringComparison.OrdinalIgnoreCase))
                     {
                         referencesUs = true;
                         break;
@@ -477,236 +590,38 @@ namespace Sol.Editor
             }
         }
 
-        private QuestRow BuildRow(QuestDefinition quest)
+        // -- Issues --------------------------------------------------------------------
+
+        public override List<SolDatabaseIssue> CollectIssues()
         {
-            string path = QuestAuthoringEditorUtility.GetAssetPath(quest);
-            List<QuestAuthoringWarning> warnings = GetWarnings(quest);
-            NPCRegistry npcRegistry = NPCRegistry.Get();
-            NPCSoul giverPrefab = !string.IsNullOrWhiteSpace(quest.GiverNpcName) && npcRegistry != null
-                ? npcRegistry.GetPrefab(quest.GiverNpcName)
-                : null;
-            string giverName = giverPrefab != null
-                ? (string.IsNullOrWhiteSpace(giverPrefab.CharacterName) ? giverPrefab.name : giverPrefab.CharacterName)
-                : (string.IsNullOrWhiteSpace(quest.GiverNpcName) ? "<board>" : quest.GiverNpcName);
-
-            string title = string.IsNullOrWhiteSpace(quest.Title) ? quest.name : quest.Title.Trim();
-            string questId = string.IsNullOrWhiteSpace(quest.QuestId) ? "<missing>" : quest.QuestId.Trim();
-            int objectiveCount = quest.Objectives?.Count ?? 0;
-            string objectiveSearchText = BuildObjectiveSearchText(quest);
-
-            return new QuestRow
-            {
-                Quest = quest,
-                QuestId = questId,
-                Title = title,
-                GiverName = giverName,
-                GiverOwnerId = quest.GiverNpcName,
-                ObjectiveCount = objectiveCount,
-                AutoOffer = quest.AutoOffer,
-                Repeatable = quest.Repeatable,
-                IsTimed = quest.IsTimed,
-                MissingGiver = !string.IsNullOrWhiteSpace(quest.GiverNpcName) && giverPrefab == null,
-                HasOrphanedPrereqs = HasOrphanedPrereqs(quest),
-                AssetPath = path,
-                SearchText = $"{title} {questId} {giverName} {objectiveSearchText} {path}".ToLowerInvariant(),
-                Icon = AssetDatabase.GetCachedIcon(path),
-                WarningCount = warnings.Count
-            };
-        }
-
-        private static string BuildObjectiveSearchText(QuestDefinition quest)
-        {
-            if (quest.Objectives == null || quest.Objectives.Count == 0)
-                return string.Empty;
-            System.Text.StringBuilder sb = new();
-            for (int i = 0; i < quest.Objectives.Count; i++)
-            {
-                QuestObjective objective = quest.Objectives[i];
-                if (objective == null) continue;
-                sb.Append(objective.Type).Append(' ');
-                if (!string.IsNullOrWhiteSpace(objective.DisplayText))
-                    sb.Append(objective.DisplayText).Append(' ');
-                if (!string.IsNullOrWhiteSpace(objective.NpcName))
-                    sb.Append(objective.NpcName).Append(' ');
-            }
-            return sb.ToString();
-        }
-
-        private static bool HasOrphanedPrereqs(QuestDefinition quest)
-        {
-            IReadOnlyList<string> prereqs = quest.PrerequisiteQuestIds;
-            if (prereqs == null || prereqs.Count == 0)
-                return false;
+            List<SolDatabaseIssue> issues = new();
             QuestRegistry registry = QuestRegistry.Get();
-            if (registry == null)
-                return false;
-            for (int i = 0; i < prereqs.Count; i++)
+            List<QuestAuthoringWarning> registryWarnings = QuestAuthoringValidator.ValidateRegistry(registry);
+            for (int i = 0; i < registryWarnings.Count; i++)
             {
-                if (!string.IsNullOrWhiteSpace(prereqs[i]) && registry.Find(prereqs[i]) == null)
-                    return true;
+                QuestAuthoringWarning warning = registryWarnings[i];
+                issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, string.Empty, "Quest Registry", warning.Message, registry));
             }
-            return false;
-        }
 
-        private void RefreshRow(QuestDefinition quest)
-        {
-            if (quest == null)
-                return;
-
-            InvalidateWarningCache(quest);
-            QuestRow row = BuildRow(quest);
-            for (int i = 0; i < _rows.Count; i++)
+            for (int i = 0; i < Rows.Count; i++)
             {
-                if (_rows[i].Quest != quest)
+                QuestDefinition quest = Rows[i]?.Quest;
+                if (quest == null)
                     continue;
-                _rows[i] = row;
-                _filteredRowsDirty = true;
-                return;
-            }
 
-            _quests.Add(quest);
-            _rows.Add(row);
-            _filteredRowsDirty = true;
-        }
-
-        internal static bool RowMatchesFilters(QuestRow row, string search, QuestFilter filter)
-        {
-            if (row == null || row.Quest == null)
-                return false;
-
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                string needle = search.Trim().ToLowerInvariant();
-                if (row.SearchText == null || row.SearchText.IndexOf(needle, System.StringComparison.Ordinal) < 0)
-                    return false;
-            }
-
-            return filter switch
-            {
-                QuestFilter.AutoOffer => row.AutoOffer,
-                QuestFilter.Repeatable => row.Repeatable,
-                QuestFilter.Timed => row.IsTimed,
-                QuestFilter.Untimed => !row.IsTimed,
-                QuestFilter.MissingGiver => row.MissingGiver,
-                QuestFilter.HasWarnings => row.WarningCount > 0,
-                QuestFilter.OrphanedPrereqs => row.HasOrphanedPrereqs,
-                _ => true
-            };
-        }
-
-        private void RebuildFilteredRowsIfNeeded()
-        {
-            if (!_filteredRowsDirty
-                && string.Equals(_lastFilterSearch, Search, System.StringComparison.Ordinal)
-                && _lastFilter == _filter
-                && _lastSort == _sort)
-            {
-                return;
-            }
-
-            _filteredRows.Clear();
-            for (int i = 0; i < _rows.Count; i++)
-            {
-                QuestRow row = _rows[i];
-                if (RowMatchesFilters(row, Search, _filter))
-                    _filteredRows.Add(row);
-            }
-
-            SortFilteredRows(_sort);
-            _lastFilterSearch = Search;
-            _lastFilter = _filter;
-            _lastSort = _sort;
-            _filteredRowsDirty = false;
-        }
-
-        private void SortFilteredRows(QuestSort sort)
-        {
-            switch (sort)
-            {
-                case QuestSort.Title:
-                    _filteredRows.Sort((a, b) => System.StringComparer.OrdinalIgnoreCase.Compare(a.Title, b.Title));
-                    break;
-                case QuestSort.GiverName:
-                    _filteredRows.Sort((a, b) =>
-                    {
-                        int cmp = System.StringComparer.OrdinalIgnoreCase.Compare(a.GiverName, b.GiverName);
-                        return cmp != 0 ? cmp : System.StringComparer.OrdinalIgnoreCase.Compare(a.QuestId, b.QuestId);
-                    });
-                    break;
-                default:
-                    _filteredRows.Sort((a, b) => System.StringComparer.OrdinalIgnoreCase.Compare(a.QuestId, b.QuestId));
-                    break;
-            }
-        }
-
-        private void SelectQuest(QuestDefinition quest)
-        {
-            if (_selectedQuest != quest)
-            {
-                CommitPendingEdits();
-                ClearEditorTextFocus();
-            }
-
-            _selectedQuest = quest;
-            QuestAuthoringDrawerUtility.ClearFocusedObjective();
-            _selectedSerializedObject = _selectedQuest != null ? new SerializedObject(_selectedQuest) : null;
-            Window?.Repaint();
-        }
-
-        private void DrawWarnings(QuestDefinition quest)
-        {
-            List<QuestAuthoringWarning> warnings = GetWarnings(quest);
-            for (int i = 0; i < warnings.Count; i++)
-            {
-                MessageType type = warnings[i].Severity switch
+                string label = string.IsNullOrWhiteSpace(quest.Title) ? quest.name : quest.Title;
+                List<QuestAuthoringWarning> warnings = GetWarnings(quest);
+                for (int j = 0; j < warnings.Count; j++)
                 {
-                    QuestAuthoringWarningSeverity.Error => MessageType.Error,
-                    QuestAuthoringWarningSeverity.Warning => MessageType.Warning,
-                    _ => MessageType.Info
-                };
-                EditorGUILayout.HelpBox(warnings[i].Message, type);
+                    QuestAuthoringWarning warning = warnings[j];
+                    issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, quest.QuestId, label, warning.Message, quest));
+                }
             }
 
-            if (warnings.Count > 0)
-                EditorGUILayout.Space(4f);
+            return issues;
         }
 
-        private void CreateNewQuest()
-        {
-            QuestDefinition created = QuestAuthoringEditorUtility.CreateQuestAsset(_newTemplate);
-            RefreshIndex();
-            SelectQuest(created);
-            SelectCurrentAsset();
-        }
-
-        private void DuplicateSelectedQuest()
-        {
-            QuestDefinition duplicated = QuestAuthoringEditorUtility.DuplicateQuestAsset(_selectedQuest);
-            RefreshIndex();
-            SelectQuest(duplicated);
-            SelectCurrentAsset();
-        }
-
-        private void RevealSelectedAsset()
-        {
-            string path = QuestAuthoringEditorUtility.GetAssetPath(_selectedQuest);
-            if (!string.IsNullOrWhiteSpace(path))
-                EditorUtility.RevealInFinder(path);
-        }
-
-        private void SelectCurrentAsset()
-        {
-            if (_selectedQuest == null)
-                return;
-            Selection.activeObject = _selectedQuest;
-            EditorGUIUtility.PingObject(_selectedQuest);
-        }
-
-        private void RebuildRegistry()
-        {
-            QuestRegistry.ForceEditorSyncNow();
-            RefreshIndex();
-        }
+        // -- Helpers -------------------------------------------------------------------
 
         private List<QuestAuthoringWarning> GetWarnings(QuestDefinition quest)
         {
@@ -720,23 +635,13 @@ namespace Sol.Editor
             return warnings;
         }
 
-        private void InvalidateWarningCache()
-        {
-            _warningCache.Clear();
-        }
-
-        private void InvalidateWarningCache(QuestDefinition quest)
-        {
-            if (quest != null)
-                _warningCache.Remove(quest);
-        }
-
         private void ReapplyTemplateForSelected()
         {
-            if (_selectedQuest == null || _selectedQuest.AuthoringTemplate == QuestAuthoringTemplate.None)
+            QuestDefinition quest = SelectedRow?.Quest;
+            if (quest == null || quest.AuthoringTemplate == QuestAuthoringTemplate.None)
                 return;
 
-            List<string> changes = QuestAuthoringEditorUtility.BuildTemplateOverwritePreview(_selectedQuest.AuthoringTemplate);
+            List<string> changes = QuestAuthoringEditorUtility.BuildTemplateOverwritePreview(quest.AuthoringTemplate);
             string message = "This will reapply the template defaults:\n\n- "
                 + string.Join("\n- ", changes)
                 + "\n\nObjectives are only seeded when the list is empty.";
@@ -745,9 +650,9 @@ namespace Sol.Editor
             if (!confirmed)
                 return;
 
-            QuestAuthoringEditorUtility.ApplyTemplate(_selectedQuest, _selectedQuest.AuthoringTemplate, _selectedQuest.Title);
-            RefreshRow(_selectedQuest);
-            _selectedSerializedObject = new SerializedObject(_selectedQuest);
+            QuestAuthoringEditorUtility.ApplyTemplate(quest, quest.AuthoringTemplate, quest.Title);
+            RefreshRow(SelectedRow);
+            SelectedSerializedObject = new SerializedObject(quest);
             QuestRegistry.ScheduleEditorSync();
         }
     }

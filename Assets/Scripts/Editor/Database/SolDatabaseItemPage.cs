@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Sol.Grab;
 using UnityEditor;
@@ -5,7 +6,7 @@ using UnityEngine;
 
 namespace Sol.Editor
 {
-    internal sealed class SolDatabaseItemPage : SolDatabasePageBase
+    internal sealed class SolDatabaseItemPage : SolDatabaseListPage<SolDatabaseItemPage.ItemRow, SolDatabaseItemPage.ItemFilter, SolDatabaseItemPage.ItemSort>
     {
         private const float PreviewHeight = 220f;
         private const float PreviewRotationSpeed = 20f;
@@ -47,31 +48,20 @@ namespace Sol.Editor
             public bool MissingIcon;
         }
 
-        private readonly List<ItemRegistry.Entry> _entries = new();
-        private readonly List<ItemRow> _rows = new();
-        private readonly List<ItemRow> _filteredRows = new();
         private readonly Dictionary<ItemRegistry.Entry, List<ItemAuthoringWarning>> _warningCache = new();
-
-        private string _lastFilterSearch = null;
-        private ItemFilter _filter = ItemFilter.All;
-        private ItemFilter _lastFilter = (ItemFilter)(-1);
-        private ItemType _typeFilter = ItemType.Material;
-        private ItemType _lastTypeFilter = (ItemType)(-1);
-        private bool _useTypeFilter;
-        private bool _lastUseTypeFilter;
-        private ItemSort _sort = ItemSort.Name;
-        private ItemSort _lastSort = (ItemSort)(-1);
-        private bool _filteredRowsDirty = true;
-        private ItemAuthoringTemplate _newTemplate = ItemAuthoringTemplate.None;
-        private ItemRegistry.Entry _selectedEntry;
-        private int _selectedEntryIndex = -1;
-        private SerializedObject _registrySerializedObject;
         private readonly SolDatabaseItemPreview _preview = new();
+
+        private ItemType _typeFilter = ItemType.Material;
+        private bool _useTypeFilter;
+        private ItemAuthoringTemplate _newTemplate = ItemAuthoringTemplate.None;
         private bool _previewAutoRotate = true;
         private double _lastPreviewTime;
 
         public override SolDatabaseTab Tab => SolDatabaseTab.Items;
         public override string DisplayName => "Items";
+
+        protected override string EmptyDetailMessage => "Select an item definition from the database list.";
+        protected override string RevealButtonLabel => "Reveal Prefab";
 
         public override void Dispose()
         {
@@ -80,240 +70,55 @@ namespace Sol.Editor
 
         public override void CommitPendingEdits()
         {
-            if (_registrySerializedObject == null || _selectedEntry == null)
+            if (SelectedSerializedObject == null || SelectedRow?.Entry == null)
                 return;
 
-            if (_registrySerializedObject.ApplyModifiedProperties())
+            if (SelectedSerializedObject.ApplyModifiedProperties())
             {
-                _selectedEntry.Normalize();
-                EditorUtility.SetDirty(_registrySerializedObject.targetObject);
-                RefreshRow(_selectedEntry);
+                SelectedRow.Entry.Normalize();
+                EditorUtility.SetDirty(SelectedSerializedObject.targetObject);
+                RefreshRow(SelectedRow);
                 ItemRegistry.NotifyEditorDefinitionsChanged();
             }
         }
 
-        public override void DrawToolbar()
+        // -- Row contract --------------------------------------------------------------
+
+        protected override UnityEngine.Object GetRowAsset(ItemRow row) => row?.Item;
+        protected override UnityEngine.Object GetSerializedObjectTarget(ItemRow row) => ItemRegistry.Get();
+        protected override string GetRowId(ItemRow row) => row?.Entry?.ItemId;
+        protected override string GetRowSearchText(ItemRow row) => row?.SearchText;
+        protected override int GetRowWarningCount(ItemRow row) => row?.WarningCount ?? 0;
+
+        protected override void OnBeforeLoadRows()
         {
-            if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
-                CreateNewItem();
-            _newTemplate = (ItemAuthoringTemplate)EditorGUILayout.EnumPopup(_newTemplate, EditorStyles.toolbarPopup, GUILayout.Width(120f));
-            using (new EditorGUI.DisabledScope(_selectedEntry == null))
-            {
-                if (GUILayout.Button("Duplicate", EditorStyles.toolbarButton, GUILayout.Width(76f)))
-                    DuplicateSelectedItem();
-                if (GUILayout.Button("Reveal Prefab", EditorStyles.toolbarButton, GUILayout.Width(92f)))
-                    RevealSelectedPrefab();
-                if (GUILayout.Button("Select", EditorStyles.toolbarButton, GUILayout.Width(54f)))
-                    SelectCurrentPrefab();
-            }
-            if (GUILayout.Button("Rebuild Registry", EditorStyles.toolbarButton, GUILayout.Width(108f)))
-                RebuildRegistry();
+            _warningCache.Clear();
         }
 
-        public override void DrawPage()
+        protected override void LoadRows()
         {
-            EditorGUILayout.BeginHorizontal();
-            DrawLeftPane();
-            DrawRightPane();
-            EditorGUILayout.EndHorizontal();
-        }
-
-        public override void RefreshIndex()
-        {
-            _entries.Clear();
-            _rows.Clear();
-            InvalidateWarningCache();
-
             ItemRegistry registry = ItemRegistry.Get();
-            if (registry?.Entries != null)
+            if (registry?.Entries == null)
+                return;
+
+            for (int i = 0; i < registry.Entries.Count; i++)
             {
-                for (int i = 0; i < registry.Entries.Count; i++)
-                {
-                    ItemRegistry.Entry entry = registry.Entries[i];
-                    if (entry == null)
-                        continue;
-
-                    entry.Normalize();
-                    _entries.Add(entry);
-                    _rows.Add(BuildRow(entry, i));
-                }
-            }
-
-            _filteredRowsDirty = true;
-            RebuildFilteredRowsIfNeeded();
-            if (_selectedEntry != null && !_entries.Contains(_selectedEntry))
-                SelectEntry(null, -1);
-        }
-
-        public override bool SelectById(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                return false;
-
-            RefreshIndex();
-            for (int i = 0; i < _entries.Count; i++)
-            {
-                ItemRegistry.Entry entry = _entries[i];
-                if (entry == null)
-                    continue;
-                if (string.Equals(entry.ItemId, id, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    SelectEntry(entry, FindRegistryEntryIndex(entry));
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public override List<SolDatabaseIssue> CollectIssues()
-        {
-            List<SolDatabaseIssue> issues = new();
-            ItemRegistry registry = ItemRegistry.Get();
-            List<ItemAuthoringWarning> registryWarnings = ItemAuthoringValidator.ValidateRegistry(registry);
-            for (int i = 0; i < registryWarnings.Count; i++)
-            {
-                ItemAuthoringWarning warning = registryWarnings[i];
-                issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, string.Empty, "Item Registry", warning.Message, registry));
-            }
-
-            for (int i = 0; i < _entries.Count; i++)
-            {
-                ItemRegistry.Entry entry = _entries[i];
+                ItemRegistry.Entry entry = registry.Entries[i];
                 if (entry == null)
                     continue;
 
-                List<ItemAuthoringWarning> warnings = GetWarnings(entry);
-                for (int j = 0; j < warnings.Count; j++)
-                {
-                    ItemAuthoringWarning warning = warnings[j];
-                    issues.Add(new SolDatabaseIssue(
-                        MapIssueSeverity(warning.Severity),
-                        Tab,
-                        entry.ItemId,
-                        string.IsNullOrWhiteSpace(entry.DisplayName) ? entry.ItemId : entry.DisplayName,
-                        warning.Message,
-                        registry));
-                }
+                entry.Normalize();
+                Rows.Add(BuildRow(entry, i));
             }
-
-            return issues;
         }
 
-        private void DrawLeftPane()
+        protected override ItemRow RebuildRow(ItemRow row)
         {
-            EditorGUILayout.BeginVertical(GUILayout.Width(DefaultLeftPaneWidth));
-
-            DrawSearchField(() => _filteredRowsDirty = true);
-
-            EditorGUI.BeginChangeCheck();
-            EditorGUILayout.BeginHorizontal();
-            _filter = (ItemFilter)EditorGUILayout.EnumPopup(_filter);
-            _useTypeFilter = EditorGUILayout.ToggleLeft("Type", _useTypeFilter, GUILayout.Width(48f));
-            using (new EditorGUI.DisabledScope(!_useTypeFilter))
-                _typeFilter = (ItemType)EditorGUILayout.EnumPopup(_typeFilter);
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Sort", GUILayout.Width(32f));
-            _sort = (ItemSort)EditorGUILayout.EnumPopup(_sort);
-            EditorGUILayout.EndHorizontal();
-            if (EditorGUI.EndChangeCheck())
-                _filteredRowsDirty = true;
-
-            RebuildFilteredRowsIfNeeded();
-            DrawVirtualizedRows(_filteredRows.Count, "No items match the current filters.", (rect, index) => DrawItemRow(rect, _filteredRows[index]));
-            EditorGUILayout.EndVertical();
-        }
-
-        private void DrawItemRow(Rect rowRect, ItemRow row)
-        {
-            DrawRowChrome(rowRect, row.Entry == _selectedEntry, () => SelectEntry(row.Entry, row.EntryIndex));
-            DrawIcon(rowRect, row.Icon);
-
-            Rect textRect = TextColumnRect(rowRect);
-            Rect titleRect = new(textRect.x, rowRect.y + 5f, textRect.width, EditorGUIUtility.singleLineHeight);
-            Rect metaRect = new(textRect.x, titleRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
-            Rect pathRect = new(textRect.x, metaRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
-
-            GUI.Label(titleRect, $"{row.ItemName} ({row.ItemId})", EditorStyles.boldLabel);
-            GUI.Label(metaRect, $"{row.TypeName}  Value {row.Value}", EditorStyles.miniLabel);
-            GUI.Label(pathRect, row.PrefabPath, EditorStyles.miniLabel);
-            DrawWarningBadge(rowRect, row.WarningCount);
-        }
-
-        private void DrawRightPane()
-        {
-            EditorGUILayout.BeginVertical();
-            if (_selectedEntry == null)
-            {
-                EditorGUILayout.HelpBox("Select an item definition from the database list.", MessageType.Info);
-                EditorGUILayout.EndVertical();
-                return;
-            }
-
-            ItemRegistry registry = ItemRegistry.Get();
-            if (registry == null)
-            {
-                EditorGUILayout.HelpBox("ItemRegistry asset is missing.", MessageType.Error);
-                EditorGUILayout.EndVertical();
-                return;
-            }
-
-            if (_registrySerializedObject == null || _registrySerializedObject.targetObject != registry)
-                _registrySerializedObject = new SerializedObject(registry);
-
-            DetailScroll = EditorGUILayout.BeginScrollView(DetailScroll);
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField(_selectedEntry.NameOrId, EditorStyles.largeLabel);
-            GUILayout.FlexibleSpace();
-            using (new EditorGUI.DisabledScope(_selectedEntry.Prefab == null || _selectedEntry.AuthoringTemplate == ItemAuthoringTemplate.None))
-            {
-                if (GUILayout.Button("Fill Missing Defaults", GUILayout.Width(140f)))
-                    FillMissingDefaultsForSelectedItem();
-                if (GUILayout.Button("Reapply...", GUILayout.Width(84f)))
-                    ReapplyTemplateForSelectedItem();
-            }
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.LabelField(_selectedEntry.Prefab != null ? ItemAuthoringEditorUtility.GetPrefabPath(_selectedEntry.Prefab) : "No visual/world prefab", EditorStyles.miniLabel);
-            EditorGUILayout.Space(4f);
-
-            DrawSelectedPreview();
-            EditorGUILayout.Space(4f);
-
-            _registrySerializedObject.Update();
-            DrawSelectedRegistryEntry(_registrySerializedObject);
-            if (_registrySerializedObject.ApplyModifiedProperties())
-            {
-                _selectedEntry.Normalize();
-                EditorUtility.SetDirty(registry);
-                RefreshRow(_selectedEntry);
-                ItemRegistry.NotifyEditorDefinitionsChanged();
-            }
-
-            DrawWarnings(_selectedEntry);
-
-            EditorGUILayout.EndScrollView();
-            EditorGUILayout.EndVertical();
-        }
-
-        private void DrawWarnings(ItemRegistry.Entry entry)
-        {
-            List<ItemAuthoringWarning> warnings = GetWarnings(entry);
-            for (int i = 0; i < warnings.Count; i++)
-            {
-                MessageType type = warnings[i].Severity switch
-                {
-                    ItemAuthoringWarningSeverity.Error => MessageType.Error,
-                    ItemAuthoringWarningSeverity.Warning => MessageType.Warning,
-                    _ => MessageType.Info
-                };
-                EditorGUILayout.HelpBox(warnings[i].Message, type);
-            }
-
-            if (warnings.Count > 0)
-                EditorGUILayout.Space(4f);
+            if (row?.Entry == null)
+                return row;
+            _warningCache.Remove(row.Entry);
+            int entryIndex = FindRegistryEntryIndex(row.Entry);
+            return BuildRow(row.Entry, entryIndex);
         }
 
         private ItemRow BuildRow(ItemRegistry.Entry entry, int entryIndex)
@@ -349,27 +154,43 @@ namespace Sol.Editor
             };
         }
 
-        private void RefreshRow(ItemRegistry.Entry entry)
+        protected override bool MatchesCustomFilter(ItemRow row, ItemFilter filter)
         {
-            if (entry == null)
-                return;
+            if (row == null || (row.Entry == null && row.Item == null))
+                return false;
 
-            InvalidateWarningCache(entry);
-            int entryIndex = FindRegistryEntryIndex(entry);
-            ItemRow row = BuildRow(entry, entryIndex);
-            for (int i = 0; i < _rows.Count; i++)
+            if (_useTypeFilter && row.ItemType != _typeFilter)
+                return false;
+
+            return filter switch
             {
-                if (_rows[i].Entry != entry)
-                    continue;
+                ItemFilter.Consumable => row.IsConsumable,
+                ItemFilter.Equipable => row.IsEquipable,
+                ItemFilter.Stackable => row.IsStackable,
+                ItemFilter.MissingIcon => row.MissingIcon,
+                ItemFilter.HasWarnings => row.WarningCount > 0,
+                _ => true
+            };
+        }
 
-                _rows[i] = row;
-                _filteredRowsDirty = true;
-                return;
+        protected override void SortRows(List<ItemRow> rows, ItemSort sort)
+        {
+            switch (sort)
+            {
+                case ItemSort.Id:
+                    rows.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.ItemId, b.ItemId));
+                    break;
+                case ItemSort.Value:
+                    rows.Sort((a, b) =>
+                    {
+                        int cmp = b.Value.CompareTo(a.Value);
+                        return cmp != 0 ? cmp : StringComparer.OrdinalIgnoreCase.Compare(a.ItemName, b.ItemName);
+                    });
+                    break;
+                default:
+                    rows.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.ItemName, b.ItemName));
+                    break;
             }
-
-            _entries.Add(entry);
-            _rows.Add(row);
-            _filteredRowsDirty = true;
         }
 
         internal static bool RowMatchesFilters(ItemRow row, string search, ItemFilter filter, bool useTypeFilter, ItemType typeFilter)
@@ -383,7 +204,7 @@ namespace Sol.Editor
             if (!string.IsNullOrWhiteSpace(search))
             {
                 string needle = search.Trim().ToLowerInvariant();
-                if (row.SearchText == null || row.SearchText.IndexOf(needle, System.StringComparison.Ordinal) < 0)
+                if (row.SearchText == null || row.SearchText.IndexOf(needle, StringComparison.Ordinal) < 0)
                     return false;
             }
 
@@ -398,75 +219,189 @@ namespace Sol.Editor
             };
         }
 
-        private void RebuildFilteredRowsIfNeeded()
+        protected override void DrawFilterControls()
         {
-            if (!_filteredRowsDirty
-                && string.Equals(_lastFilterSearch, Search, System.StringComparison.Ordinal)
-                && _lastFilter == _filter
-                && _lastUseTypeFilter == _useTypeFilter
-                && _lastTypeFilter == _typeFilter
-                && _lastSort == _sort)
+            EditorGUILayout.BeginHorizontal();
+            Filter = (ItemFilter)EditorGUILayout.EnumPopup(Filter);
+            _useTypeFilter = EditorGUILayout.ToggleLeft("Type", _useTypeFilter, GUILayout.Width(48f));
+            using (new EditorGUI.DisabledScope(!_useTypeFilter))
+                _typeFilter = (ItemType)EditorGUILayout.EnumPopup(_typeFilter);
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Sort", GUILayout.Width(32f));
+            Sort = (ItemSort)EditorGUILayout.EnumPopup(Sort);
+            EditorGUILayout.EndHorizontal();
+        }
+
+        // -- Toolbar -------------------------------------------------------------------
+
+        protected override void DrawToolbarBeforeRowOps()
+        {
+            _newTemplate = (ItemAuthoringTemplate)EditorGUILayout.EnumPopup(_newTemplate, EditorStyles.toolbarPopup, GUILayout.Width(SolDatabaseStyles.ButtonXXL));
+        }
+
+        protected override void DrawToolbarTrailing()
+        {
+            if (GUILayout.Button("Rebuild Registry", EditorStyles.toolbarButton, GUILayout.Width(SolDatabaseStyles.ButtonXL)))
+                RebuildRegistry();
+        }
+
+        protected override void OnNewClicked()
+        {
+            ItemComponent created = ItemAuthoringEditorUtility.CreateItemPrefab(_newTemplate);
+            RefreshIndex();
+            if (created != null)
+                SelectById(created.ItemId);
+            OnSelectAssetClicked();
+        }
+
+        protected override void OnDuplicateClicked()
+        {
+            ItemComponent duplicated = ItemAuthoringEditorUtility.DuplicateItemPrefab(SelectedRow?.Item);
+            RefreshIndex();
+            if (duplicated != null)
+                SelectById(duplicated.ItemId);
+            OnSelectAssetClicked();
+        }
+
+        protected override void OnRevealClicked()
+        {
+            string path = ItemAuthoringEditorUtility.GetPrefabPath(SelectedRow?.Item);
+            if (!string.IsNullOrWhiteSpace(path))
+                EditorUtility.RevealInFinder(path);
+        }
+
+        protected override void OnSelectAssetClicked()
+        {
+            ItemComponent item = SelectedRow?.Item;
+            if (item == null)
+                return;
+
+            Selection.activeObject = item.gameObject;
+            EditorGUIUtility.PingObject(item.gameObject);
+        }
+
+        protected override void OnSelectionChanged(ItemRow newRow)
+        {
+            _preview.SetItem(newRow?.Item);
+            _lastPreviewTime = 0d;
+        }
+
+        private void RebuildRegistry()
+        {
+            ItemRegistry.ForceEditorSyncNow();
+            RefreshIndex();
+        }
+
+        // -- Row drawing ---------------------------------------------------------------
+
+        protected override void DrawRow(Rect rowRect, ItemRow row)
+        {
+            DrawRowChrome(rowRect, IsSelected(row), () => SetSelectedRow(row));
+            DrawIcon(rowRect, row.Icon);
+
+            Rect textRect = TextColumnRect(rowRect);
+            Rect titleRect = new(textRect.x, rowRect.y + 5f, textRect.width, EditorGUIUtility.singleLineHeight);
+            Rect metaRect = new(textRect.x, titleRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
+            Rect pathRect = new(textRect.x, metaRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
+
+            GUI.Label(titleRect, $"{row.ItemName} ({row.ItemId})", EditorStyles.boldLabel);
+            GUI.Label(metaRect, $"{row.TypeName}  Value {row.Value}", EditorStyles.miniLabel);
+            GUI.Label(pathRect, row.PrefabPath, EditorStyles.miniLabel);
+            DrawWarningBadge(rowRect, row.WarningCount);
+        }
+
+        // -- Detail --------------------------------------------------------------------
+
+        protected override void DrawRightPane()
+        {
+            EditorGUILayout.BeginVertical();
+            if (SelectedRow == null)
             {
+                EditorGUILayout.HelpBox(EmptyDetailMessage, MessageType.Info);
+                EditorGUILayout.EndVertical();
                 return;
             }
 
-            _filteredRows.Clear();
-            for (int i = 0; i < _rows.Count; i++)
+            ItemRegistry registry = ItemRegistry.Get();
+            if (registry == null)
             {
-                ItemRow row = _rows[i];
-                if (RowMatchesFilters(row, Search, _filter, _useTypeFilter, _typeFilter))
-                    _filteredRows.Add(row);
+                EditorGUILayout.HelpBox("ItemRegistry asset is missing.", MessageType.Error);
+                EditorGUILayout.EndVertical();
+                return;
             }
 
-            SortFilteredRows(_sort);
+            EnsureSelectedSerializedObject();
 
-            _lastFilterSearch = Search;
-            _lastFilter = _filter;
-            _lastUseTypeFilter = _useTypeFilter;
-            _lastTypeFilter = _typeFilter;
-            _lastSort = _sort;
-            _filteredRowsDirty = false;
+            DetailScroll = EditorGUILayout.BeginScrollView(DetailScroll);
+            DrawDetail(SelectedRow);
+            EditorGUILayout.EndScrollView();
+            EditorGUILayout.EndVertical();
         }
 
-        private void SortFilteredRows(ItemSort sort)
+        protected override void DrawDetail(ItemRow row)
         {
-            switch (sort)
+            ItemRegistry.Entry entry = row.Entry;
+            if (entry == null)
+                return;
+
+            ItemRegistry registry = (ItemRegistry)SelectedSerializedObject.targetObject;
+
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField(entry.NameOrId, EditorStyles.largeLabel);
+            GUILayout.FlexibleSpace();
+            using (new EditorGUI.DisabledScope(entry.Prefab == null || entry.AuthoringTemplate == ItemAuthoringTemplate.None))
             {
-                case ItemSort.Id:
-                    _filteredRows.Sort((a, b) => System.StringComparer.OrdinalIgnoreCase.Compare(a.ItemId, b.ItemId));
-                    break;
-                case ItemSort.Value:
-                    _filteredRows.Sort((a, b) =>
-                    {
-                        int cmp = b.Value.CompareTo(a.Value);
-                        return cmp != 0 ? cmp : System.StringComparer.OrdinalIgnoreCase.Compare(a.ItemName, b.ItemName);
-                    });
-                    break;
-                default:
-                    _filteredRows.Sort((a, b) => System.StringComparer.OrdinalIgnoreCase.Compare(a.ItemName, b.ItemName));
-                    break;
+                if (GUILayout.Button("Fill Missing Defaults", GUILayout.Width(140f)))
+                    FillMissingDefaultsForSelectedItem();
+                if (GUILayout.Button("Reapply...", GUILayout.Width(84f)))
+                    ReapplyTemplateForSelectedItem();
             }
-        }
+            EditorGUILayout.EndHorizontal();
 
-        private void SelectEntry(ItemRegistry.Entry entry, int entryIndex)
-        {
-            if (_selectedEntry != entry)
+            EditorGUILayout.LabelField(entry.Prefab != null ? ItemAuthoringEditorUtility.GetPrefabPath(entry.Prefab) : "No visual/world prefab", EditorStyles.miniLabel);
+            EditorGUILayout.Space(4f);
+
+            DrawSelectedPreview(entry);
+            EditorGUILayout.Space(4f);
+
+            SelectedSerializedObject.Update();
+            DrawSelectedRegistryEntry(SelectedSerializedObject, row.EntryIndex);
+            if (SelectedSerializedObject.ApplyModifiedProperties())
             {
-                CommitPendingEdits();
-                ClearEditorTextFocus();
+                entry.Normalize();
+                EditorUtility.SetDirty(registry);
+                RefreshRow(row);
+                ItemRegistry.NotifyEditorDefinitionsChanged();
             }
 
-            _selectedEntry = entry;
-            _selectedEntryIndex = entryIndex;
-            _registrySerializedObject = ItemRegistry.Get() != null ? new SerializedObject(ItemRegistry.Get()) : null;
-            _preview.SetItem(_selectedEntry?.Prefab);
-            _lastPreviewTime = 0d;
-            Window?.Repaint();
+            DrawWarnings(entry);
         }
 
-        private void DrawSelectedPreview()
+        private void DrawWarnings(ItemRegistry.Entry entry)
         {
-            _preview.SetItem(_selectedEntry?.Prefab);
+            List<ItemAuthoringWarning> warnings = GetWarnings(entry);
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                MessageType type = warnings[i].Severity switch
+                {
+                    ItemAuthoringWarningSeverity.Error => MessageType.Error,
+                    ItemAuthoringWarningSeverity.Warning => MessageType.Warning,
+                    _ => MessageType.Info
+                };
+                EditorGUILayout.HelpBox(warnings[i].Message, type);
+            }
+
+            if (warnings.Count > 0)
+                EditorGUILayout.Space(4f);
+        }
+
+        // -- Preview -------------------------------------------------------------------
+
+        private void DrawSelectedPreview(ItemRegistry.Entry entry)
+        {
+            _preview.SetItem(entry?.Prefab);
 
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             EditorGUILayout.BeginHorizontal();
@@ -495,7 +430,7 @@ namespace Sol.Editor
                 }
                 else
                 {
-                    DrawPreviewFallback(previewRect, _selectedEntry?.Prefab == null
+                    DrawPreviewFallback(previewRect, entry?.Prefab == null
                         ? "No visual/world prefab assigned."
                         : "Selected prefab has no renderers to preview.");
                 }
@@ -529,7 +464,7 @@ namespace Sol.Editor
 
         private static void DrawPreviewBackground(Rect rect)
         {
-            EditorGUI.DrawRect(rect, new Color(0.11f, 0.12f, 0.13f, 1f));
+            EditorGUI.DrawRect(rect, SolDatabaseStyles.PreviewBg);
             Rect border = new(rect.x, rect.y, rect.width, 1f);
             EditorGUI.DrawRect(border, new Color(1f, 1f, 1f, 0.12f));
         }
@@ -544,43 +479,43 @@ namespace Sol.Editor
             GUI.Label(rect, message, style);
         }
 
-        private void CreateNewItem()
+        // -- Issues --------------------------------------------------------------------
+
+        public override List<SolDatabaseIssue> CollectIssues()
         {
-            ItemComponent created = ItemAuthoringEditorUtility.CreateItemPrefab(_newTemplate);
-            RefreshIndex();
-            SelectById(created != null ? created.ItemId : string.Empty);
-            SelectCurrentPrefab();
+            List<SolDatabaseIssue> issues = new();
+            ItemRegistry registry = ItemRegistry.Get();
+            List<ItemAuthoringWarning> registryWarnings = ItemAuthoringValidator.ValidateRegistry(registry);
+            for (int i = 0; i < registryWarnings.Count; i++)
+            {
+                ItemAuthoringWarning warning = registryWarnings[i];
+                issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, string.Empty, "Item Registry", warning.Message, registry));
+            }
+
+            for (int i = 0; i < Rows.Count; i++)
+            {
+                ItemRegistry.Entry entry = Rows[i]?.Entry;
+                if (entry == null)
+                    continue;
+
+                List<ItemAuthoringWarning> warnings = GetWarnings(entry);
+                for (int j = 0; j < warnings.Count; j++)
+                {
+                    ItemAuthoringWarning warning = warnings[j];
+                    issues.Add(new SolDatabaseIssue(
+                        MapIssueSeverity(warning.Severity),
+                        Tab,
+                        entry.ItemId,
+                        string.IsNullOrWhiteSpace(entry.DisplayName) ? entry.ItemId : entry.DisplayName,
+                        warning.Message,
+                        registry));
+                }
+            }
+
+            return issues;
         }
 
-        private void DuplicateSelectedItem()
-        {
-            ItemComponent duplicated = ItemAuthoringEditorUtility.DuplicateItemPrefab(_selectedEntry?.Prefab);
-            RefreshIndex();
-            SelectById(duplicated != null ? duplicated.ItemId : string.Empty);
-            SelectCurrentPrefab();
-        }
-
-        private void RevealSelectedPrefab()
-        {
-            string path = ItemAuthoringEditorUtility.GetPrefabPath(_selectedEntry?.Prefab);
-            if (!string.IsNullOrWhiteSpace(path))
-                EditorUtility.RevealInFinder(path);
-        }
-
-        private void SelectCurrentPrefab()
-        {
-            if (_selectedEntry?.Prefab == null)
-                return;
-
-            Selection.activeObject = _selectedEntry.Prefab.gameObject;
-            EditorGUIUtility.PingObject(_selectedEntry.Prefab.gameObject);
-        }
-
-        private void RebuildRegistry()
-        {
-            ItemRegistry.ForceEditorSyncNow();
-            RefreshIndex();
-        }
+        // -- Helpers -------------------------------------------------------------------
 
         private List<ItemAuthoringWarning> GetWarnings(ItemRegistry.Entry entry)
         {
@@ -598,34 +533,25 @@ namespace Sol.Editor
             return warnings;
         }
 
-        private void InvalidateWarningCache()
-        {
-            _warningCache.Clear();
-        }
-
-        private void InvalidateWarningCache(ItemRegistry.Entry entry)
-        {
-            if (entry != null)
-                _warningCache.Remove(entry);
-        }
-
         private void FillMissingDefaultsForSelectedItem()
         {
-            if (_selectedEntry?.Prefab == null || _selectedEntry.AuthoringTemplate == ItemAuthoringTemplate.None)
+            ItemRegistry.Entry entry = SelectedRow?.Entry;
+            if (entry?.Prefab == null || entry.AuthoringTemplate == ItemAuthoringTemplate.None)
                 return;
 
-            ItemAuthoringEditorUtility.FillMissingTemplateDefaults(_selectedEntry.Prefab, _selectedEntry.AuthoringTemplate, _selectedEntry.NameOrId);
-            RefreshRow(_selectedEntry);
-            _registrySerializedObject = new SerializedObject(ItemRegistry.Get());
+            ItemAuthoringEditorUtility.FillMissingTemplateDefaults(entry.Prefab, entry.AuthoringTemplate, entry.NameOrId);
+            RefreshRow(SelectedRow);
+            SelectedSerializedObject = new SerializedObject(ItemRegistry.Get());
             ItemRegistry.ScheduleEditorSync();
         }
 
         private void ReapplyTemplateForSelectedItem()
         {
-            if (_selectedEntry?.Prefab == null || _selectedEntry.AuthoringTemplate == ItemAuthoringTemplate.None)
+            ItemRegistry.Entry entry = SelectedRow?.Entry;
+            if (entry?.Prefab == null || entry.AuthoringTemplate == ItemAuthoringTemplate.None)
                 return;
 
-            List<string> changes = ItemAuthoringEditorUtility.BuildTemplateOverwritePreview(_selectedEntry.AuthoringTemplate);
+            List<string> changes = ItemAuthoringEditorUtility.BuildTemplateOverwritePreview(entry.AuthoringTemplate);
             string message = "This will overwrite visual prefab setup fields:\n\n- "
                 + string.Join("\n- ", changes)
                 + "\n\nItem design values remain authoritative in ItemRegistry.";
@@ -634,9 +560,9 @@ namespace Sol.Editor
             if (!confirmed)
                 return;
 
-            ItemAuthoringEditorUtility.ApplyTemplate(_selectedEntry.Prefab, _selectedEntry.AuthoringTemplate, _selectedEntry.NameOrId);
-            RefreshRow(_selectedEntry);
-            _registrySerializedObject = new SerializedObject(ItemRegistry.Get());
+            ItemAuthoringEditorUtility.ApplyTemplate(entry.Prefab, entry.AuthoringTemplate, entry.NameOrId);
+            RefreshRow(SelectedRow);
+            SelectedSerializedObject = new SerializedObject(ItemRegistry.Get());
             ItemRegistry.ScheduleEditorSync();
         }
 
@@ -655,16 +581,16 @@ namespace Sol.Editor
             return -1;
         }
 
-        private void DrawSelectedRegistryEntry(SerializedObject registryObject)
+        private static void DrawSelectedRegistryEntry(SerializedObject registryObject, int selectedEntryIndex)
         {
             SerializedProperty entries = registryObject.FindProperty("_entries");
-            if (entries == null || _selectedEntryIndex < 0 || _selectedEntryIndex >= entries.arraySize)
+            if (entries == null || selectedEntryIndex < 0 || selectedEntryIndex >= entries.arraySize)
             {
                 EditorGUILayout.HelpBox("Could not find the selected registry entry.", MessageType.Warning);
                 return;
             }
 
-            SerializedProperty entry = entries.GetArrayElementAtIndex(_selectedEntryIndex);
+            SerializedProperty entry = entries.GetArrayElementAtIndex(selectedEntryIndex);
             DrawDefinitionSection(entry);
             DrawInventoryRulesSection(entry);
             DrawUseDefinitionSection(entry);
@@ -771,6 +697,5 @@ namespace Sol.Editor
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("AuthoringTemplate"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("AuthoringNotes"));
         }
-
     }
 }

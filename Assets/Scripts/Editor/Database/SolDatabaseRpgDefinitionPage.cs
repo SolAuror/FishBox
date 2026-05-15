@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Sol.Rpg;
 using UnityEditor;
@@ -5,7 +6,11 @@ using UnityEngine;
 
 namespace Sol.Editor
 {
-    internal abstract class SolDatabaseRpgDefinitionPage<TDefinition> : SolDatabasePageBase
+    internal abstract class SolDatabaseRpgDefinitionPage<TDefinition>
+        : SolDatabaseListPage<
+            SolDatabaseRpgDefinitionPage<TDefinition>.DefinitionRow,
+            SolDatabaseRpgDefinitionPage<TDefinition>.DefinitionFilter,
+            SolDatabaseRpgDefinitionPage<TDefinition>.DefinitionSort>
         where TDefinition : RpgDefinition
     {
         internal enum DefinitionFilter
@@ -32,19 +37,7 @@ namespace Sol.Editor
             public int WarningCount;
         }
 
-        private readonly List<TDefinition> _definitions = new();
-        private readonly List<DefinitionRow> _rows = new();
-        private readonly List<DefinitionRow> _filteredRows = new();
         private readonly Dictionary<TDefinition, List<RpgAuthoringWarning>> _warningCache = new();
-
-        private string _lastFilterSearch = null;
-        private DefinitionFilter _filter = DefinitionFilter.All;
-        private DefinitionFilter _lastFilter = (DefinitionFilter)(-1);
-        private DefinitionSort _sort = DefinitionSort.Name;
-        private DefinitionSort _lastSort = (DefinitionSort)(-1);
-        private bool _filteredRowsDirty = true;
-        private TDefinition _selectedDefinition;
-        private SerializedObject _selectedSerializedObject;
 
         protected abstract string IdPrefix { get; }
         protected abstract string NewDisplayName { get; }
@@ -54,229 +47,52 @@ namespace Sol.Editor
 
         public override void CommitPendingEdits()
         {
-            if (_selectedSerializedObject == null || _selectedDefinition == null)
+            if (SelectedSerializedObject == null || SelectedRow?.Definition == null)
                 return;
 
-            if (_selectedSerializedObject.ApplyModifiedProperties())
+            if (SelectedSerializedObject.ApplyModifiedProperties())
             {
-                EditorUtility.SetDirty(_selectedDefinition);
+                EditorUtility.SetDirty(SelectedRow.Definition);
                 RpgDefinitionRegistry.ScheduleEditorSync();
-                RefreshRow(_selectedDefinition);
+                RefreshRow(SelectedRow);
             }
         }
 
-        public override void DrawToolbar()
+        // -- Row contract --------------------------------------------------------------
+
+        protected override UnityEngine.Object GetRowAsset(DefinitionRow row) => row?.Definition;
+        protected override string GetRowId(DefinitionRow row) => row?.Definition?.Id;
+        protected override string GetRowSearchText(DefinitionRow row) => row?.SearchText;
+        protected override int GetRowWarningCount(DefinitionRow row) => row?.WarningCount ?? 0;
+
+        protected override void OnBeforeLoadRows()
         {
-            if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
-                CreateNewDefinition();
-            using (new EditorGUI.DisabledScope(_selectedDefinition == null))
-            {
-                if (GUILayout.Button("Duplicate", EditorStyles.toolbarButton, GUILayout.Width(76f)))
-                    DuplicateSelectedDefinition();
-                if (GUILayout.Button("Reveal Asset", EditorStyles.toolbarButton, GUILayout.Width(92f)))
-                    RevealSelectedAsset();
-                if (GUILayout.Button("Select", EditorStyles.toolbarButton, GUILayout.Width(54f)))
-                    SelectCurrentAsset();
-            }
-            if (GUILayout.Button("Rebuild Registry", EditorStyles.toolbarButton, GUILayout.Width(108f)))
-                RebuildRegistry();
+            _warningCache.Clear();
         }
 
-        public override void DrawPage()
+        protected override void LoadRows()
         {
-            EditorGUILayout.BeginHorizontal();
-            DrawLeftPane();
-            DrawRightPane();
-            EditorGUILayout.EndHorizontal();
-        }
-
-        public override void RefreshIndex()
-        {
-            _definitions.Clear();
-            _rows.Clear();
-            InvalidateWarningCache();
-
             RpgDefinitionRegistry registry = RpgDefinitionRegistry.Get();
             IReadOnlyList<TDefinition> definitions = GetDefinitions(registry);
-            if (definitions != null)
-            {
-                HashSet<TDefinition> seen = new();
-                for (int i = 0; i < definitions.Count; i++)
-                {
-                    TDefinition definition = definitions[i];
-                    if (definition == null || !seen.Add(definition))
-                        continue;
-
-                    _definitions.Add(definition);
-                    _rows.Add(BuildRow(definition));
-                }
-            }
-
-            _filteredRowsDirty = true;
-            RebuildFilteredRowsIfNeeded();
-            if (_selectedDefinition != null && !_definitions.Contains(_selectedDefinition))
-                SelectDefinition(null);
-        }
-
-        public override bool SelectById(string id)
-        {
-            if (string.IsNullOrWhiteSpace(id))
-                return false;
-
-            RefreshIndex();
-            for (int i = 0; i < _definitions.Count; i++)
-            {
-                TDefinition definition = _definitions[i];
-                if (definition == null)
-                    continue;
-                if (string.Equals(definition.Id, id, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    SelectDefinition(definition);
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public override List<SolDatabaseIssue> CollectIssues()
-        {
-            List<SolDatabaseIssue> issues = new();
-            RpgDefinitionRegistry registry = RpgDefinitionRegistry.Get();
-            if (IncludeRegistryIssues)
-            {
-                List<RpgAuthoringWarning> registryWarnings = RpgDefinitionValidator.ValidateRegistry(registry);
-                for (int i = 0; i < registryWarnings.Count; i++)
-                {
-                    RpgAuthoringWarning warning = registryWarnings[i];
-                    issues.Add(new SolDatabaseIssue(MapIssueSeverity(warning.Severity), Tab, string.Empty, "RPG Registry", warning.Message, registry));
-                }
-            }
-
-            for (int i = 0; i < _definitions.Count; i++)
-            {
-                TDefinition definition = _definitions[i];
-                if (definition == null)
-                    continue;
-
-                List<RpgAuthoringWarning> warnings = GetWarnings(definition);
-                for (int j = 0; j < warnings.Count; j++)
-                {
-                    RpgAuthoringWarning warning = warnings[j];
-                    issues.Add(new SolDatabaseIssue(
-                        MapIssueSeverity(warning.Severity),
-                        Tab,
-                        definition.Id,
-                        DisplayLabel(definition),
-                        warning.Message,
-                        definition));
-                }
-            }
-
-            return issues;
-        }
-
-        private void DrawLeftPane()
-        {
-            EditorGUILayout.BeginVertical(GUILayout.Width(DefaultLeftPaneWidth));
-
-            DrawSearchField(() => _filteredRowsDirty = true);
-
-            EditorGUI.BeginChangeCheck();
-            EditorGUILayout.BeginHorizontal();
-            _filter = (DefinitionFilter)EditorGUILayout.EnumPopup(_filter);
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Sort", GUILayout.Width(32f));
-            _sort = (DefinitionSort)EditorGUILayout.EnumPopup(_sort);
-            EditorGUILayout.EndHorizontal();
-            if (EditorGUI.EndChangeCheck())
-                _filteredRowsDirty = true;
-
-            RebuildFilteredRowsIfNeeded();
-            DrawVirtualizedRows(_filteredRows.Count, $"No {DisplayName.ToLowerInvariant()} match the current filters.", (rect, index) => DrawDefinitionRow(rect, _filteredRows[index]));
-            EditorGUILayout.EndVertical();
-        }
-
-        private void DrawDefinitionRow(Rect rowRect, DefinitionRow row)
-        {
-            DrawRowChrome(rowRect, row.Definition == _selectedDefinition, () => SelectDefinition(row.Definition));
-            DrawIcon(rowRect, AssetDatabase.GetCachedIcon(row.AssetPath));
-
-            Rect textRect = TextColumnRect(rowRect);
-            Rect titleRect = new(textRect.x, rowRect.y + 5f, textRect.width, EditorGUIUtility.singleLineHeight);
-            Rect metaRect = new(textRect.x, titleRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
-            Rect pathRect = new(textRect.x, metaRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
-
-            GUI.Label(titleRect, $"{row.DisplayName} ({row.Id})", EditorStyles.boldLabel);
-            GUI.Label(metaRect, row.Subtitle, EditorStyles.miniLabel);
-            GUI.Label(pathRect, row.AssetPath, EditorStyles.miniLabel);
-            DrawWarningBadge(rowRect, row.WarningCount);
-        }
-
-        private void DrawRightPane()
-        {
-            EditorGUILayout.BeginVertical();
-            if (_selectedDefinition == null)
-            {
-                EditorGUILayout.HelpBox($"Select a {NewDisplayName.ToLowerInvariant()} from the database list.", MessageType.Info);
-                EditorGUILayout.EndVertical();
+            if (definitions == null)
                 return;
-            }
 
-            if (_selectedSerializedObject == null || _selectedSerializedObject.targetObject != _selectedDefinition)
-                _selectedSerializedObject = new SerializedObject(_selectedDefinition);
-
-            DetailScroll = EditorGUILayout.BeginScrollView(DetailScroll);
-            EditorGUILayout.LabelField(DisplayLabel(_selectedDefinition), EditorStyles.largeLabel);
-            EditorGUILayout.LabelField(RpgDefinitionEditorUtility.GetAssetPath(_selectedDefinition), EditorStyles.miniLabel);
-            EditorGUILayout.Space(4f);
-
-            DrawSerializedObject(_selectedSerializedObject);
-
-            if (_selectedSerializedObject.ApplyModifiedProperties())
+            HashSet<TDefinition> seen = new();
+            for (int i = 0; i < definitions.Count; i++)
             {
-                EditorUtility.SetDirty(_selectedDefinition);
-                RpgDefinitionRegistry.ScheduleEditorSync();
-                RefreshRow(_selectedDefinition);
-            }
-
-            DrawWarnings(_selectedDefinition);
-
-            EditorGUILayout.EndScrollView();
-            EditorGUILayout.EndVertical();
-        }
-
-        private static void DrawSerializedObject(SerializedObject serializedObject)
-        {
-            serializedObject.Update();
-            SerializedProperty iterator = serializedObject.GetIterator();
-            bool enterChildren = true;
-            while (iterator.NextVisible(enterChildren))
-            {
-                using (new EditorGUI.DisabledScope(iterator.propertyPath == "m_Script"))
-                    EditorGUILayout.PropertyField(iterator, true);
-                enterChildren = false;
+                TDefinition definition = definitions[i];
+                if (definition == null || !seen.Add(definition))
+                    continue;
+                Rows.Add(BuildRow(definition));
             }
         }
 
-        private void DrawWarnings(TDefinition definition)
+        protected override DefinitionRow RebuildRow(DefinitionRow row)
         {
-            List<RpgAuthoringWarning> warnings = GetWarnings(definition);
-            for (int i = 0; i < warnings.Count; i++)
-            {
-                MessageType type = warnings[i].Severity switch
-                {
-                    RpgAuthoringWarningSeverity.Error => MessageType.Error,
-                    RpgAuthoringWarningSeverity.Warning => MessageType.Warning,
-                    _ => MessageType.Info
-                };
-                EditorGUILayout.HelpBox(warnings[i].Message, type);
-            }
-
-            if (warnings.Count > 0)
-                EditorGUILayout.Space(4f);
+            if (row?.Definition == null)
+                return row;
+            _warningCache.Remove(row.Definition);
+            return BuildRow(row.Definition);
         }
 
         private DefinitionRow BuildRow(TDefinition definition)
@@ -299,39 +115,10 @@ namespace Sol.Editor
             };
         }
 
-        private void RefreshRow(TDefinition definition)
+        protected override bool MatchesCustomFilter(DefinitionRow row, DefinitionFilter filter)
         {
-            if (definition == null)
-                return;
-
-            InvalidateWarningCache(definition);
-            DefinitionRow row = BuildRow(definition);
-            for (int i = 0; i < _rows.Count; i++)
-            {
-                if (_rows[i].Definition != definition)
-                    continue;
-
-                _rows[i] = row;
-                _filteredRowsDirty = true;
-                return;
-            }
-
-            _definitions.Add(definition);
-            _rows.Add(row);
-            _filteredRowsDirty = true;
-        }
-
-        internal static bool RowMatchesFilters(DefinitionRow row, string search, DefinitionFilter filter)
-        {
-            if (row == null || row.Definition == null)
+            if (row?.Definition == null)
                 return false;
-
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                string needle = search.Trim().ToLowerInvariant();
-                if (row.SearchText == null || row.SearchText.IndexOf(needle, System.StringComparison.Ordinal) < 0)
-                    return false;
-            }
 
             return filter switch
             {
@@ -341,91 +128,173 @@ namespace Sol.Editor
             };
         }
 
-        private void RebuildFilteredRowsIfNeeded()
-        {
-            if (!_filteredRowsDirty
-                && string.Equals(_lastFilterSearch, Search, System.StringComparison.Ordinal)
-                && _lastFilter == _filter
-                && _lastSort == _sort)
-            {
-                return;
-            }
-
-            _filteredRows.Clear();
-            for (int i = 0; i < _rows.Count; i++)
-            {
-                DefinitionRow row = _rows[i];
-                if (RowMatchesFilters(row, Search, _filter))
-                    _filteredRows.Add(row);
-            }
-
-            SortFilteredRows(_sort);
-            _lastFilterSearch = Search;
-            _lastFilter = _filter;
-            _lastSort = _sort;
-            _filteredRowsDirty = false;
-        }
-
-        private void SortFilteredRows(DefinitionSort sort)
+        protected override void SortRows(List<DefinitionRow> rows, DefinitionSort sort)
         {
             switch (sort)
             {
                 case DefinitionSort.Id:
-                    _filteredRows.Sort((a, b) => System.StringComparer.OrdinalIgnoreCase.Compare(a.Id, b.Id));
+                    rows.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.Id, b.Id));
                     break;
                 default:
-                    _filteredRows.Sort((a, b) => System.StringComparer.OrdinalIgnoreCase.Compare(a.DisplayName, b.DisplayName));
+                    rows.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.DisplayName, b.DisplayName));
                     break;
             }
         }
 
-        private void SelectDefinition(TDefinition definition)
-        {
-            if (_selectedDefinition != definition)
-            {
-                CommitPendingEdits();
-                ClearEditorTextFocus();
-            }
+        // -- Toolbar -------------------------------------------------------------------
 
-            _selectedDefinition = definition;
-            _selectedSerializedObject = _selectedDefinition != null ? new SerializedObject(_selectedDefinition) : null;
-            Window?.Repaint();
+        protected override void DrawToolbarTrailing()
+        {
+            if (GUILayout.Button("Rebuild Registry", EditorStyles.toolbarButton, GUILayout.Width(SolDatabaseStyles.ButtonXL)))
+                RebuildRegistry();
         }
 
-        private void CreateNewDefinition()
+        protected override void OnNewClicked()
         {
             TDefinition created = RpgDefinitionEditorUtility.CreateDefinition<TDefinition>(IdPrefix, NewDisplayName);
             RefreshIndex();
-            SelectDefinition(created);
-            SelectCurrentAsset();
+            DefinitionRow row = FindRowByDefinition(created);
+            if (row != null)
+                SetSelectedRow(row);
+            OnSelectAssetClicked();
         }
 
-        private void DuplicateSelectedDefinition()
+        protected override void OnDuplicateClicked()
         {
-            TDefinition duplicated = RpgDefinitionEditorUtility.DuplicateDefinition(_selectedDefinition, IdPrefix);
+            if (SelectedRow?.Definition == null)
+                return;
+            TDefinition duplicated = RpgDefinitionEditorUtility.DuplicateDefinition(SelectedRow.Definition, IdPrefix);
             RefreshIndex();
-            SelectDefinition(duplicated);
-            SelectCurrentAsset();
+            DefinitionRow row = FindRowByDefinition(duplicated);
+            if (row != null)
+                SetSelectedRow(row);
+            OnSelectAssetClicked();
         }
 
-        private void RevealSelectedAsset()
+        protected override void OnRevealClicked()
         {
-            string path = RpgDefinitionEditorUtility.GetAssetPath(_selectedDefinition);
+            string path = SelectedRow?.Definition != null ? RpgDefinitionEditorUtility.GetAssetPath(SelectedRow.Definition) : null;
             if (!string.IsNullOrWhiteSpace(path))
                 EditorUtility.RevealInFinder(path);
-        }
-
-        private void SelectCurrentAsset()
-        {
-            if (_selectedDefinition == null)
-                return;
-            Selection.activeObject = _selectedDefinition;
-            EditorGUIUtility.PingObject(_selectedDefinition);
         }
 
         private static void RebuildRegistry()
         {
             RpgDefinitionRegistry.ForceEditorSyncNow();
+        }
+
+        // -- Row drawing ---------------------------------------------------------------
+
+        protected override void DrawRow(Rect rowRect, DefinitionRow row)
+        {
+            DrawRowChrome(rowRect, IsSelected(row), () => SetSelectedRow(row));
+            DrawIcon(rowRect, AssetDatabase.GetCachedIcon(row.AssetPath));
+
+            Rect textRect = TextColumnRect(rowRect);
+            Rect titleRect = new(textRect.x, rowRect.y + 5f, textRect.width, EditorGUIUtility.singleLineHeight);
+            Rect metaRect = new(textRect.x, titleRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
+            Rect pathRect = new(textRect.x, metaRect.yMax + 1f, textRect.width, EditorGUIUtility.singleLineHeight);
+
+            GUI.Label(titleRect, $"{row.DisplayName} ({row.Id})", EditorStyles.boldLabel);
+            GUI.Label(metaRect, row.Subtitle, EditorStyles.miniLabel);
+            GUI.Label(pathRect, row.AssetPath, EditorStyles.miniLabel);
+            DrawWarningBadge(rowRect, row.WarningCount);
+        }
+
+        // -- Detail --------------------------------------------------------------------
+
+        protected override string EmptyDetailMessage => $"Select a {NewDisplayName.ToLowerInvariant()} from the database list.";
+
+        protected override void DrawDetail(DefinitionRow row)
+        {
+            TDefinition definition = row.Definition;
+            if (definition == null)
+                return;
+
+            EditorGUILayout.LabelField(DisplayLabel(definition), EditorStyles.largeLabel);
+            EditorGUILayout.LabelField(RpgDefinitionEditorUtility.GetAssetPath(definition), EditorStyles.miniLabel);
+            EditorGUILayout.Space(4f);
+
+            DrawDefaultSerializedInspector();
+            if (SelectedSerializedObject.ApplyModifiedProperties())
+            {
+                EditorUtility.SetDirty(definition);
+                RpgDefinitionRegistry.ScheduleEditorSync();
+                RefreshRow(row);
+            }
+
+            DrawWarnings(definition);
+        }
+
+        private void DrawWarnings(TDefinition definition)
+        {
+            List<RpgAuthoringWarning> warnings = GetWarnings(definition);
+            for (int i = 0; i < warnings.Count; i++)
+            {
+                MessageType type = warnings[i].Severity switch
+                {
+                    RpgAuthoringWarningSeverity.Error => MessageType.Error,
+                    RpgAuthoringWarningSeverity.Warning => MessageType.Warning,
+                    _ => MessageType.Info
+                };
+                EditorGUILayout.HelpBox(warnings[i].Message, type);
+            }
+
+            if (warnings.Count > 0)
+                EditorGUILayout.Space(4f);
+        }
+
+        // -- Issues --------------------------------------------------------------------
+
+        public override List<SolDatabaseIssue> CollectIssues()
+        {
+            List<SolDatabaseIssue> issues = new();
+            RpgDefinitionRegistry registry = RpgDefinitionRegistry.Get();
+            if (IncludeRegistryIssues)
+            {
+                List<RpgAuthoringWarning> registryWarnings = RpgDefinitionValidator.ValidateRegistry(registry);
+                for (int i = 0; i < registryWarnings.Count; i++)
+                {
+                    RpgAuthoringWarning warning = registryWarnings[i];
+                    issues.Add(new SolDatabaseIssue(MapSeverity(warning.Severity), Tab, string.Empty, "RPG Registry", warning.Message, registry));
+                }
+            }
+
+            for (int i = 0; i < Rows.Count; i++)
+            {
+                TDefinition definition = Rows[i]?.Definition;
+                if (definition == null)
+                    continue;
+
+                List<RpgAuthoringWarning> warnings = GetWarnings(definition);
+                for (int j = 0; j < warnings.Count; j++)
+                {
+                    RpgAuthoringWarning warning = warnings[j];
+                    issues.Add(new SolDatabaseIssue(
+                        MapSeverity(warning.Severity),
+                        Tab,
+                        definition.Id,
+                        DisplayLabel(definition),
+                        warning.Message,
+                        definition));
+                }
+            }
+
+            return issues;
+        }
+
+        // -- Helpers -------------------------------------------------------------------
+
+        private DefinitionRow FindRowByDefinition(TDefinition definition)
+        {
+            if (definition == null)
+                return null;
+            for (int i = 0; i < Rows.Count; i++)
+            {
+                if (Rows[i]?.Definition == definition)
+                    return Rows[i];
+            }
+            return null;
         }
 
         private List<RpgAuthoringWarning> GetWarnings(TDefinition definition)
@@ -442,17 +311,6 @@ namespace Sol.Editor
             return warnings;
         }
 
-        private void InvalidateWarningCache()
-        {
-            _warningCache.Clear();
-        }
-
-        private void InvalidateWarningCache(TDefinition definition)
-        {
-            if (definition != null)
-                _warningCache.Remove(definition);
-        }
-
         private static string DisplayLabel(RpgDefinition definition)
         {
             if (definition == null)
@@ -460,7 +318,7 @@ namespace Sol.Editor
             return string.IsNullOrWhiteSpace(definition.DisplayName) ? definition.name : definition.DisplayName.Trim();
         }
 
-        private static SolDatabaseIssueSeverity MapIssueSeverity(RpgAuthoringWarningSeverity severity)
+        private static SolDatabaseIssueSeverity MapSeverity(RpgAuthoringWarningSeverity severity)
         {
             return severity switch
             {

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Sol.AI;
@@ -6,7 +7,7 @@ using UnityEngine;
 
 namespace Sol.Editor
 {
-    internal sealed class SolDatabaseSchedulePage : SolDatabasePageBase
+    internal sealed class SolDatabaseSchedulePage : SolDatabaseListPage<SolDatabaseSchedulePage.ScheduleRow, SolDatabaseSchedulePage.ScheduleFilter, SolDatabaseSchedulePage.ScheduleSort>
     {
         internal enum ScheduleFilter
         {
@@ -32,206 +33,55 @@ namespace Sol.Editor
             public int WarningCount;
         }
 
-        private const string DefaultFolder = "Assets/Data/NpcSchedules";
-        private readonly List<NpcScheduleDefinition> _schedules = new();
-        private readonly List<ScheduleRow> _rows = new();
-        private readonly List<ScheduleRow> _filteredRows = new();
         private readonly Dictionary<NpcScheduleDefinition, List<NpcScheduleAuthoringWarning>> _warningCache = new();
-
-        private string _lastFilterSearch = null;
-        private ScheduleFilter _filter = ScheduleFilter.All;
-        private ScheduleFilter _lastFilter = (ScheduleFilter)(-1);
-        private ScheduleSort _sort = ScheduleSort.Name;
-        private ScheduleSort _lastSort = (ScheduleSort)(-1);
-        private bool _filteredRowsDirty = true;
-        private NpcScheduleDefinition _selectedSchedule;
-        private SerializedObject _selectedSerializedObject;
 
         public override SolDatabaseTab Tab => SolDatabaseTab.Schedules;
         public override string DisplayName => "Schedules";
 
+        protected override string EmptyDetailMessage => "Select a schedule asset from the database list.";
+
         public override void CommitPendingEdits()
         {
-            if (_selectedSerializedObject == null || _selectedSchedule == null)
+            if (SelectedSerializedObject == null || SelectedRow?.Schedule == null)
                 return;
 
-            if (_selectedSerializedObject.ApplyModifiedProperties())
+            if (SelectedSerializedObject.ApplyModifiedProperties())
             {
-                EditorUtility.SetDirty(_selectedSchedule);
-                RefreshRow(_selectedSchedule);
+                EditorUtility.SetDirty(SelectedRow.Schedule);
+                RefreshRow(SelectedRow);
             }
         }
 
-        public override void DrawToolbar()
-        {
-            if (GUILayout.Button("New", EditorStyles.toolbarButton, GUILayout.Width(48f)))
-                CreateNewSchedule();
-            using (new EditorGUI.DisabledScope(_selectedSchedule == null))
-            {
-                if (GUILayout.Button("Duplicate", EditorStyles.toolbarButton, GUILayout.Width(76f)))
-                    DuplicateSelectedSchedule();
-                if (GUILayout.Button("Reveal Asset", EditorStyles.toolbarButton, GUILayout.Width(92f)))
-                    RevealSelectedAsset();
-                if (GUILayout.Button("Select", EditorStyles.toolbarButton, GUILayout.Width(54f)))
-                    SelectCurrentAsset();
-            }
-            if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(64f)))
-                RefreshIndex();
-        }
+        // -- Row contract --------------------------------------------------------------
 
-        public override void DrawPage()
-        {
-            EditorGUILayout.BeginHorizontal();
-            DrawLeftPane();
-            DrawRightPane();
-            EditorGUILayout.EndHorizontal();
-        }
+        protected override UnityEngine.Object GetRowAsset(ScheduleRow row) => row?.Schedule;
+        protected override string GetRowId(ScheduleRow row) => row?.Schedule?.ScheduleId;
+        protected override string GetRowSearchText(ScheduleRow row) => row?.SearchText;
+        protected override int GetRowWarningCount(ScheduleRow row) => row?.WarningCount ?? 0;
 
-        public override void RefreshIndex()
+        protected override void OnBeforeLoadRows()
         {
-            _schedules.Clear();
-            _rows.Clear();
             _warningCache.Clear();
+        }
 
+        protected override void LoadRows()
+        {
             string[] guids = AssetDatabase.FindAssets("t:NpcScheduleDefinition");
             for (int i = 0; i < guids.Length; i++)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guids[i]);
                 NpcScheduleDefinition schedule = AssetDatabase.LoadAssetAtPath<NpcScheduleDefinition>(path);
-                if (schedule == null)
-                    continue;
-
-                _schedules.Add(schedule);
-                _rows.Add(BuildRow(schedule));
+                if (schedule != null)
+                    Rows.Add(BuildRow(schedule));
             }
-
-            _filteredRowsDirty = true;
-            RebuildFilteredRowsIfNeeded();
-            if (_selectedSchedule != null && !_schedules.Contains(_selectedSchedule))
-                SelectSchedule(null);
         }
 
-        public override bool SelectById(string id)
+        protected override ScheduleRow RebuildRow(ScheduleRow row)
         {
-            if (string.IsNullOrWhiteSpace(id))
-                return false;
-
-            RefreshIndex();
-            for (int i = 0; i < _schedules.Count; i++)
-            {
-                NpcScheduleDefinition schedule = _schedules[i];
-                if (schedule != null && string.Equals(schedule.ScheduleId, id, System.StringComparison.OrdinalIgnoreCase))
-                {
-                    SelectSchedule(schedule);
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public override List<SolDatabaseIssue> CollectIssues()
-        {
-            List<SolDatabaseIssue> issues = new();
-            AddIssues(issues, "Schedules", null, NpcScheduleAuthoringValidator.ValidateAll(_schedules));
-            for (int i = 0; i < _schedules.Count; i++)
-            {
-                NpcScheduleDefinition schedule = _schedules[i];
-                AddIssues(issues, DisplayLabel(schedule), schedule, GetWarnings(schedule));
-            }
-
-            return issues;
-        }
-
-        internal static bool RowMatchesFilters(ScheduleRow row, string search, ScheduleFilter filter)
-        {
-            if (row == null || row.Schedule == null)
-                return false;
-
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                string needle = search.Trim().ToLowerInvariant();
-                if (row.SearchText == null || row.SearchText.IndexOf(needle, System.StringComparison.Ordinal) < 0)
-                    return false;
-            }
-
-            return filter switch
-            {
-                ScheduleFilter.MissingId => string.IsNullOrWhiteSpace(row.Schedule.ScheduleId),
-                ScheduleFilter.HasWarnings => row.WarningCount > 0,
-                _ => true
-            };
-        }
-
-        private void DrawLeftPane()
-        {
-            EditorGUILayout.BeginVertical(GUILayout.Width(DefaultLeftPaneWidth));
-            DrawSearchField(() => _filteredRowsDirty = true);
-
-            EditorGUI.BeginChangeCheck();
-            _filter = (ScheduleFilter)EditorGUILayout.EnumPopup(_filter);
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Label("Sort", GUILayout.Width(32f));
-            _sort = (ScheduleSort)EditorGUILayout.EnumPopup(_sort);
-            EditorGUILayout.EndHorizontal();
-            if (EditorGUI.EndChangeCheck())
-                _filteredRowsDirty = true;
-
-            RebuildFilteredRowsIfNeeded();
-            DrawVirtualizedRows(_filteredRows.Count, "No schedules match the current filters.", (rect, index) => DrawScheduleRow(rect, _filteredRows[index]));
-            EditorGUILayout.EndVertical();
-        }
-
-        private void DrawRightPane()
-        {
-            EditorGUILayout.BeginVertical();
-            if (_selectedSchedule == null)
-            {
-                EditorGUILayout.HelpBox("Select a schedule asset from the database list.", MessageType.Info);
-                EditorGUILayout.EndVertical();
-                return;
-            }
-
-            _selectedSerializedObject ??= new SerializedObject(_selectedSchedule);
-            if (_selectedSerializedObject.targetObject != _selectedSchedule)
-                _selectedSerializedObject = new SerializedObject(_selectedSchedule);
-
-            DetailScroll = EditorGUILayout.BeginScrollView(DetailScroll);
-            EditorGUILayout.LabelField(DisplayLabel(_selectedSchedule), EditorStyles.largeLabel);
-            EditorGUILayout.LabelField(AssetDatabase.GetAssetPath(_selectedSchedule), EditorStyles.miniLabel);
-
-            _selectedSerializedObject.Update();
-            SerializedProperty iterator = _selectedSerializedObject.GetIterator();
-            bool enterChildren = true;
-            while (iterator.NextVisible(enterChildren))
-            {
-                using (new EditorGUI.DisabledScope(iterator.propertyPath == "m_Script"))
-                    EditorGUILayout.PropertyField(iterator, true);
-                enterChildren = false;
-            }
-
-            if (_selectedSerializedObject.ApplyModifiedProperties())
-            {
-                EditorUtility.SetDirty(_selectedSchedule);
-                RefreshRow(_selectedSchedule);
-            }
-
-            DrawWarnings(_selectedSchedule);
-
-            EditorGUILayout.EndScrollView();
-            EditorGUILayout.EndVertical();
-        }
-
-        private void DrawScheduleRow(Rect rowRect, ScheduleRow row)
-        {
-            DrawRowChrome(rowRect, row.Schedule == _selectedSchedule, () => SelectSchedule(row.Schedule));
-            DrawIcon(rowRect, AssetDatabase.GetCachedIcon(row.AssetPath));
-
-            Rect textRect = TextColumnRect(rowRect);
-            GUI.Label(new Rect(textRect.x, rowRect.y + 5f, textRect.width, EditorGUIUtility.singleLineHeight), $"{row.DisplayName} ({row.Id})", EditorStyles.boldLabel);
-            GUI.Label(new Rect(textRect.x, rowRect.y + 22f, textRect.width, EditorGUIUtility.singleLineHeight), row.Subtitle, EditorStyles.miniLabel);
-            GUI.Label(new Rect(textRect.x, rowRect.y + 39f, textRect.width, EditorGUIUtility.singleLineHeight), row.AssetPath, EditorStyles.miniLabel);
-            DrawWarningBadge(rowRect, row.WarningCount);
+            if (row?.Schedule == null)
+                return row;
+            _warningCache.Remove(row.Schedule);
+            return BuildRow(row.Schedule);
         }
 
         private ScheduleRow BuildRow(NpcScheduleDefinition schedule)
@@ -253,124 +103,127 @@ namespace Sol.Editor
             };
         }
 
-        private void RefreshRow(NpcScheduleDefinition schedule)
+        protected override bool MatchesCustomFilter(ScheduleRow row, ScheduleFilter filter)
         {
-            if (schedule == null)
-                return;
+            if (row?.Schedule == null)
+                return false;
 
-            _warningCache.Remove(schedule);
-            ScheduleRow row = BuildRow(schedule);
-            for (int i = 0; i < _rows.Count; i++)
+            return filter switch
             {
-                if (_rows[i].Schedule == schedule)
-                {
-                    _rows[i] = row;
-                    _filteredRowsDirty = true;
-                    return;
-                }
+                ScheduleFilter.MissingId => string.IsNullOrWhiteSpace(row.Schedule.ScheduleId),
+                ScheduleFilter.HasWarnings => row.WarningCount > 0,
+                _ => true
+            };
+        }
+
+        protected override void SortRows(List<ScheduleRow> rows, ScheduleSort sort)
+        {
+            switch (sort)
+            {
+                case ScheduleSort.Id:
+                    rows.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.Id, b.Id));
+                    break;
+                default:
+                    rows.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.DisplayName, b.DisplayName));
+                    break;
             }
         }
 
-        private void RebuildFilteredRowsIfNeeded()
+        internal static bool RowMatchesFilters(ScheduleRow row, string search, ScheduleFilter filter)
         {
-            if (!_filteredRowsDirty
-                && string.Equals(_lastFilterSearch, Search, System.StringComparison.Ordinal)
-                && _lastFilter == _filter
-                && _lastSort == _sort)
+            if (row == null || row.Schedule == null)
+                return false;
+
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                return;
+                string needle = search.Trim().ToLowerInvariant();
+                if (row.SearchText == null || row.SearchText.IndexOf(needle, StringComparison.Ordinal) < 0)
+                    return false;
             }
 
-            _filteredRows.Clear();
-            for (int i = 0; i < _rows.Count; i++)
+            return filter switch
             {
-                if (RowMatchesFilters(_rows[i], Search, _filter))
-                    _filteredRows.Add(_rows[i]);
-            }
-
-            _filteredRows.Sort((a, b) => _sort == ScheduleSort.Id
-                ? System.StringComparer.OrdinalIgnoreCase.Compare(a.Id, b.Id)
-                : System.StringComparer.OrdinalIgnoreCase.Compare(a.DisplayName, b.DisplayName));
-            _lastFilterSearch = Search;
-            _lastFilter = _filter;
-            _lastSort = _sort;
-            _filteredRowsDirty = false;
+                ScheduleFilter.MissingId => string.IsNullOrWhiteSpace(row.Schedule.ScheduleId),
+                ScheduleFilter.HasWarnings => row.WarningCount > 0,
+                _ => true
+            };
         }
 
-        private void SelectSchedule(NpcScheduleDefinition schedule)
-        {
-            if (_selectedSchedule != schedule)
-            {
-                CommitPendingEdits();
-                ClearEditorTextFocus();
-            }
+        // -- Toolbar -------------------------------------------------------------------
 
-            _selectedSchedule = schedule;
-            _selectedSerializedObject = schedule != null ? new SerializedObject(schedule) : null;
-            Window?.Repaint();
+        protected override void DrawToolbarTrailing()
+        {
+            if (GUILayout.Button("Refresh", EditorStyles.toolbarButton, GUILayout.Width(64f)))
+                RefreshIndex();
         }
 
-        private void CreateNewSchedule()
+        protected override void OnNewClicked()
         {
-            EnsureDefaultFolder();
+            SolDatabaseStyles.EnsureFolder(SolDatabaseStyles.Folders.NpcSchedules);
             NpcScheduleDefinition schedule = ScriptableObject.CreateInstance<NpcScheduleDefinition>();
             ApplyIdentity(schedule, NextScheduleId(), "New Schedule");
-            string path = AssetDatabase.GenerateUniqueAssetPath($"{DefaultFolder}/{schedule.ScheduleId}_NewSchedule.asset");
+            string path = AssetDatabase.GenerateUniqueAssetPath($"{SolDatabaseStyles.Folders.NpcSchedules}/{schedule.ScheduleId}_NewSchedule.asset");
             AssetDatabase.CreateAsset(schedule, path);
             AssetDatabase.SaveAssets();
             RefreshIndex();
-            SelectSchedule(AssetDatabase.LoadAssetAtPath<NpcScheduleDefinition>(path));
-            SelectCurrentAsset();
+            SetSelectedRowByAsset(AssetDatabase.LoadAssetAtPath<NpcScheduleDefinition>(path));
+            OnSelectAssetClicked();
         }
 
-        private void DuplicateSelectedSchedule()
+        protected override void OnDuplicateClicked()
         {
-            if (_selectedSchedule == null)
+            NpcScheduleDefinition source = SelectedRow?.Schedule;
+            if (source == null)
                 return;
 
-            string sourcePath = AssetDatabase.GetAssetPath(_selectedSchedule);
-            string folder = Path.GetDirectoryName(sourcePath)?.Replace("\\", "/") ?? DefaultFolder;
-            string copyName = $"{NextScheduleId()}_{DisplayLabel(_selectedSchedule)}_Copy";
+            string sourcePath = AssetDatabase.GetAssetPath(source);
+            string folder = Path.GetDirectoryName(sourcePath)?.Replace("\\", "/") ?? SolDatabaseStyles.Folders.NpcSchedules;
+            string copyName = $"{NextScheduleId()}_{DisplayLabel(source)}_Copy";
             string targetPath = AssetDatabase.GenerateUniqueAssetPath($"{folder}/{SanitizeFileName(copyName)}.asset");
             if (!AssetDatabase.CopyAsset(sourcePath, targetPath))
                 return;
 
             NpcScheduleDefinition copy = AssetDatabase.LoadAssetAtPath<NpcScheduleDefinition>(targetPath);
-            ApplyIdentity(copy, NextScheduleId(), $"{DisplayLabel(_selectedSchedule)} Copy");
+            ApplyIdentity(copy, NextScheduleId(), $"{DisplayLabel(source)} Copy");
             AssetDatabase.SaveAssets();
             RefreshIndex();
-            SelectSchedule(copy);
-            SelectCurrentAsset();
+            SetSelectedRowByAsset(copy);
+            OnSelectAssetClicked();
         }
 
-        private void RevealSelectedAsset()
+        // -- Row drawing ---------------------------------------------------------------
+
+        protected override void DrawRow(Rect rowRect, ScheduleRow row)
         {
-            string path = AssetDatabase.GetAssetPath(_selectedSchedule);
-            if (!string.IsNullOrWhiteSpace(path))
-                EditorUtility.RevealInFinder(path);
+            DrawRowChrome(rowRect, IsSelected(row), () => SetSelectedRow(row));
+            DrawIcon(rowRect, AssetDatabase.GetCachedIcon(row.AssetPath));
+
+            Rect textRect = TextColumnRect(rowRect);
+            GUI.Label(new Rect(textRect.x, rowRect.y + 5f, textRect.width, EditorGUIUtility.singleLineHeight), $"{row.DisplayName} ({row.Id})", EditorStyles.boldLabel);
+            GUI.Label(new Rect(textRect.x, rowRect.y + 22f, textRect.width, EditorGUIUtility.singleLineHeight), row.Subtitle, EditorStyles.miniLabel);
+            GUI.Label(new Rect(textRect.x, rowRect.y + 39f, textRect.width, EditorGUIUtility.singleLineHeight), row.AssetPath, EditorStyles.miniLabel);
+            DrawWarningBadge(rowRect, row.WarningCount);
         }
 
-        private void SelectCurrentAsset()
+        // -- Detail --------------------------------------------------------------------
+
+        protected override void DrawDetail(ScheduleRow row)
         {
-            if (_selectedSchedule == null)
+            NpcScheduleDefinition schedule = row.Schedule;
+            if (schedule == null)
                 return;
 
-            Selection.activeObject = _selectedSchedule;
-            EditorGUIUtility.PingObject(_selectedSchedule);
-        }
+            EditorGUILayout.LabelField(DisplayLabel(schedule), EditorStyles.largeLabel);
+            EditorGUILayout.LabelField(AssetDatabase.GetAssetPath(schedule), EditorStyles.miniLabel);
 
-        private List<NpcScheduleAuthoringWarning> GetWarnings(NpcScheduleDefinition schedule)
-        {
-            if (schedule == null)
-                return new List<NpcScheduleAuthoringWarning>();
-
-            if (!_warningCache.TryGetValue(schedule, out List<NpcScheduleAuthoringWarning> warnings))
+            DrawDefaultSerializedInspector();
+            if (SelectedSerializedObject.ApplyModifiedProperties())
             {
-                warnings = NpcScheduleAuthoringValidator.Validate(schedule);
-                _warningCache[schedule] = warnings;
+                EditorUtility.SetDirty(schedule);
+                RefreshRow(row);
             }
 
-            return warnings;
+            DrawWarnings(schedule);
         }
 
         private void DrawWarnings(NpcScheduleDefinition schedule)
@@ -386,6 +239,28 @@ namespace Sol.Editor
                 };
                 EditorGUILayout.HelpBox(warnings[i].Message, type);
             }
+        }
+
+        // -- Issues --------------------------------------------------------------------
+
+        public override List<SolDatabaseIssue> CollectIssues()
+        {
+            List<SolDatabaseIssue> issues = new();
+            List<NpcScheduleDefinition> schedules = new();
+            for (int i = 0; i < Rows.Count; i++)
+            {
+                if (Rows[i]?.Schedule != null)
+                    schedules.Add(Rows[i].Schedule);
+            }
+
+            AddIssues(issues, "Schedules", null, NpcScheduleAuthoringValidator.ValidateAll(schedules));
+            for (int i = 0; i < schedules.Count; i++)
+            {
+                NpcScheduleDefinition schedule = schedules[i];
+                AddIssues(issues, DisplayLabel(schedule), schedule, GetWarnings(schedule));
+            }
+
+            return issues;
         }
 
         private void AddIssues(List<SolDatabaseIssue> issues, string label, NpcScheduleDefinition context, List<NpcScheduleAuthoringWarning> warnings)
@@ -406,12 +281,28 @@ namespace Sol.Editor
             };
         }
 
+        // -- Helpers -------------------------------------------------------------------
+
+        private List<NpcScheduleAuthoringWarning> GetWarnings(NpcScheduleDefinition schedule)
+        {
+            if (schedule == null)
+                return new List<NpcScheduleAuthoringWarning>();
+
+            if (!_warningCache.TryGetValue(schedule, out List<NpcScheduleAuthoringWarning> warnings))
+            {
+                warnings = NpcScheduleAuthoringValidator.Validate(schedule);
+                _warningCache[schedule] = warnings;
+            }
+
+            return warnings;
+        }
+
         private string NextScheduleId()
         {
             HashSet<int> used = new();
-            for (int i = 0; i < _schedules.Count; i++)
+            for (int i = 0; i < Rows.Count; i++)
             {
-                if (EntityCodeUtility.TryParse(_schedules[i]?.ScheduleId, EntityCodeUtility.SchedulePrefix, out int numeric))
+                if (EntityCodeUtility.TryParse(Rows[i]?.Schedule?.ScheduleId, EntityCodeUtility.SchedulePrefix, out int numeric))
                     used.Add(numeric);
             }
 
@@ -442,14 +333,6 @@ namespace Sol.Editor
             if (schedule == null)
                 return "<missing>";
             return string.IsNullOrWhiteSpace(schedule.DisplayName) ? schedule.name : schedule.DisplayName.Trim();
-        }
-
-        private static void EnsureDefaultFolder()
-        {
-            if (!AssetDatabase.IsValidFolder("Assets/Data"))
-                AssetDatabase.CreateFolder("Assets", "Data");
-            if (!AssetDatabase.IsValidFolder(DefaultFolder))
-                AssetDatabase.CreateFolder("Assets/Data", "NpcSchedules");
         }
 
         private static string SanitizeFileName(string source)
