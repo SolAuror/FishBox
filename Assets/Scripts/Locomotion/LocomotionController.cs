@@ -561,6 +561,11 @@ namespace Sol.Locomotion
 
             if (_camTransform == null) return;
             if (IsConversing) return; // Suppress rotation during conversation
+            if (_externalMovementLockTimer > 0f)
+            {
+                ClearRotationIntent();
+                return;
+            }
 
             // NPCs always rotate toward fakeCam.forward unconditionally.
             // The player-specific third-person idle-orbit / turn-in-place logic depends
@@ -617,6 +622,14 @@ namespace Sol.Locomotion
             Vector3 crossProduct = Vector3.Cross(transform.forward, camForwardProjectedXZ);
             float sign = Mathf.Sign(Vector3.Dot(crossProduct, transform.up));
             rotationMismatch = sign * Vector3.Angle(transform.forward, camForwardProjectedXZ);
+        }
+
+        private void ClearRotationIntent()
+        {
+            _rotatingToTargetTimer = 0f;
+            _isRotatingClockwise = false;
+            IsRotatingToTarget = false;
+            rotationMismatch = 0f;
         }
 
         private void UpdateIdleRotation(float rotationTolerance)

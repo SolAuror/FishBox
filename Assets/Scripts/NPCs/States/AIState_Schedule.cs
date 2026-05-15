@@ -170,13 +170,6 @@ namespace Sol.AI
 
             if (_useInteractionAction != null)
             {
-                if (_useInteractionAction.IsHoldUntilCancelled
-                    && _waitTimer <= 0f
-                    && _useInteractionAction.CanRequestCompletion)
-                {
-                    _useInteractionAction.RequestCompletion();
-                }
-
                 if (_useInteractionAction.HasResolved)
                 {
                     _activeInteractionPoint = null;

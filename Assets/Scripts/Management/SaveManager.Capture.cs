@@ -89,7 +89,7 @@ namespace Sol.SaveLoad
         private TimeSaveData CollectTimeData() // Collects in-game time and date information from TimeOfDay and Calendar objects into a TimeSaveData object for saving.
         {
             TimeSaveData data = new();
-            TimeOfDay timeOfDay = FindFirstObjectByType<TimeOfDay>();
+            TimeOfDay timeOfDay = TimeOfDay.ResolveInstance();
             if (timeOfDay != null)
                 data.CurrentTime = timeOfDay.CurrentTime;
 

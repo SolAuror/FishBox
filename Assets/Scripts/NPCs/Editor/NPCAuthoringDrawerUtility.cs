@@ -212,6 +212,8 @@ namespace Sol.Editor
             DrawProperty(aiSO, "patrolSplineOverride");
             DrawProperty(aiSO, "_scheduleDefinition");
             DrawProperty(aiSO, "_scheduleRefreshSeconds");
+            DrawProperty(aiSO, "_showScheduleRoute", label: "Show Schedule Route");
+            DrawProperty(aiSO, "_scheduleRoutePreviewMode", label: "Route Preview Mode");
             aiSO.ApplyModifiedProperties();
 
             EndSection();

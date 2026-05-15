@@ -21,6 +21,9 @@ namespace Sol.AI
             if (npc.CanChasePlayer())
                 return AI_NPC.State.Chase;
 
+            if (npc.TryGetActiveScheduleState(out AI_NPC.State scheduleState))
+                return scheduleState;
+
             timer -= Time.deltaTime;
             return timer <= 0f ? AI_NPC.State.Patrol : AI_NPC.State.Idle;
         }

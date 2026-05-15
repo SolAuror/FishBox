@@ -29,7 +29,7 @@ Material:
     - _CloudDensity: 0.42626393
     - _CloudHeight: 0.119
     - _CloudScale: 2
-    - _CloudSpeed: 0.055833332
+    - _CloudSpeed: 0.020833334
     - _HazeIntensity: 0.05867927
     - _HorizonBlend: 1.4575465
     - _LunarEclipseFactor: 0

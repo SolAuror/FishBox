@@ -262,14 +262,14 @@ namespace Sol.HUD
         private float ResolveCurrentDisplayHour()
         {
             return ResolveTimeOfDay() != null
-                ? Mathf.Repeat(_timeOfDay.SkyAlignedHour, 24f)
+                ? Mathf.Repeat(_timeOfDay.ClockHour, 24f)
                 : Mathf.Clamp(_startHour, 0f, 23f);
         }
 
         private float ResolveResultDisplayHour(int selectedHours)
         {
             return ResolveTimeOfDay() != null
-                ? Mathf.Repeat(_timeOfDay.GetSkyAlignedHourAfterHours(selectedHours), 24f)
+                ? Mathf.Repeat(_timeOfDay.GetClockHourAfterHours(selectedHours), 24f)
                 : Mathf.Repeat(ResolveCurrentDisplayHour() + selectedHours, 24f);
         }
 
@@ -297,7 +297,7 @@ namespace Sol.HUD
         private TimeOfDay ResolveTimeOfDay()
         {
             if (_timeOfDay == null)
-                _timeOfDay = UnityEngine.Object.FindFirstObjectByType<TimeOfDay>();
+                _timeOfDay = TimeOfDay.ResolveInstance();
             return _timeOfDay;
         }
 

@@ -8,6 +8,8 @@ NPC characters use the same locomotion and soul stack as the player, but their i
 
 The authoring tool seeds NPCs from archetypes such as `Civilian`, `Guard`, `Bandit`, `Quest Giver`, and `Unique`. Traders now use shop ids for merchant stock. NPC inventory still exists, but it is no longer the source of merchant shop stock.
 
+NPCs can also be assigned an `NpcScheduleDefinition` that drives their day — see [NPC Schedules](npc-schedule.md) for the full system.
+
 ## Key Files
 
 - [AI_NPC.cs](../../Assets/Scripts/NPCs/AI_NPC.cs): partial class root and required component declarations.
@@ -16,6 +18,9 @@ The authoring tool seeds NPCs from archetypes such as `Civilian`, `Guard`, `Band
 - [AI_NPC.Animation.cs](../../Assets/Scripts/NPCs/AI_NPC.Animation.cs): animator parameter mapping.
 - [AI_NPC.Inventory.cs](../../Assets/Scripts/NPCs/AI_NPC.Inventory.cs): NPC-side inventory support.
 - [AI_NPC.Shop.cs](../../Assets/Scripts/NPCs/AI_NPC.Shop.cs): trader surface, shop id, shop-session opening, and legacy direct trade fallback.
+- [AI_NPC.Schedule.cs](../../Assets/Scripts/NPCs/AI_NPC.Schedule.cs): daily-routine driver (location target, desired-state resolution, snap-to-target on load).
+- [NpcScheduleDefinition.cs](../../Assets/Scripts/NPCs/NpcScheduleDefinition.cs): `ScriptableObject` schedule asset + `NpcScheduleActivity` enum.
+- [NpcScheduleLocation.cs](../../Assets/Scripts/NPCs/NpcScheduleLocation.cs): scene anchor used by schedule entries.
 - [AIConfig.cs](../../Assets/Scripts/NPCs/AIConfig.cs): authored per-NPC config.
 - [NPCSoul.cs](../../Assets/Scripts/NPCs/NPCSoul.cs): persistent NPC identity and character facts.
 - [IntentContext.cs](../../Assets/Scripts/NPCs/IntentContext.cs): glue between AI intent and locomotion.
@@ -60,18 +65,31 @@ stateDiagram-v2
     [*] --> Idle
     Idle --> Patrol: patrol points configured
     Patrol --> Idle: patrol loop paused / reached rest
+    Idle --> Travel: schedule entry resolves
+    Patrol --> Travel: schedule entry resolves
+    Travel --> Sleep: arrived (Activity=Sleep)
+    Travel --> Work: arrived (Activity=Work)
+    Travel --> Eat: arrived (Activity=Eat)
+    Travel --> Socialize: arrived (Activity=Socialize)
+    Sleep --> Travel: schedule hour rolls
+    Work --> Travel: schedule hour rolls
+    Eat --> Travel: schedule hour rolls
+    Socialize --> Travel: schedule hour rolls
     Idle --> Dead: Health <= 0
     Patrol --> Dead: Health <= 0
+    Travel --> Dead: Health <= 0
     Dead --> [*]
 ```
 
-The `State.Chase` enum value is reserved, but no complete chase state is wired yet.
+The `State.Chase` enum value is reserved, but no complete chase state is wired yet. The `Travel` / `Sleep` / `Work` / `Eat` / `Socialize` states are driven by [NPC Schedules](npc-schedule.md); NPCs without a schedule definition stay in the `Idle` / `Patrol` loop.
 
 ## Persistence
 
 NPCs persist through `NPCSoul`. Save/load captures each soul's position, rotation, health, current state, conversation-ready flags, and non-shop inventory.
 
 Merchant shop stock/gold does not persist through NPC inventory. It persists through `ShopSaveData` and restores through `ShopRuntimeStore`.
+
+Schedule state is **not** serialized — it is re-derived from the clock on load. `SaveManager.ApplyRestore` calls `SnapToCurrentScheduleTarget()` on every NPC that has a schedule, warping it onto the location matching the loaded `ClockHour`.
 
 ## Adding A New NPC
 

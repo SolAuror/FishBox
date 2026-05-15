@@ -309,8 +309,7 @@ namespace Sol.HUD
 
             if (Physics.Raycast(ray, out var hit, range, _raycastLayers, QueryTriggerInteraction.Ignore))
             {
-                var interactable = hit.collider.GetComponent<IInteractable>()
-                                ?? hit.collider.GetComponentInParent<IInteractable>();
+                var interactable = ResolveInteractable(hit.collider);
 
                 if (interactable != null)
                 {
@@ -360,6 +359,12 @@ namespace Sol.HUD
             if (_interactPressed)
             {
                 _interactPressed = false;
+                if (TryHandleActiveInteractionInput())
+                {
+                    _pendingPickupItem = null;
+                    return;
+                }
+
                 if (!_grabInitiated && TryTakeDisplayedCatch())
                 {
                     _pendingPickupItem = null;
@@ -408,6 +413,20 @@ namespace Sol.HUD
                 var owner = _playerInteractor.Owner;
                 ActionSystem.Instance.Dispatch(new StartGrabAction(), owner, grabbable.gameObject);
             }
+        }
+
+        private static IInteractable ResolveInteractable(Collider collider)
+        {
+            if (collider == null)
+                return null;
+
+            SleepInteractable bed = collider.GetComponent<SleepInteractable>()
+                ?? collider.GetComponentInParent<SleepInteractable>();
+            if (bed != null)
+                return bed;
+
+            return collider.GetComponent<IInteractable>()
+                ?? collider.GetComponentInParent<IInteractable>();
         }
 
         private void RefreshCameraContext()
@@ -623,6 +642,10 @@ namespace Sol.HUD
 
         private string GetActivePromptText()
         {
+            string activeInteractionPrompt = GetActiveInteractionPrompt();
+            if (!string.IsNullOrWhiteSpace(activeInteractionPrompt))
+                return FormatInteractionPrompt(activeInteractionPrompt);
+
             if (_playerFishingState != null && _playerFishingState.HasDisplayedCatch)
                 return _playerFishingState.DisplayedCatchPrompt;
 
@@ -638,6 +661,41 @@ namespace Sol.HUD
             }
 
             return string.Empty;
+        }
+
+        private bool TryHandleActiveInteractionInput()
+        {
+            GameAction current = GetCurrentPlayerAction();
+            if (current is OpenSleepMenuAction sleepAction && sleepAction.IsWaitingForGetUp)
+            {
+                sleepAction.RequestGetUp();
+                return true;
+            }
+
+            if (current is UseInteractionPointAction useAction && useAction.CanCancelFromInput)
+            {
+                useAction.RequestCancelFromInput();
+                return true;
+            }
+
+            return false;
+        }
+
+        private string GetActiveInteractionPrompt()
+        {
+            GameAction current = GetCurrentPlayerAction();
+            if (current is OpenSleepMenuAction sleepAction)
+                return sleepAction.ActivePrompt;
+
+            return string.Empty;
+        }
+
+        private GameAction GetCurrentPlayerAction()
+        {
+            if (_playerInteractor == null || _playerInteractor.Owner == null || ActionSystem.Instance == null)
+                return null;
+
+            return ActionSystem.Instance.GetCurrent(_playerInteractor.Owner);
         }
 
         private static bool ShouldShowBlockedOwnedInteractionPrompt(IInteractable interactable, Interactor interactor)

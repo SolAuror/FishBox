@@ -16,11 +16,22 @@ Contract & dispatch:
 - [Interactor.cs](../../Assets/Scripts/Interactables/Interactor.cs) — wraps an interacting actor with cached `Inventory`, `NPCSoul`, `PlayerSoul`, and `IsPlayer` flag.
 - [ItemActionSystem.cs](../../Assets/Scripts/Interactables/ItemActionSystem.cs) / [ItemActionType.cs](../../Assets/Scripts/Interactables/ItemActionType.cs) — inventory-side action dispatch (`Use`, `Equip`, `Drop`).
 
-Interaction points (Solr port):
+Interaction points (Solr port — `InteractionPoint` is now split across partial files):
 
-- [InteractionPoint.cs](../../Assets/Scripts/Interactables/InteractionPoint.cs) — the base. Owns id (`INP#####`), prompt, display name, type, animation type, alignment transform, use duration, hold-until-cancelled flag, single-occupancy flag, allow-player/allow-NPC flags, and four actor-effect deltas (health/stamina/hunger/thirst). Drives the animator via the `interactionType` (int), `interactionActive` (bool), and `isInteracting` (trigger) parameters.
+- [InteractionPoint.cs](../../Assets/Scripts/Interactables/InteractionPoint.cs) — the root. Owns id (`INP#####`), prompt, display name, type, animation type, use duration, hold-until-cancelled flag, single-occupancy flag, allow-player/allow-NPC flags, and four actor-effect deltas (health/stamina/hunger/thirst). Holds the current `InteractionSession`.
+- [InteractionPoint.Alignment.cs](../../Assets/Scripts/Interactables/InteractionPoint.Alignment.cs) — multiple align points, NPC arrival tolerance, and aligning-state handoff.
+- [InteractionPoint.Animator.cs](../../Assets/Scripts/Interactables/InteractionPoint.Animator.cs) — drives the actor animator (`interactionType` int, `interactionActive` bool, `isInteracting` trigger) and listens for the rig's ready/cleanup events via `InteractionAnimationEventRelay`.
+- [InteractionPoint.PlayerLock.cs](../../Assets/Scripts/Interactables/InteractionPoint.PlayerLock.cs) — locks locomotion / camera while the player is mid-use.
+- [InteractionPoint.Reservation.cs](../../Assets/Scripts/Interactables/InteractionPoint.Reservation.cs) — duration-based reservation system used by NPC schedule states (`TryReserve`, `ReleaseReservation`, `IsReservedBy`).
+- [InteractionSession.cs](../../Assets/Scripts/Interactables/InteractionSession.cs) — per-use state machine: `Reserved → Aligning → Animating → Ready → Completing/Cancelling → Cleanup`.
+- [InteractionDefinition.cs](../../Assets/Scripts/Interactables/InteractionDefinition.cs) — optional `ScriptableObject` that supplies default display name, type, animation type, and effects so multiple points can share authoring.
+- [InteractionEffect.cs](../../Assets/Scripts/Interactables/InteractionEffect.cs) — per-event hooks fired by the session (start, ready, completed, cancelled).
+- [InteractionAnimationEventRelay.cs](../../Assets/Scripts/Interactables/InteractionAnimationEventRelay.cs) — bridges animation events on the actor's rig back to the active session (used to flip session state to `Ready`).
 - [HarvestableInteractionPoint.cs](../../Assets/Scripts/Interactables/HarvestableInteractionPoint.cs) — gives an item from `ItemRegistry` on use; supports deplete-after-use and respawn timer.
 - [WaterSourceInteractionPoint.cs](../../Assets/Scripts/Interactables/WaterSourceInteractionPoint.cs) — wells and basins; reserves an item id for a future filled-container flow (currently warns).
+- [UseInteractionPointAction.cs](../../Assets/Scripts/ActionSystem/Actions/UseInteractionPointAction.cs) — the `GameAction` returned by `GetInteraction`; ticks duration, watches for session-ready, and finishes the use.
+
+Authored prefab data lives under [Assets/Data/InteractionPointPrefabs/](../../Assets/Data/InteractionPointPrefabs/) — e.g. `Bed.FloorMat.prefab`, `Bed.Boat.prefab`.
 
 Other interactables:
 
@@ -43,16 +54,24 @@ Other interactables:
 
 ## Use lifecycle
 
+The visible "in use" state is actually an `InteractionSession` state machine. The phases let alignment, animation, and timed completion stay decoupled.
+
 ```mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> CanCheck: Interactor raycast hits
-    CanCheck --> Idle: CanInteract == false
-    CanCheck --> InUse: BeginUse(interactor)
-    InUse --> Idle: EndUse(completed=true)<br/>→ apply effects + onUsed
-    InUse --> Idle: EndUse(completed=false)<br/>→ OnUseCancelled
-    InUse --> Idle: OnDisable<br/>(forces cancel)
+    Idle --> Reserved: TryBeginSession(interactor)
+    Reserved --> Aligning: actor snaps to AlignPoint
+    Aligning --> Animating: animator handoff
+    Animating --> Ready: rig event relay fires
+    Ready --> Completing: duration elapsed<br/>or RequestActiveCompletion
+    Ready --> Cancelling: CancelActiveSession<br/>or interactor leaves
+    Completing --> Cleanup: ApplyActorEffects + onUsed
+    Cancelling --> Cleanup: OnUseCancelled
+    Cleanup --> Idle
+    Idle --> Idle: OnDisable forces cancel
 ```
+
+Reservation is separate from the session: NPCs (especially scheduled ones — see [NPC Schedules](npc-schedule.md)) call `TryReserve(interactor, seconds)` to claim the point ahead of `BeginUse`. Expired reservations clear lazily, so the point becomes available again even if the holder never returns.
 
 ## Data flow
 

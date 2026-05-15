@@ -20,6 +20,7 @@ namespace Sol.Actions
         public InteractionFailureReason FailureReason { get; private set; } = InteractionFailureReason.None;
         public bool IsHoldUntilCancelled => _holdUntilCancelled;
         public InteractionPoint InteractionPoint => _interactionPoint;
+        public bool CanCancelFromInput => _startedUse && !_endedUse && !IsComplete && !IsCancelled;
         public bool CanRequestCompletion =>
             _startedUse && !_endedUse && _holdUntilCancelled && !IsComplete && !IsCancelled;
 
@@ -114,6 +115,12 @@ namespace Sol.Actions
                 _completionRequested = true;
                 _interactionPoint?.RequestActiveCompletion();
             }
+        }
+
+        public void RequestCancelFromInput()
+        {
+            if (CanCancelFromInput)
+                Cancel();
         }
 
         private void CompleteInteraction()

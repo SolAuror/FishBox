@@ -24,6 +24,12 @@ namespace Sol.AI
             waitingAtPoint = false;
             waitTimer = 0f;
 
+            if (npc.TryGetActiveScheduleState(out _))
+            {
+                StopPatrolAgent();
+                return;
+            }
+
             if (agent != null && agent.isOnNavMesh)
                 agent.isStopped = false;
 
@@ -41,6 +47,9 @@ namespace Sol.AI
         {
             if (npc.CanChasePlayer())
                 return AI_NPC.State.Chase;
+
+            if (npc.TryGetActiveScheduleState(out AI_NPC.State scheduleState))
+                return scheduleState;
 
             if (waitingAtPoint)
             {
@@ -95,6 +104,12 @@ namespace Sol.AI
 
         private void SelectNewPatrolPoint()
         {
+            if (npc.TryGetActiveScheduleState(out _))
+            {
+                StopPatrolAgent();
+                return;
+            }
+
             targetWaitSeconds = 0f;
 
             int authoredPointCount = npc.GetAuthoredPatrolPointCount();
@@ -201,6 +216,19 @@ namespace Sol.AI
             waitingAtPoint = true;
         }
 
+        private void StopPatrolAgent()
+        {
+            hasPatrolTarget = false;
+            waitingAtPoint = false;
+            waitTimer = 0f;
+
+            if (agent != null && agent.isOnNavMesh)
+            {
+                agent.ResetPath();
+                agent.isStopped = true;
+            }
+        }
+
         private void AdvanceWaypointIndex(int pointCount)
         {
             if (pointCount <= 1)
@@ -257,15 +285,15 @@ namespace Sol.AI
         public override AI_NPC.State Tick()
         {
             if (!npc.TryGetPlayerPosition(out Vector3 playerPosition))
-                return AI_NPC.State.Patrol;
+                return npc.GetScheduleFallbackState(AI_NPC.State.Patrol);
 
             float loseRadius = config != null ? Mathf.Max(config.chaseLoseRadius, config.chaseRadius) : 0f;
             if (loseRadius <= 0f)
-                return AI_NPC.State.Patrol;
+                return npc.GetScheduleFallbackState(AI_NPC.State.Patrol);
 
             Vector3 toPlayer = playerPosition - npc.transform.position;
             if (toPlayer.sqrMagnitude > loseRadius * loseRadius)
-                return AI_NPC.State.Patrol;
+                return npc.GetScheduleFallbackState(AI_NPC.State.Patrol);
 
             float meleeDistance = npc.GetMeleeEngageDistance();
             bool inMeleeRange = toPlayer.sqrMagnitude <= meleeDistance * meleeDistance;

@@ -105,6 +105,13 @@ namespace Sol.SaveLoad
                     break;
             }
 
+            if (data.SaveVersion < 9)
+            {
+                // Earlier builds stored normalized time with 0 at sunrise. Preserve the perceived civil clock by moving
+                // those values onto the new midnight-based cycle before TimeOfDay restores the snapshot.
+                data.Time.CurrentTime = Mathf.Repeat(data.Time.CurrentTime + 0.25f, 1f);
+            }
+
             data.SaveVersion = GameSaveData.CurrentVersion;
         }
     }

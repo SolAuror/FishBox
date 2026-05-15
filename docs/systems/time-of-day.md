@@ -67,20 +67,55 @@ Months, month names, and starting date are authored on [Calendar.cs](../../Asset
 
 ```csharp
 float  DayFactor        // 0 = night, 1 = zenith
-float  Hour             // 0..24
+float  Hour / ClockHour // 0..24 (ClockHour is the schedule clock input)
 bool   IsDaytime        // sun above horizon
 float  LunarPhase       // 0..1
 bool   IsEclipse        // solar or lunar
 
-void   SetHour(float)
-void   SetNoon()
-void   SetMidnight()
-void   AdvanceHours(float)
-void   SkipToNextSunrise()
-void   SkipToNextSunset()
+TimeChangeResult ApplyTimeChange(TimeChangeRequest request)
+TimeChangeResult SetClockHour(float hour, Object source = null, string reason = null)
+TimeChangeResult SetNormalizedTime(float t, Object source = null, string reason = null)
+TimeChangeResult AdvanceHours(float h, Object source = null, string reason = null)
+TimeChangeResult RewindHours(float h, Object source = null, string reason = null)
+
+event Action<TimeChangeResult> TimeChanged   // every applied mutation
+event Action<TimeChangeResult> TimeSkipped   // explicit jumps (sleep, skip-to-sunrise)
 ```
 
-Beds, skipping-to-dawn quests, and similar features use `AdvanceHours` / `SkipToNextSunrise` rather than mutating `timeOfDay` directly so calendar advancement happens correctly.
+## TimeChangeRequest
+
+Every gameplay-driven time mutation now goes through the `TimeChangeRequest` struct ([TimeChangeRequest.cs](../../Assets/Scripts/TimeOfDay/TimeChangeRequest.cs)). It encodes:
+
+- `Type` — one of `AdvanceHours`, `RewindHours`, `SetClockHour`, `SetNormalizedTime`, `SetTimeScale`, `SetPaused`, `SkipToSunrise`, `SkipToSunset`, `SkipForwardOneDay`, `SkipBackwardOneDay`.
+- `Value` — the scalar (hours, normalized t, scale, etc).
+- `Source` — the `UnityEngine.Object` that initiated the change (e.g. the `SleepInteractable`).
+- `Reason` — a short string for logs/replay/telemetry (defaults to the type name).
+
+`ApplyTimeChange` returns a `TimeChangeResult` snapshot (`OldNormalizedTime`, `NewNormalizedTime`, `OldClockHour`, `NewClockHour`, `DaysDelta`, `Changed`) and fires the `TimeChanged` / `TimeSkipped` events. Consumers can react to one struct instead of re-reading clock state.
+
+The convenience overloads (`AdvanceHours`, `SetClockHour`, …) are thin wrappers that build a request and call `ApplyTimeChange`. Beds and sleep flows use this path so a multiplayer host can later validate/replicate the same request shape without touching internal state.
+
+```mermaid
+flowchart LR
+    Caller["SleepInteractable / quest /<br/>console / save restore"] --> Req["TimeChangeRequest<br/>(type + value + source + reason)"]
+    Req --> Apply["TimeOfDay.ApplyTimeChange"]
+    Apply --> Mutate["mutate timeOfDay + Calendar"]
+    Mutate --> Result["TimeChangeResult"]
+    Result --> TimeChanged["event TimeChanged"]
+    Result --> TimeSkipped["event TimeSkipped<br/>(skips only)"]
+    TimeChanged --> Subs["TimeOfDay-driven systems<br/>(NPC schedule, quests, …)"]
+```
+
+Beds, skipping-to-dawn quests, and similar features use `AdvanceHours` / request-based skips rather than mutating `timeOfDay` directly so calendar advancement and event publication happen correctly.
+
+### Sleep flow example
+
+[SleepInteractable](../../Assets/Scripts/Interactables/SleepInteractable.cs) is the canonical caller. It wraps an `InteractionPoint` (the bed) and an [OpenSleepMenuAction](../../Assets/Scripts/ActionSystem/Actions/OpenSleepMenuAction.cs):
+
+1. Player interacts → `OpenSleepMenuAction` reserves the bed's `InteractionPoint` and waits for its session to reach `Ready`.
+2. The radial [SleepMenuSystem](../../Assets/Scripts/UserInterface/SleepMenuSystem.cs) opens, previewing hours and stamina/health recovery.
+3. On confirm, `SleepInteractable` calls `timeOfDay.ApplyTimeChange(TimeChangeRequest.AdvanceHours(hours, this, "Player Sleep"))` so every listener (NPC schedules, weather, …) sees one coherent jump.
+4. Recovery is applied, the screen fade lifts, and the `Get Up` prompt stays active until dismissed.
 
 ## Gotchas
 

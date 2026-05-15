@@ -115,11 +115,33 @@ namespace Sol.Locomotion
             bool isFlying = _state.CurrentMovementState == MovementState.Flying;
             bool isGrounded = _state.InGroundedState();
             bool interactionActive = IsInteractionAnimationActive();
+            if (interactionActive)
+            {
+                isIdle = true;
+                isWalking = false;
+                isCrouching = false;
+                isRunning = false;
+                isSprinting = false;
+                isJumping = false;
+                isFalling = false;
+                isSwimming = false;
+                isFlying = false;
+                _locomotionInput.MovementInput = Vector2.zero;
+                _locomotionInput.JumpPressed = false;
+                _locomotionInput.CrouchToggle = false;
+                _locomotionInput.SprintPressed = false;
+                _locomotionInput.SwimUpHeld = false;
+                _locomotionInput.SwimDownHeld = false;
+                _locomotionInput.AttackPressed = false;
+                _locomotionInput.AimPressed = false;
+                _locomotionInput.ReadyTogglePressed = false;
+            }
             bool isPlayingAction = IsUpperBodyActionPlayingInternal() || interactionActive;
 
             bool isRunBlendValue = isRunning || isJumping || isFalling;
 
-            Vector2 inputTarget = isSprinting ? _locomotionInput.MovementInput * _sprintMaxBlendValue :
+            Vector2 inputTarget = interactionActive ? Vector2.zero :
+                                  isSprinting ? _locomotionInput.MovementInput * _sprintMaxBlendValue :
                                   isCrouching ? _locomotionInput.MovementInput * _crouchMaxBlendValue :  
                                   isRunBlendValue ? _locomotionInput.MovementInput * _runMaxBlendValue : 
                                                     _locomotionInput.MovementInput * _walkMaxBlendValue;
@@ -139,17 +161,17 @@ namespace Sol.Locomotion
             _animator.SetFloat(inputYHash, _currentBlendInput.y);
             _animator.SetFloat(inputMagnitudeHash, _currentBlendInput.magnitude);
             if (_validParams.Contains(landingImpactHash)) _animator.SetFloat(landingImpactHash, _controller.LastLandingImpact);
-            if (_validParams.Contains(speedHash)) _animator.SetFloat(speedHash, _controller.CurrentSpeed);
+            if (_validParams.Contains(speedHash)) _animator.SetFloat(speedHash, interactionActive ? 0f : _controller.CurrentSpeed);
             if (_validParams.Contains(swimSpeedHash))
             {
-                float lateralSpeed = _controller.CurrentSpeed;
+                float lateralSpeed = interactionActive ? 0f : _controller.CurrentSpeed;
                 float maxSwim = _controller.swimSpeed * (_controller.SwimSpeedMultiplier);
                 float swimBlend = maxSwim > 0.01f ? Mathf.Clamp01(lateralSpeed / maxSwim) : 0f;
                 _animator.SetFloat(swimSpeedHash, swimBlend);
             }
 
             //actions
-            _animator.SetBool(isAimingHash, _locomotionInput.AimPressed);
+            _animator.SetBool(isAimingHash, !interactionActive && _locomotionInput.AimPressed);
             UpdateCombatReadinessAnimatorChannels();
             if (interactionActive)
             {
@@ -188,11 +210,11 @@ namespace Sol.Locomotion
             _animator.SetBool(isPlayingActionHash, isPlayingAction);
             
             //camera rotation
-            _animator.SetBool(isRotatingToTargetHash, _controller.IsRotatingToTarget);
+            _animator.SetBool(isRotatingToTargetHash, !interactionActive && _controller.IsRotatingToTarget);
             // Only pass a non-zero mismatch when a turn is actually in progress - passing the
             // raw value at all times lets the animator blend tree partially activate turn-in-place
             // animations during the idle wait period, producing the leg jitter.
-            _animator.SetFloat(rotationMismatchHash, _controller.IsRotatingToTarget ? _controller.rotationMismatch : 0f);
+            _animator.SetFloat(rotationMismatchHash, !interactionActive && _controller.IsRotatingToTarget ? _controller.rotationMismatch : 0f);
 
             UpdateAiSpecificAnimationChannels(isSwimming);
         }

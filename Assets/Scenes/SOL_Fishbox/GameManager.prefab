@@ -118,7 +118,7 @@ MonoBehaviour:
   sunConfig: {fileID: 11400000, guid: 8ddcea2c0f539c048ae95bd5a2d41bb5, type: 2}
   moonConfig: {fileID: 11400000, guid: c12ebf4a271e6e44e9e6b05f1d2dc51d, type: 2}
   tertiaryPlanets: []
-  timeOfDay: 0.305
+  timeOfDay: 0.555
   sunriseColor: {r: 1, g: 0.54624325, b: 0.19999999, a: 1}
   noonColor: {r: 1, g: 0.95, b: 0.8, a: 1}
   sunsetColor: {r: 1, g: 0.8026618, b: 0.19999999, a: 1}

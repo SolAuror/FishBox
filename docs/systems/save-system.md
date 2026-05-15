@@ -6,9 +6,11 @@
 
 A slot-based save/load system. It captures the world state into one JSON file per slot, plus a PNG screenshot preview. The schema is versioned so older saves can be migrated forward as systems grow.
 
-Current save version: `8`.
+Current save version: `9`.
 
-Version 8 adds shop runtime state. Merchant stock no longer depends on NPC inventory save data; shops save their own mutable gold, stock, and restock timing.
+Version 9 changes how `Time.CurrentTime` is stored — it is now a normalized civil-day progress value measured **from midnight** (so 0.0 = 00:00, 0.5 = 12:00). Older saves are upgraded in `SaveManager.FormattingAndUpgrades` on load.
+
+Version 8 added shop runtime state. Merchant stock no longer depends on NPC inventory save data; shops save their own mutable gold, stock, and restock timing.
 
 ## Key Files
 
@@ -102,6 +104,7 @@ The save currently persists stock by item id and quantity. It does not preserve 
 
 Recent versions:
 
+- `9`: `TimeSaveData.CurrentTime` is normalized civil-day progress from midnight (0..1). Older saves are converted on load.
 - `8`: shop runtime state.
 - `7` and earlier: existing player/time/container/NPC/fish/world item/quest state.
 
@@ -113,3 +116,4 @@ Recent versions:
 - Loading is not additive. `ApplySaveData` assumes the current scene contains the right NPCs/containers to rehydrate.
 - Autosave slot `0` is implicitly trusted.
 - Shops are restored independently from NPC inventories. Do not try to recover merchant stock from NPC inventory data.
+- **NPC schedule and interaction-point state are not serialized.** After load, `ApplyRestore` calls `SnapToCurrentScheduleTarget` on every NPC with a schedule definition — that re-derives where they should be from the restored clock. Mid-interaction state (sitting, sleeping, working) is not preserved; the NPC re-enters the activity for the loaded hour. See [NPC Schedules](npc-schedule.md).

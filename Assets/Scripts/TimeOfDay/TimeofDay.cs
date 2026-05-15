@@ -1,14 +1,22 @@
 ﻿using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Sol.ToD
 {
 
+/// <summary>
+/// Scene-owned authority for Fishbox world time.
+/// This component advances the gameplay clock, owns calendar integration, and drives sky/environment visuals.
+/// </summary>
 [ExecuteAlways]
 [RequireComponent(typeof(Calendar))]
 public class TimeOfDay : MonoBehaviour
 {
+    /// <summary>The active scene time service. Future multiplayer should treat this as host/server authoritative.</summary>
+    public static TimeOfDay Instance { get; private set; }
+
     // -- PREFABS --------------------------------------
     #region Inspector Settings
     [Header("-- Prefabs ------------------------")]
@@ -36,7 +44,7 @@ public class TimeOfDay : MonoBehaviour
 
     // -- CURRENT TIME OF DAY --------------------------
     [Header("-- Current Time of Day ------------")]
-    [Tooltip("Current cycle progress. 0 = sunrise, 1 = next sunrise.")]
+    [Tooltip("Current civil-day progress. 0 = 00:00, 1 = 24:00.")]
     [Range(0f, 1f)]
     [SerializeField] float timeOfDay = 0.25f;
 
@@ -366,7 +374,7 @@ public class TimeOfDay : MonoBehaviour
 
     // -- CYCLE TIMING ---------------------------------
     [Header("-- Cycle Timing -------------------")]
-    [Tooltip("Fraction of the cycle that is daytime (sun above horizon). Modified by seasons.")]
+    [Tooltip("Fraction of the civil day that is visually daytime, centered around noon. Modified by seasons.")]
     [Range(0.05f, 0.95f)]
     [SerializeField] float dayRatio = 0.6f;
 
@@ -388,6 +396,7 @@ public class TimeOfDay : MonoBehaviour
     [SerializeField] float seasonalDayVariation = 0.1f;
     #endregion
 
+    #region Runtime State
     // -- Cached per-frame values --
     float currentSunAngle;
     float currentLunarPhase;
@@ -398,6 +407,8 @@ public class TimeOfDay : MonoBehaviour
     Vector3 cachedSunDirection;
     Vector3 cachedMoonDirection;
     float lunarPeriodDays;
+    bool paused;
+    bool calendarInitialized;
 
     /// <summary>World-space direction toward the sun (unit vector).</summary>
     public Vector3 SunDirection => cachedSunDirection;
@@ -409,20 +420,67 @@ public class TimeOfDay : MonoBehaviour
     public float DayFactor => cachedDayFactor;
 
     Calendar calendar;
+    #endregion
 
-    // ------------------------------------------------
-    // Lifecycle
-    // ------------------------------------------------
+    #region Service Lifecycle
+    /// <summary>Fired whenever normalized gameplay time or the calendar day changes.</summary>
+    public event Action<TimeChangeResult> TimeChanged;
+
+    /// <summary>Fired when the visible civil-clock hour bucket changes.</summary>
+    public event Action<int, int> HourChanged;
+
+    /// <summary>Fired when the calendar's total day counter changes.</summary>
+    public event Action<int, int> DayChanged;
+
+    /// <summary>Fired for explicit skips/sets/rewinds, not ordinary per-frame ticking.</summary>
+    public event Action<TimeChangeResult> TimeSkipped;
+
+    /// <summary>Fired when the game-world time multiplier changes.</summary>
+    public event Action<float, float> TimeScaleChanged;
+
+    /// <summary>Resolve the active time service without requiring callers to know scene wiring.</summary>
+    public static TimeOfDay ResolveInstance()
+    {
+        if (Instance != null)
+            return Instance;
+
+        Instance = FindFirstObjectByType<TimeOfDay>();
+        if (Instance != null)
+            Instance.ResolveCalendar();
+
+        return Instance;
+    }
+
+    void Awake()
+    {
+        ResolveCalendar();
+
+        if (!Application.isPlaying)
+            return;
+
+        if (Instance != null && Instance != this)
+        {
+            Debug.LogWarning($"[{nameof(TimeOfDay)}] Duplicate instance disabled. World time must have one active authority.", this);
+            enabled = false;
+            return;
+        }
+
+        Instance = this;
+    }
 
     void Start()
     {
         if (!Application.isPlaying) return;
 
-        calendar = GetComponent<Calendar>();
-        calendar.ResetToStart();
+        ResolveCalendar();
+        if (!calendarInitialized && calendar != null)
+        {
+            calendar.ResetToStart();
+            calendarInitialized = true;
+        }
 
         // Lunar synodic period = average calendar month length
-        lunarPeriodDays = calendar.AverageMonthLength;
+        lunarPeriodDays = Calendar != null ? Calendar.AverageMonthLength : 28f;
 
         SpawnCelestialBodies();
 
@@ -433,6 +491,9 @@ public class TimeOfDay : MonoBehaviour
 
     void OnDestroy()
     {
+        if (Instance == this)
+            Instance = null;
+
         if (!Application.isPlaying) return;
 
         if (sunInstance != null) Destroy(sunInstance);
@@ -443,7 +504,9 @@ public class TimeOfDay : MonoBehaviour
                 if (tertiaryInstances[i].instance != null)
                     Destroy(tertiaryInstances[i].instance);
     }
+    #endregion
 
+    #region Celestial Body Setup
     void SpawnCelestialBodies()
     {
         if (sunPrefab != null)
@@ -489,7 +552,9 @@ public class TimeOfDay : MonoBehaviour
             }
         }
     }
+    #endregion
 
+    #region Time Advancement
     // ------------------------------------------------
     // Main loop
     // ------------------------------------------------
@@ -508,18 +573,14 @@ public class TimeOfDay : MonoBehaviour
         {
             float cycleDurationSeconds = cycleDurationMinutes * 60f;
             float dayProgress = (timeScale * Time.deltaTime) / cycleDurationSeconds;
-            float newTime = timeOfDay + dayProgress;
-
-            // Handle high timeScale crossing multiple days
-            int daysCrossed = Mathf.FloorToInt(newTime);
-            for (int i = 0; i < daysCrossed; i++)
-                calendar.AdvanceDay();
-
-            timeOfDay = newTime - daysCrossed;
+            ApplyNormalizedDelta(
+                dayProgress,
+                TimeChangeRequest.AdvanceHours(dayProgress * 24f, this, "Tick"),
+                fireSkipped: false);
         }
 
         float effectiveDayRatio = GetEffectiveDayRatio();
-        float daysFraction = calendar.TotalDaysElapsed + timeOfDay;
+        float daysFraction = (Calendar != null ? Calendar.TotalDaysElapsed : 0) + timeOfDay;
 
         UpdateSun(effectiveDayRatio);
         UpdateMoon(daysFraction);
@@ -539,11 +600,7 @@ public class TimeOfDay : MonoBehaviour
         float effectiveDayRatio = GetEffectiveDayRatio();
 
         // Reconstruct sun angle & dayFactor the same way UpdateSun does.
-        float sunAngle;
-        if (timeOfDay < effectiveDayRatio)
-            sunAngle = (timeOfDay / effectiveDayRatio) * 180f;
-        else
-            sunAngle = 180f + ((timeOfDay - effectiveDayRatio) / (1f - effectiveDayRatio)) * 180f;
+        float sunAngle = ComputeSunAngle(timeOfDay, effectiveDayRatio);
 
         Quaternion sunRot = Quaternion.AngleAxis(sunAngle, Vector3.right);
         float dot = Vector3.Dot(sunRot * Vector3.forward, Vector3.down);
@@ -561,18 +618,56 @@ public class TimeOfDay : MonoBehaviour
 
         UpdateEnvironment();
     }
+    #endregion
 
+    #region Environment Rendering
     // ------------------------------------------------
     // Seasonal day-length
     // ------------------------------------------------
 
     float GetEffectiveDayRatio()
     {
-        if (!enableSeasons || calendar == null) return dayRatio;
+        Calendar resolvedCalendar = Calendar;
+        if (!enableSeasons || resolvedCalendar == null) return dayRatio;
 
         // Season flips discretely at year start and at the midpoint.
-        float seasonOffset = calendar.SeasonSign * seasonalDayVariation;
+        float seasonOffset = resolvedCalendar.SeasonSign * seasonalDayVariation;
         return Mathf.Clamp(dayRatio + seasonOffset, 0.05f, 0.95f);
+    }
+
+    // Sunrise/sunset are derived from dayRatio so that day length changes visually while civil clock speed stays fixed.
+    float GetSunriseTime(float effectiveDayRatio)
+        => (1f - Mathf.Clamp01(effectiveDayRatio)) * 0.5f;
+
+    float GetSunsetTime(float effectiveDayRatio)
+        => 1f - GetSunriseTime(effectiveDayRatio);
+
+    bool IsDaytimeAt(float normalizedTime, float effectiveDayRatio)
+    {
+        float wrappedTime = Mathf.Repeat(normalizedTime, 1f);
+        float sunrise = GetSunriseTime(effectiveDayRatio);
+        float sunset = GetSunsetTime(effectiveDayRatio);
+        return wrappedTime >= sunrise && wrappedTime < sunset;
+    }
+
+    float ComputeSunAngle(float normalizedTime, float effectiveDayRatio)
+    {
+        float wrappedTime = Mathf.Repeat(normalizedTime, 1f);
+        float dayLength = Mathf.Clamp(effectiveDayRatio, 0.05f, 0.95f);
+        float nightLength = Mathf.Max(0.0001f, 1f - dayLength);
+        float sunrise = GetSunriseTime(dayLength);
+        float sunset = GetSunsetTime(dayLength);
+
+        if (wrappedTime >= sunrise && wrappedTime < sunset)
+        {
+            float dayT = (wrappedTime - sunrise) / dayLength;
+            return dayT * 180f;
+        }
+
+        float nightElapsed = wrappedTime >= sunset
+            ? wrappedTime - sunset
+            : wrappedTime + 1f - sunset;
+        return 180f + (nightElapsed / nightLength) * 180f;
     }
 
     // ------------------------------------------------
@@ -581,17 +676,7 @@ public class TimeOfDay : MonoBehaviour
 
     void UpdateSun(float effectiveDayRatio)
     {
-        float sunAngle;
-        if (timeOfDay < effectiveDayRatio)
-        {
-            float dayT = timeOfDay / effectiveDayRatio;
-            sunAngle = dayT * 180f;
-        }
-        else
-        {
-            float nightT = (timeOfDay - effectiveDayRatio) / (1f - effectiveDayRatio);
-            sunAngle = 180f + nightT * 180f;
-        }
+        float sunAngle = ComputeSunAngle(timeOfDay, effectiveDayRatio);
 
         currentSunAngle = sunAngle;
 
@@ -625,7 +710,7 @@ public class TimeOfDay : MonoBehaviour
                 sunLight.shadows = LightShadows.Soft;
                 sunLight.shadowStrength = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elevation / 0.15f));
 
-                bool isMorning = timeOfDay < effectiveDayRatio * 0.5f;
+                bool isMorning = timeOfDay < 0.5f;
                 Color horizonColor = isMorning ? sunriseColor : sunsetColor;
 
                 Color sunColor;
@@ -874,8 +959,7 @@ public class TimeOfDay : MonoBehaviour
                     zenith = Color.Lerp(zenith, skyZenithEclipse, eclipseEnv);
 
                 // Horizon: blend sunrise/sunset tint near the horizon transition.
-                float effectiveDR = GetEffectiveDayRatio();
-                bool isMorning = timeOfDay < effectiveDR * 0.5f;
+                bool isMorning = timeOfDay < 0.5f;
                 Color warmHorizon = isMorning ? skyHorizonSunrise : skyHorizonSunset;
                 Color horizon;
                 if (df < 0.3f)
@@ -965,58 +1049,290 @@ public class TimeOfDay : MonoBehaviour
         }
     }
 
-    // ------------------------------------------------
- // Public API - Time
-    // ------------------------------------------------
+    #endregion
 
-    /// <summary>Current cycle progress (0 = sunrise, 1 = next sunrise).</summary>
+    #region Time Change Requests
+    /// <summary>
+    /// Apply a command-style time change.
+    /// This is the preferred mutation path because future multiplayer can validate this request before applying it.
+    /// </summary>
+    public TimeChangeResult ApplyTimeChange(TimeChangeRequest request)
+    {
+        switch (request.Type)
+        {
+            case TimeChangeType.AdvanceHours:
+                return ApplyNormalizedDelta(request.Value / 24f, request, fireSkipped: true);
+            case TimeChangeType.RewindHours:
+                return ApplyNormalizedDelta(-request.Value / 24f, request, fireSkipped: true);
+            case TimeChangeType.SetClockHour:
+                return SetNormalizedTimeInternal(ToNormalizedTimeFromClockHour(request.Value), request, fireSkipped: true);
+            case TimeChangeType.SetNormalizedTime:
+                return SetNormalizedTimeInternal(request.Value, request, fireSkipped: true);
+            case TimeChangeType.SetTimeScale:
+                SetTimeScale(request.Value);
+                return CreateNoTimeChangeResult(request);
+            case TimeChangeType.SetPaused:
+                SetPaused(request.Value > 0.5f);
+                return CreateNoTimeChangeResult(request);
+            case TimeChangeType.SkipToSunrise:
+                return SkipToSunriseInternal(request);
+            case TimeChangeType.SkipToSunset:
+                return SkipToSunsetInternal(request);
+            case TimeChangeType.SkipForwardOneDay:
+                return ApplyCalendarDelta(1, request, fireSkipped: true);
+            case TimeChangeType.SkipBackwardOneDay:
+                return ApplyCalendarDelta(-1, request, fireSkipped: true);
+            default:
+                return CreateNoTimeChangeResult(request);
+        }
+    }
+
+    /// <summary>Set midnight-based civil-day progress directly. Prefer this over writing <see cref="CurrentTime"/>.</summary>
+    public TimeChangeResult SetNormalizedTime(float normalizedTime, UnityEngine.Object source = null, string reason = null)
+        => ApplyTimeChange(TimeChangeRequest.SetNormalizedTime(normalizedTime, source, reason));
+
+    /// <summary>Set the constant-rate civil clock hour. 00:00 maps to normalized 0.</summary>
+    public TimeChangeResult SetClockHour(float hour, UnityEngine.Object source = null, string reason = null)
+        => ApplyTimeChange(TimeChangeRequest.SetClockHour(hour, source, reason));
+
+    /// <summary>Advance world time by civil-clock hours and update calendar days as needed.</summary>
+    public TimeChangeResult AdvanceHours(float hours, UnityEngine.Object source = null, string reason = null)
+        => ApplyTimeChange(TimeChangeRequest.AdvanceHours(hours, source, reason));
+
+    /// <summary>Rewind world time by civil-clock hours and rewind calendar days as needed.</summary>
+    public TimeChangeResult RewindHours(float hours, UnityEngine.Object source = null, string reason = null)
+        => ApplyTimeChange(TimeChangeRequest.RewindHours(hours, source, reason));
+
+    /// <summary>
+    /// Set the game-world time multiplier.
+    /// This is intentionally separate from <see cref="UnityEngine.Time.timeScale"/>, which UI pause menus may use.
+    /// </summary>
+    public void SetTimeScale(float scale)
+    {
+        float oldScale = timeScale;
+        timeScale = Mathf.Max(0f, scale);
+        if (!Mathf.Approximately(oldScale, timeScale))
+            TimeScaleChanged?.Invoke(oldScale, timeScale);
+    }
+
+    /// <summary>Pause or resume the world clock without changing its configured time multiplier.</summary>
+    public void SetPaused(bool isPaused)
+    {
+        paused = isPaused;
+    }
+
+    /// <summary>Restore a saved time/calendar snapshot as one service-level operation.</summary>
+    public TimeChangeResult RestoreTimeSnapshot(float normalizedTime, int day, int month, int year, int totalDays, UnityEngine.Object source = null, string reason = "SaveLoad")
+    {
+        float oldNormalized = timeOfDay;
+        float oldClock = ClockHour;
+        int oldDays = TotalDaysElapsed;
+
+        Calendar resolvedCalendar = ResolveCalendar();
+        if (resolvedCalendar != null)
+        {
+            resolvedCalendar.SetDate(day, month, year, totalDays);
+            calendarInitialized = true;
+        }
+
+        timeOfDay = Mathf.Repeat(normalizedTime, 1f);
+        TimeChangeRequest request = TimeChangeRequest.SetNormalizedTime(normalizedTime, source, reason);
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
+        PublishTimeResult(result, fireSkipped: false);
+        return result;
+    }
+
+    private TimeChangeResult ApplyNormalizedDelta(float normalizedDelta, TimeChangeRequest request, bool fireSkipped)
+    {
+        float oldNormalized = timeOfDay;
+        float oldClock = ClockHour;
+        int oldDays = TotalDaysElapsed;
+
+        float newTime = timeOfDay + normalizedDelta;
+        int daysCrossed = Mathf.FloorToInt(newTime);
+        timeOfDay = newTime - daysCrossed;
+        ApplyCalendarDeltaOnly(daysCrossed);
+
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
+        PublishTimeResult(result, fireSkipped);
+        return result;
+    }
+
+    private TimeChangeResult SetNormalizedTimeInternal(float normalizedTime, TimeChangeRequest request, bool fireSkipped)
+    {
+        float oldNormalized = timeOfDay;
+        float oldClock = ClockHour;
+        int oldDays = TotalDaysElapsed;
+
+        timeOfDay = Mathf.Repeat(normalizedTime, 1f);
+
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
+        PublishTimeResult(result, fireSkipped);
+        return result;
+    }
+
+    private TimeChangeResult ApplyCalendarDelta(int dayDelta, TimeChangeRequest request, bool fireSkipped)
+    {
+        float oldNormalized = timeOfDay;
+        float oldClock = ClockHour;
+        int oldDays = TotalDaysElapsed;
+
+        ApplyCalendarDeltaOnly(dayDelta);
+
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
+        PublishTimeResult(result, fireSkipped);
+        return result;
+    }
+
+    private TimeChangeResult SkipToSunriseInternal(TimeChangeRequest request)
+    {
+        float oldNormalized = timeOfDay;
+        float oldClock = ClockHour;
+        int oldDays = TotalDaysElapsed;
+
+        float sunriseTime = GetSunriseTime(GetEffectiveDayRatio());
+
+        if (timeOfDay >= sunriseTime)
+            ApplyCalendarDeltaOnly(1);
+        timeOfDay = sunriseTime;
+
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
+        PublishTimeResult(result, fireSkipped: true);
+        return result;
+    }
+
+    private TimeChangeResult SkipToSunsetInternal(TimeChangeRequest request)
+    {
+        float oldNormalized = timeOfDay;
+        float oldClock = ClockHour;
+        int oldDays = TotalDaysElapsed;
+        float sunsetTime = GetSunsetTime(GetEffectiveDayRatio());
+
+        if (timeOfDay >= sunsetTime)
+            ApplyCalendarDeltaOnly(1);
+        timeOfDay = sunsetTime;
+
+        TimeChangeResult result = CreateTimeChangeResult(request, oldNormalized, oldClock, oldDays);
+        PublishTimeResult(result, fireSkipped: true);
+        return result;
+    }
+
+    private void ApplyCalendarDeltaOnly(int dayDelta)
+    {
+        Calendar resolvedCalendar = ResolveCalendar();
+        if (resolvedCalendar == null || dayDelta == 0)
+            return;
+
+        if (dayDelta > 0)
+            resolvedCalendar.AdvanceDays(dayDelta);
+        else
+            resolvedCalendar.RewindDays(-dayDelta);
+
+        calendarInitialized = true;
+    }
+
+    private TimeChangeResult CreateTimeChangeResult(TimeChangeRequest request, float oldNormalized, float oldClock, int oldDays)
+    {
+        float newClock = ClockHour;
+        int newDays = TotalDaysElapsed;
+        bool changed = !Mathf.Approximately(oldNormalized, timeOfDay) || oldDays != newDays;
+        return new TimeChangeResult(request, oldNormalized, timeOfDay, oldClock, newClock, oldDays, newDays, changed);
+    }
+
+    private TimeChangeResult CreateNoTimeChangeResult(TimeChangeRequest request)
+        => new(request, timeOfDay, timeOfDay, ClockHour, ClockHour, TotalDaysElapsed, TotalDaysElapsed, changed: false);
+
+    private void PublishTimeResult(TimeChangeResult result, bool fireSkipped)
+    {
+        if (!result.Changed)
+            return;
+
+        TimeChanged?.Invoke(result);
+
+        int oldHour = Mathf.FloorToInt(Mathf.Repeat(result.OldClockHour, 24f));
+        int newHour = Mathf.FloorToInt(Mathf.Repeat(result.NewClockHour, 24f));
+        if (oldHour != newHour)
+            HourChanged?.Invoke(oldHour, newHour);
+
+        if (result.OldTotalDays != result.NewTotalDays)
+            DayChanged?.Invoke(result.OldTotalDays, result.NewTotalDays);
+
+        if (fireSkipped)
+            TimeSkipped?.Invoke(result);
+    }
+    #endregion
+
+    #region Clock Conversion
+    /// <summary>
+    /// Current civil-day progress (0 = 00:00, 1 = 24:00).
+    /// Setter remains for save/backward compatibility but routes through the service mutation path.
+    /// </summary>
     public float CurrentTime
     {
         get => timeOfDay;
-        set => timeOfDay = Mathf.Repeat(value, 1f);
+        set => SetNormalizedTime(value, this, "CurrentTime compatibility setter");
     }
 
-    /// <summary>Returns the current time as a 0-24 hour float.</summary>
-    public float Hour => timeOfDay * 24f;
-
     /// <summary>
-    /// Returns a sky-aligned civil hour (0-24) for the current normalized time.
-    /// Day maps from 06:00 to 18:00, and night maps from 18:00 to 06:00.
+    /// Current civil clock hour (0-24), advancing at a constant pace.
+    /// Day ratio changes daylight duration, not clock speed.
     /// </summary>
-    public float SkyAlignedHour => ToSkyAlignedHour(timeOfDay);
+    public float ClockHour => ToClockHour(timeOfDay);
 
-    /// <summary>
-    /// Returns a sky-aligned civil hour (0-24) for the normalized time
-    /// projected after advancing by <paramref name="hours"/> game-hours.
-    /// This mirrors <see cref="AdvanceHours(float)"/> wrapping behavior.
-    /// </summary>
-    public float GetSkyAlignedHourAfterHours(float hours)
+    /// <summary>Raw normalized cycle projected onto 0-24 hours, where 0 is midnight.</summary>
+    public float CycleHour => timeOfDay * 24f;
+
+    /// <summary>Return the civil clock hour after advancing by the given number of game hours.</summary>
+    public float GetClockHourAfterHours(float hours)
     {
         float projectedTime = Mathf.Repeat(timeOfDay + hours / 24f, 1f);
-        return ToSkyAlignedHour(projectedTime);
+        return ToClockHour(projectedTime);
     }
 
-    /// <summary>
-    /// Converts normalized cycle time (0 = sunrise, 1 = next sunrise) into a
-    /// sky-aligned civil hour (0-24) using the current effective day ratio.
-    /// </summary>
-    public float ToSkyAlignedHour(float normalizedTime)
+    /// <summary>Convert midnight-based normalized cycle time to civil clock hour. Day ratio is deliberately ignored.</summary>
+    public float ToClockHour(float normalizedTime)
+        => Mathf.Repeat(Mathf.Repeat(normalizedTime, 1f) * 24f, 24f);
+
+    /// <summary>Convert civil clock hour to midnight-based normalized cycle time.</summary>
+    public float ToNormalizedTimeFromClockHour(float hour)
+        => Mathf.Repeat(hour / 24f, 1f);
+    #endregion
+
+    #region Calendar Integration
+    /// <summary>The Calendar component on this GameObject, resolved lazily for save/load ordering.</summary>
+    public Calendar Calendar => ResolveCalendar();
+
+    /// <summary>Current calendar total days elapsed, or 0 if no calendar is present.</summary>
+    public int TotalDaysElapsed => Calendar != null ? Calendar.TotalDaysElapsed : 0;
+
+    private Calendar ResolveCalendar()
     {
-        float wrappedTime = Mathf.Repeat(normalizedTime, 1f);
-        float effectiveDayRatio = GetEffectiveDayRatio();
-
-        if (wrappedTime < effectiveDayRatio)
-        {
-            float dayT = wrappedTime / effectiveDayRatio;
-            return 6f + dayT * 12f;
-        }
-
-        float nightT = (wrappedTime - effectiveDayRatio) / (1f - effectiveDayRatio);
-        return Mathf.Repeat(18f + nightT * 12f, 24f);
+        if (calendar == null)
+            calendar = GetComponent<Calendar>();
+        return calendar;
     }
+    #endregion
 
-    /// <summary>True when the sun is above the horizon.</summary>
-    public bool IsDaytime => timeOfDay < GetEffectiveDayRatio();
+    #region Compatibility API
+    /// <summary>Compatibility alias for <see cref="ClockHour"/>. New gameplay should use ClockHour.</summary>
+    public float Hour => ClockHour;
+
+    /// <summary>Compatibility alias for <see cref="ClockHour"/>. The old name remains to avoid breaking authored systems.</summary>
+    public float SkyAlignedHour => ClockHour;
+
+    /// <summary>Compatibility alias for <see cref="GetClockHourAfterHours(float)"/>.</summary>
+    public float GetSkyAlignedHourAfterHours(float hours) => GetClockHourAfterHours(hours);
+
+    /// <summary>Compatibility alias for <see cref="ToClockHour(float)"/>.</summary>
+    public float ToSkyAlignedHour(float normalizedTime) => ToClockHour(normalizedTime);
+
+    /// <summary>Compatibility wrapper for <see cref="SetClockHour(float, UnityEngine.Object, string)"/>.</summary>
+    public void SetHour(float hour) => SetClockHour(hour, this, "SetHour compatibility wrapper");
+    #endregion
+
+    #region Public Time State
+    /// <summary>True when the sun is above the horizon according to the effective day ratio.</summary>
+    public bool IsDaytime => IsDaytimeAt(timeOfDay, GetEffectiveDayRatio());
 
     /// <summary>How far the sun is above the horizon (-1 to 1).</summary>
     public float SunElevation => cachedDayFactor * 2f - 1f;
@@ -1027,7 +1343,7 @@ public class TimeOfDay : MonoBehaviour
     /// <summary>Current sun light color.</summary>
     public Color SunColor => sunLight ? sunLight.color : Color.black;
 
-    /// <summary>Get or set the base daytime ratio (0.05-0.95). Seasonal variation is applied on top.</summary>
+    /// <summary>Base daytime ratio (0.05-0.95). This affects sunlight duration centered around noon, not civil clock speed.</summary>
     public float DayRatio
     {
         get => dayRatio;
@@ -1037,22 +1353,26 @@ public class TimeOfDay : MonoBehaviour
     /// <summary>The effective day ratio after seasonal variation is applied.</summary>
     public float EffectiveDayRatio => GetEffectiveDayRatio();
 
-    /// <summary>Get or set the cycle duration in real-time minutes.</summary>
+    /// <summary>Cycle duration in real-time minutes for one full day/night cycle.</summary>
     public float CycleDuration
     {
         get => cycleDurationMinutes;
         set => cycleDurationMinutes = Mathf.Max(0.1f, value);
     }
 
-    /// <summary>Get or set the time-scale multiplier (0 = paused).</summary>
+    /// <summary>Game-world time multiplier. This intentionally does not read or write UnityEngine.Time.timeScale.</summary>
     public float TimeScale
     {
         get => timeScale;
-        set => timeScale = Mathf.Max(0f, value);
+        set => SetTimeScale(value);
     }
 
-    /// <summary>Pause the cycle without changing timeScale.</summary>
-    public bool Paused { get; set; }
+    /// <summary>Pause the world clock without changing its configured time multiplier.</summary>
+    public bool Paused
+    {
+        get => paused;
+        set => SetPaused(value);
+    }
 
     /// <summary>Current lunar phase (0 = new moon, 0.5 = full moon).</summary>
     public float LunarPhase => currentLunarPhase;
@@ -1069,65 +1389,24 @@ public class TimeOfDay : MonoBehaviour
     /// <summary>True when any eclipse is active.</summary>
     public bool IsEclipse => solarEclipseFactor > 0.01f || lunarEclipseFactor > 0.01f;
 
-    /// <summary>Instantly jump to a specific hour (0-24).</summary>
-    public void SetHour(float hour) => timeOfDay = Mathf.Repeat(hour / 24f, 1f);
+    /// <summary>Set time to civil noon.</summary>
+    public void SetNoon() => SetNormalizedTime(0.5f, this, "SetNoon");
 
-    /// <summary>Set time to noon (middle of the day portion).</summary>
-    public void SetNoon() => timeOfDay = GetEffectiveDayRatio() * 0.5f;
-
-    /// <summary>Set time to midnight (middle of the night portion).</summary>
-    public void SetMidnight()
-    {
-        float edr = GetEffectiveDayRatio();
-        timeOfDay = Mathf.Repeat(edr + (1f - edr) * 0.5f, 1f);
-    }
-
-    /// <summary>Skip forward by the given number of hours, advancing the calendar as needed.</summary>
-    public void AdvanceHours(float hours)
-    {
-        float newTime = timeOfDay + hours / 24f;
-        int daysCrossed = Mathf.FloorToInt(newTime);
-        for (int i = 0; i < daysCrossed; i++)
-            calendar.AdvanceDay();
-        timeOfDay = newTime - daysCrossed;
-    }
-
-    /// <summary>Skip backward by the given number of hours, rewinding the calendar as needed.</summary>
-    public void RewindHours(float hours)
-    {
-        float newTime = timeOfDay - hours / 24f;
-        while (newTime < 0f)
-        {
-            newTime += 1f;
-            calendar.RewindDay();
-        }
-        timeOfDay = newTime;
-    }
+    /// <summary>Set time to civil midnight.</summary>
+    public void SetMidnight() => SetNormalizedTime(0f, this, "SetMidnight");
 
     /// <summary>Skip forward one full day and advance the calendar.</summary>
-    public void SkipForwardOneDay() => calendar.AdvanceDay();
+    public void SkipForwardOneDay() => ApplyTimeChange(new TimeChangeRequest(TimeChangeType.SkipForwardOneDay, source: this));
 
     /// <summary>Skip backward one full day and rewind the calendar.</summary>
-    public void SkipBackwardOneDay() => calendar.RewindDay();
+    public void SkipBackwardOneDay() => ApplyTimeChange(new TimeChangeRequest(TimeChangeType.SkipBackwardOneDay, source: this));
 
-    /// <summary>Jump to the next sunrise (timeOfDay = 0) and advance the calendar if needed.</summary>
-    public void SkipToNextSunrise()
-    {
-        calendar.AdvanceDay();
-        timeOfDay = 0f;
-    }
+    /// <summary>Jump to the computed sunrise, advancing the calendar only if today's sunrise has already passed.</summary>
+    public void SkipToNextSunrise() => ApplyTimeChange(new TimeChangeRequest(TimeChangeType.SkipToSunrise, source: this));
 
-    /// <summary>Jump to the next sunset and advance the calendar if needed.</summary>
-    public void SkipToNextSunset()
-    {
-        float edr = GetEffectiveDayRatio();
-        if (timeOfDay >= edr)
-            calendar.AdvanceDay();
-        timeOfDay = edr;
-    }
-
-    /// <summary>The Calendar component on this GameObject.</summary>
-    public Calendar Calendar => calendar;
+    /// <summary>Jump to the computed sunset, advancing the calendar only if today's sunset has already passed.</summary>
+    public void SkipToNextSunset() => ApplyTimeChange(new TimeChangeRequest(TimeChangeType.SkipToSunset, source: this));
+    #endregion
 
     // ------------------------------------------------
  // Public API - Tertiary planets

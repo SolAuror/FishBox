@@ -1,0 +1,352 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &6027990972103000359
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 628420979817669185}
+  m_Layer: 9
+  m_Name: AlignmentPoint
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &628420979817669185
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6027990972103000359}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.70709634, y: 0.003839701, z: 0.0038396716, w: 0.70709646}
+  m_LocalPosition: {x: -0.00040006303, y: 0.008590004, z: 0.0055519384}
+  m_LocalScale: {x: 0.032264747, y: 0.0017532238, z: 0.046968486}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6161176394423595819}
+  m_LocalEulerAnglesHint: {x: 0, y: 90, z: 0}
+--- !u!1 &9012313986656474834
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4445926909485780438}
+  - component: {fileID: 6405093230394644292}
+  - component: {fileID: 1597877370234070905}
+  - component: {fileID: 1873103467287204534}
+  - component: {fileID: 7383184044622488072}
+  m_Layer: 9
+  m_Name: Bed.FloorMat
+  m_TagString: Interactable
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4445926909485780438
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9012313986656474834}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0.50270766, y: -0.4972776, z: -0.49727753, w: 0.5027077}
+  m_LocalPosition: {x: -0.0005, y: 0.00711, z: 0.0056}
+  m_LocalScale: {x: 0.058193956, y: 0.0017532242, z: 0.032264747}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 6161176394423595819}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!33 &6405093230394644292
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9012313986656474834}
+  m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!23 &1597877370234070905
+MeshRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9012313986656474834}
+  m_Enabled: 1
+  m_CastShadows: 1
+  m_ReceiveShadows: 1
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 2
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: 3d1c77ab8f9e7634fa6cda1281792688, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 3
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
+--- !u!65 &1873103467287204534
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9012313986656474834}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &7383184044622488072
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9012313986656474834}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a41d7f57377cde64691b8cfc9499a302, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Outline.OutlineComponent
+  outlineColor: {r: 1, g: 1, b: 1, a: 1}
+  outlineWidth: 3
+  alwaysVisible: 0
+  priority: 0
+--- !u!1001 &5911638843221513408
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 28.47961
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 56.153072
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 34.24867
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -17.628538
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 9.322195
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 28.221338
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.6129715
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0.7897374
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.01645759
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0.01760887
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: -104.626
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: -10.955017
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 10.860992
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_Name
+      value: BoatBed
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_Layer
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 3451118302482216456, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      propertyPath: m_Convex
+      value: 1
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4445926909485780438}
+    - targetCorrespondingSourceObject: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 628420979817669185}
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8355493853275058238}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 6015769600231229016}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5868463909654399405}
+  m_SourcePrefab: {fileID: 100100000, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+--- !u!4 &6161176394423595819 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+  m_PrefabInstance: {fileID: 5911638843221513408}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &6830612517745830289 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: c9db35da53c8e044eb9199b3f50a099a, type: 3}
+  m_PrefabInstance: {fileID: 5911638843221513408}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8355493853275058238
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6830612517745830289}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a41d7f57377cde64691b8cfc9499a302, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Outline.OutlineComponent
+  outlineColor: {r: 0.21226418, g: 1, b: 0.34465674, a: 1}
+  outlineWidth: 2
+  alwaysVisible: 0
+  priority: 0
+--- !u!114 &6015769600231229016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6830612517745830289}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a8bb861936448e8a1cf5a14e568db4c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.InteractionPoint
+  _definition: {fileID: 11400000, guid: 151d8b2e9e4c6d9418ebb906dbc8619f, type: 2}
+  _overrideDefinitionSettings: 0
+  _interactionPointId: INP00006
+  _prompt: Use
+  _displayName: Bed Boat
+  _type: 0
+  _ownerId: PLY00001
+  _ownershipPolicy: 1
+  _guestOwnerIds: []
+  _unauthorizedPrompt: Owned
+  _animationType: 4
+  _customClip: {fileID: 0}
+  _alignPoint: {fileID: 628420979817669185}
+  _alignPoints:
+  - {fileID: 628420979817669185}
+  _useDuration: 2
+  _holdUntilCancelled: 1
+  _singleOccupancy: 1
+  _allowPlayer: 1
+  _allowNPC: 1
+  _maxInteractionRange: 0
+  _npcArrivalTolerance: 0.1
+  _allowNpcPositionSnapOnUse: 0
+  _npcPositionSnapDistance: 0.05
+  _alignNpcRotationWhileUsing: 1
+  _npcAlignRotationSpeed: 8
+  _healthDelta: 100
+  _staminaDelta: 100
+  _hungerDelta: 100
+  _thirstDelta: 100
+  _onUseStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  _onReady:
+    m_PersistentCalls:
+      m_Calls: []
+  _onUsed:
+    m_PersistentCalls:
+      m_Calls: []
+--- !u!114 &5868463909654399405
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6830612517745830289}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7f166b493e545fca9b9d2c7230b0b52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.BedSleepInteractable
+  _prompt: Sleep
+  _displayName: Bed
+  _interactionPoint: {fileID: 6015769600231229016}
+  _defaultHours: 8
+  _minHours: 1
+  _maxHours: 24
+  _healthRecoveryPercentPerHour: 8.8
+  _staminaRecoveryPercentPerHour: 12.5
+  _sleepFadeDuration: 0.5

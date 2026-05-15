@@ -239,6 +239,8 @@ namespace Sol.Locomotion
         // Whether the animator has the foot curve parameters
         private bool _hasLeftFootCurve;
         private bool _hasRightFootCurve;
+        private static readonly int InteractionActiveHash = Animator.StringToHash("interactionActive");
+        private static readonly int InteractionTypeHash = Animator.StringToHash("interactionType");
 
         private void Awake()
         {
@@ -280,6 +282,16 @@ namespace Sol.Locomotion
             return false;
         }
 
+        private bool HasAnimatorParameter(int paramHash, AnimatorControllerParameterType requiredType)
+        {
+            foreach (var p in _animator.parameters)
+            {
+                if (p.nameHash == paramHash && p.type == requiredType)
+                    return true;
+            }
+            return false;
+        }
+
         private void InitializeFootPositions()
         {
             _lastLeftFootPos = _animator.GetIKPosition(AvatarIKGoal.LeftFoot);
@@ -299,6 +311,12 @@ namespace Sol.Locomotion
 
             if (!_initialized)
                 InitializeFootPositions();
+
+            if (IsInteractionAnimationActive())
+            {
+                SuppressAllIK();
+                return;
+            }
 
             // --- Look / Aim IK ---
             ProcessLookIK();
@@ -440,6 +458,55 @@ namespace Sol.Locomotion
                     Debug.Log($"PELVIS - LeftOffset: {_leftFootOffset:F3}, RightOffset: {_rightFootOffset:F3}, PelvisInput: {pelvisInput:F3}, CharSpeed: {speed:F2}, SpeedFactor: {speedFactor:F2}, PelvisOffset: {_pelvisOffset:F3}");
                 }
             }
+        }
+
+        private bool IsInteractionAnimationActive()
+        {
+            if (_animator == null)
+                return false;
+
+            if (HasAnimatorParameter(InteractionActiveHash, AnimatorControllerParameterType.Bool)
+                && _animator.GetBool(InteractionActiveHash))
+            {
+                return true;
+            }
+
+            return HasAnimatorParameter(InteractionTypeHash, AnimatorControllerParameterType.Int)
+                && _animator.GetInteger(InteractionTypeHash) != 0;
+        }
+
+        private void SuppressAllIK()
+        {
+            _currentLookWeight = 0f;
+            _animator.SetLookAtWeight(0f);
+
+            _leftFootWeight = 0f;
+            _rightFootWeight = 0f;
+            _leftFootRotWeight = 0f;
+            _rightFootRotWeight = 0f;
+            _leftFootOffset = 0f;
+            _rightFootOffset = 0f;
+            _pelvisOffset = 0f;
+            _leftFootLocked = false;
+            _rightFootLocked = false;
+
+            _leftHandActive = false;
+            _rightHandActive = false;
+            _leftHandCurrentWeight = 0f;
+            _rightHandCurrentWeight = 0f;
+
+            _animator.SetIKPositionWeight(AvatarIKGoal.LeftFoot, 0f);
+            _animator.SetIKRotationWeight(AvatarIKGoal.LeftFoot, 0f);
+            _animator.SetIKPositionWeight(AvatarIKGoal.RightFoot, 0f);
+            _animator.SetIKRotationWeight(AvatarIKGoal.RightFoot, 0f);
+            _animator.SetIKHintPositionWeight(AvatarIKHint.LeftKnee, 0f);
+            _animator.SetIKHintPositionWeight(AvatarIKHint.RightKnee, 0f);
+            _animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0f);
+            _animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0f);
+            _animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
+            _animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0f);
+            _animator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, 0f);
+            _animator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, 0f);
         }
 
         private void ProcessFootIK(AvatarIKGoal foot, AvatarIKHint kneeHint, float weight, ref Vector3 footPosition, ref Quaternion footRotation, 

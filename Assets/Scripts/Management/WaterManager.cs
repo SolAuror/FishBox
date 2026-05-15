@@ -176,6 +176,9 @@ public class SolWaterManager : MonoBehaviour
         PushGlobalMotion();
         PushWeather();
 
+        if (todManager == null)
+            todManager = TimeOfDay.ResolveInstance();
+
         if (todManager != null)
         {
             PushToD();
@@ -284,7 +287,7 @@ public class SolWaterManager : MonoBehaviour
         if (_pendingBakeID >= 0 && reflectionProbe.IsFinishedRendering(_pendingBakeID))
             _pendingBakeID = -1;
 
-        TimePeriod current = GetCurrentPeriod(todManager.Hour);
+        TimePeriod current = GetCurrentPeriod(todManager.ClockHour);
         if (current == _lastPeriod) return;
 
         _lastPeriod = current;

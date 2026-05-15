@@ -19,6 +19,7 @@ namespace Sol.AI
         public string LocationId => _locationId;
         public bool UseFacing => _useFacing;
         public InteractionPoint InteractionPoint => ResolveInteractionPoint();
+        public Transform ScheduleAnchor => ResolveScheduleAnchor();
 
         private void OnEnable()
         {
@@ -45,12 +46,20 @@ namespace Sol.AI
 
         public bool TryGetNavigablePosition(int areaMask, out Vector3 position)
         {
-            Transform target = InteractionPoint != null ? InteractionPoint.AlignPoint : transform;
+            Transform target = ResolveScheduleAnchor();
             position = target.position;
             int resolvedMask = areaMask == 0 ? NavMesh.AllAreas : areaMask;
             if (NavMesh.SamplePosition(position, out NavMeshHit hit, Mathf.Max(0.1f, _navMeshSnapDistance), resolvedMask))
                 position = hit.position;
 
+            return true;
+        }
+
+        public bool TryGetScheduleAnchor(out Vector3 position, out Vector3 forward)
+        {
+            Transform anchor = ResolveScheduleAnchor();
+            position = anchor.position;
+            forward = anchor.forward;
             return true;
         }
 
@@ -62,6 +71,15 @@ namespace Sol.AI
             _interactionPoint = GetComponent<InteractionPoint>()
                 ?? GetComponentInChildren<InteractionPoint>(true);
             return _interactionPoint;
+        }
+
+        private Transform ResolveScheduleAnchor()
+        {
+            InteractionPoint point = InteractionPoint;
+            if (point != null && point.AlignPoint != null)
+                return point.AlignPoint;
+
+            return transform;
         }
 
         public static bool TryResolve(string locationId, out NpcScheduleLocation location)

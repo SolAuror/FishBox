@@ -13,6 +13,11 @@ namespace Sol.Actions
         private bool _started;
 
         public bool Succeeded { get; private set; }
+        public bool IsWaitingForGetUp => _started
+            && _bed != null
+            && !_bed.SleepInteractionFinished
+            && _bed.IsWaitingForGetUp;
+        public string ActivePrompt => IsWaitingForGetUp ? _bed.GetUpPrompt : string.Empty;
 
         public OpenSleepMenuAction(SleepInteractable bed, Interactor interactor)
         {
@@ -55,6 +60,12 @@ namespace Sol.Actions
         {
             if (_started && _bed != null && !_bed.SleepInteractionFinished)
                 _bed.CancelSleepInteraction();
+        }
+
+        public void RequestGetUp()
+        {
+            if (IsWaitingForGetUp)
+                _bed.RequestGetUp();
         }
     }
 }

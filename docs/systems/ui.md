@@ -30,6 +30,7 @@ The item/shop upgrade affects UI in two places:
 - [TradeUI.cs](../../Assets/Scripts/UserInterface/TradeUI.cs): shared paid shop, legacy trade, and loot UI.
 - [RadialMenuSystem.cs](../../Assets/Scripts/UserInterface/RadialMenuSystem.cs): hotkey radial.
 - [ConversationWindowSystem.cs](../../Assets/Scripts/UserInterface/ConversationWindowSystem.cs): NPC dialogue UI.
+- [SleepMenuSystem.cs](../../Assets/Scripts/UserInterface/SleepMenuSystem.cs): radial clock menu opened from [SleepInteractable](../../Assets/Scripts/Interactables/SleepInteractable.cs); previews recovery and confirms a `TimeChangeRequest.AdvanceHours` jump (see [Time of Day](time-of-day.md)).
 - [PersistentCoroutineRunner.cs](../../Assets/Scripts/UserInterface/PersistentCoroutineRunner.cs): persistent coroutine host.
 - [UIInputModuleFix.cs](../../Assets/Scripts/UserInterface/UIInputModuleFix.cs): Unity Input System/EventSystem workaround.
 

@@ -12,9 +12,12 @@ namespace Sol
     [DisallowMultipleComponent]
     public sealed class SleepInteractable : MonoBehaviour, IInteractable
     {
+        private const float SleepMenuReadyFallbackSeconds = 1.5f;
+
         [Header("Prompt")]
         [SerializeField] private string _prompt = "Sleep";
         [SerializeField] private string _displayName = "Bed";
+        [SerializeField] private string _getUpPrompt = "Get Up";
 
         [Header("Interaction")]
         [SerializeField] private InteractionPoint _interactionPoint;
@@ -29,6 +32,7 @@ namespace Sol
 
         private bool _sleepSessionActive;
         private bool _sleepMenuOpened;
+        private bool _sleepMenuDismissed;
         private bool _sleepCompleting;
         private bool _sleepFinished;
         private bool _sleepSucceeded;
@@ -40,7 +44,12 @@ namespace Sol
         private CanvasGroup _sleepFadeCanvasGroup;
 
         public string DisplayName => _displayName;
-        public string InteractionPrompt => _sleepSessionActive ? "Sleeping..." : BuildPrompt();
+        public string InteractionPrompt => _sleepSessionActive ? GetUpPrompt : BuildPrompt();
+        public string GetUpPrompt => string.IsNullOrWhiteSpace(_getUpPrompt) ? "Get Up" : _getUpPrompt.Trim();
+        public bool IsWaitingForGetUp => _sleepSessionActive
+            && _sleepMenuDismissed
+            && !_sleepCompleting
+            && !_sleepFinished;
         public bool SleepInteractionFinished => _sleepFinished;
         public bool SleepInteractionSucceeded => _sleepSucceeded;
         public InteractionPoint InteractionPoint => ResolveInteractionPoint();
@@ -88,6 +97,7 @@ namespace Sol
 
             _sleepSessionActive = true;
             _sleepMenuOpened = false;
+            _sleepMenuDismissed = false;
             _sleepCompleting = false;
             _sleepFinished = false;
             _sleepSucceeded = false;
@@ -112,8 +122,13 @@ namespace Sol
                 return;
             }
 
-            if (_activeSession.IsReady && !_sleepMenuOpened && !_sleepCompleting)
+            if (!_sleepMenuOpened
+                && !_sleepMenuDismissed
+                && !_sleepCompleting
+                && (_activeSession.IsReady || Time.time - _activeSession.StartedAt >= SleepMenuReadyFallbackSeconds))
+            {
                 OpenSleepMenuAtReady();
+            }
         }
 
         public void CancelSleepInteraction()
@@ -133,9 +148,9 @@ namespace Sol
 
             InteractionPoint point = ResolveInteractionPoint();
             if (point != null && point.IsInUseBy(_activeInteractor))
-                point.EndUse(completed: false);
+                point.EndUse(completed: _sleepSucceeded);
 
-            FinishSleepSession(succeeded: false);
+            FinishSleepSession(succeeded: _sleepSucceeded);
         }
 
         private void HandleInteractionReady(InteractionSession session)
@@ -146,7 +161,7 @@ namespace Sol
 
         private void OpenSleepMenuAtReady()
         {
-            if (!_sleepSessionActive || _sleepMenuOpened || _sleepCompleting)
+            if (!_sleepSessionActive || _sleepMenuOpened || _sleepMenuDismissed || _sleepCompleting)
                 return;
 
             SleepMenuSystem sleepMenu = SleepMenuSystem.ResolveInstance();
@@ -170,11 +185,31 @@ namespace Sol
             if (_sleepCompleting || _sleepFinished)
                 return;
 
+            _sleepMenuOpened = false;
+            _sleepMenuDismissed = true;
+            UIStateOwnership.SetUiCapture(false);
+        }
+
+        public void RequestGetUp()
+        {
+            if (!_sleepSessionActive || _sleepFinished)
+                return;
+
+            if (_sleepRoutine != null)
+            {
+                StopCoroutine(_sleepRoutine);
+                _sleepRoutine = null;
+            }
+
+            SleepMenuSystem sleepMenu = SleepMenuSystem.Instance;
+            if (sleepMenu != null && sleepMenu.IsOpen)
+                sleepMenu.Close();
+
             InteractionPoint point = ResolveInteractionPoint();
             if (point != null && point.IsInUseBy(_activeInteractor))
-                point.EndUse(completed: false);
+                point.EndUse(completed: _sleepSucceeded);
 
-            FinishSleepSession(succeeded: false);
+            FinishSleepSession(succeeded: _sleepSucceeded);
         }
 
         private void HandleSleepConfirmed(int selectedHours)
@@ -209,18 +244,17 @@ namespace Sol
             _sleepRoutine = null;
             UIStateOwnership.SetUiCapture(false);
 
-            InteractionPoint point = ResolveInteractionPoint();
-            if (point != null && point.IsInUseBy(_activeInteractor))
-                point.EndUse(completed: true);
-
-            FinishSleepSession(succeeded: true);
+            _sleepSucceeded = true;
+            _sleepCompleting = false;
+            _sleepMenuOpened = false;
+            _sleepMenuDismissed = true;
         }
 
         private void ApplySleepEffects(int hours)
         {
-            TimeOfDay timeOfDay = FindFirstObjectByType<TimeOfDay>();
+            TimeOfDay timeOfDay = TimeOfDay.ResolveInstance();
             if (timeOfDay != null)
-                timeOfDay.AdvanceHours(hours);
+                timeOfDay.ApplyTimeChange(TimeChangeRequest.AdvanceHours(hours, this, "Player Sleep"));
             else
                 Debug.LogWarning($"[{nameof(SleepInteractable)}] TimeOfDay not found; sleep could not advance time.", this);
 
@@ -338,6 +372,7 @@ namespace Sol
             _sleepFinished = true;
             _sleepSessionActive = false;
             _sleepMenuOpened = false;
+            _sleepMenuDismissed = false;
             _sleepCompleting = false;
             _activeInteractor = null;
             _activeSession = null;
@@ -375,6 +410,7 @@ namespace Sol
         {
             _prompt = string.IsNullOrWhiteSpace(_prompt) ? "Sleep" : _prompt.Trim();
             _displayName = _displayName?.Trim() ?? string.Empty;
+            _getUpPrompt = string.IsNullOrWhiteSpace(_getUpPrompt) ? "Get Up" : _getUpPrompt.Trim();
             _defaultHours = Mathf.Max(1, _defaultHours);
             _minHours = Mathf.Max(1, _minHours);
             _maxHours = Mathf.Max(_minHours, _maxHours);

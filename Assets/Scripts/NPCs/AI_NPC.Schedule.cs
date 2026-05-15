@@ -6,10 +6,18 @@ namespace Sol.AI
 {
     public partial class AI_NPC
     {
+        public enum ScheduleRoutePreviewMode
+        {
+            SelectedNpcOnly = 0,
+            AlwaysVisible = 1
+        }
+
         [Header("Schedule")]
         [SerializeField] private NpcScheduleDefinition _scheduleDefinition;
         [Min(0.05f)]
         [SerializeField] private float _scheduleRefreshSeconds = 0.5f;
+        [SerializeField] private bool _showScheduleRoute = true;
+        [SerializeField] private ScheduleRoutePreviewMode _scheduleRoutePreviewMode = ScheduleRoutePreviewMode.SelectedNpcOnly;
 
         private TimeOfDay _timeOfDay;
         private NpcScheduleEntry _currentScheduleEntry;
@@ -22,6 +30,8 @@ namespace Sol.AI
         public NpcScheduleActivity CurrentScheduleActivity => _currentScheduleEntry != null ? _currentScheduleEntry.Activity : NpcScheduleActivity.Travel;
         public string CurrentScheduleLocationId => _currentScheduleLocationId;
         public bool HasActiveSchedule => _scheduleDefinition != null && _currentScheduleEntry != null;
+        public bool ShowScheduleRoute => _showScheduleRoute;
+        public ScheduleRoutePreviewMode RoutePreviewMode => _scheduleRoutePreviewMode;
 
         private void UpdateScheduleDriver()
         {
@@ -91,6 +101,23 @@ namespace Sol.AI
             return StateForActivity(_currentScheduleEntry.Activity);
         }
 
+        internal bool TryGetActiveScheduleState(out State state)
+        {
+            if (RefreshSchedule(force: false) && HasActiveSchedule)
+            {
+                state = GetDesiredScheduleState();
+                return true;
+            }
+
+            state = State.Idle;
+            return false;
+        }
+
+        internal State GetScheduleFallbackState(State fallback)
+        {
+            return TryGetActiveScheduleState(out State state) ? state : fallback;
+        }
+
         public bool TryGetCurrentScheduleTarget(out Vector3 target, out NpcScheduleLocation location)
         {
             target = transform.position;
@@ -127,14 +154,16 @@ namespace Sol.AI
             if (!_currentScheduleEntry.UseLocationFacing || !location.UseFacing)
                 return;
 
-            Vector3 facing = location.transform.forward;
+            location.TryGetScheduleAnchor(out _, out Vector3 facing);
             facing.y = 0f;
             if (facing.sqrMagnitude <= 0.0001f)
                 return;
 
-            Vector3 lookTarget = location.transform.position + facing.normalized;
-            FaceTowards(lookTarget);
-            transform.rotation = Quaternion.LookRotation(facing.normalized, Vector3.up);
+            Quaternion targetRotation = Quaternion.LookRotation(facing.normalized, Vector3.up);
+            if (fakeCam != null)
+                fakeCam.rotation = targetRotation;
+
+            transform.rotation = targetRotation;
         }
 
         internal bool IsScheduleState(State state)
@@ -168,9 +197,9 @@ namespace Sol.AI
         private float ResolveScheduleHour()
         {
             if (_timeOfDay == null)
-                _timeOfDay = FindFirstObjectByType<TimeOfDay>();
+                _timeOfDay = TimeOfDay.ResolveInstance();
 
-            return _timeOfDay != null ? _timeOfDay.SkyAlignedHour : 0f;
+            return _timeOfDay != null ? _timeOfDay.ClockHour : 0f;
         }
 
         private void ClearScheduleContext()

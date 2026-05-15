@@ -44,13 +44,24 @@ namespace Sol.SaveLoad
             if (data == null)
                 return;
 
-            TimeOfDay timeOfDay = FindFirstObjectByType<TimeOfDay>();
+            TimeOfDay timeOfDay = TimeOfDay.ResolveInstance();
             if (timeOfDay != null)
-                timeOfDay.CurrentTime = data.CurrentTime;
-
-            Calendar calendar = timeOfDay != null ? timeOfDay.Calendar : FindFirstObjectByType<Calendar>();
-            if (calendar != null)
-                calendar.SetDate(data.Day, data.Month, data.Year, data.TotalDaysElapsed);
+            {
+                timeOfDay.RestoreTimeSnapshot(
+                    data.CurrentTime,
+                    data.Day,
+                    data.Month,
+                    data.Year,
+                    data.TotalDaysElapsed,
+                    this,
+                    "Save Load");
+            }
+            else
+            {
+                Calendar calendar = FindFirstObjectByType<Calendar>();
+                if (calendar != null)
+                    calendar.SetDate(data.Day, data.Month, data.Year, data.TotalDaysElapsed);
+            }
         }
 
 

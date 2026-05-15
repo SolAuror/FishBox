@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6880179098213844772}
   m_Layer: 9
-  m_Name: InteractPoint
+  m_Name: AlignmentPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -43,6 +43,7 @@ GameObject:
   - component: {fileID: 1090048928677327393}
   - component: {fileID: 4751045691006648860}
   - component: {fileID: 5637748410690910163}
+  - component: {fileID: 4520006543862211175}
   - component: {fileID: 126103207991507701}
   - component: {fileID: 3581911085302400877}
   m_Layer: 9
@@ -146,6 +147,56 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &4520006543862211175
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3085524504987071415}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a8bb861936448e8a1cf5a14e568db4c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.InteractionPoint
+  _definition: {fileID: 11400000, guid: 151d8b2e9e4c6d9418ebb906dbc8619f, type: 2}
+  _overrideDefinitionSettings: 0
+  _interactionPointId: INP00006
+  _prompt: Use
+  _displayName: Floor Mat
+  _type: 0
+  _ownerId: 
+  _ownershipPolicy: 0
+  _guestOwnerIds: []
+  _unauthorizedPrompt: Owned
+  _animationType: 4
+  _customClip: {fileID: 0}
+  _alignPoint: {fileID: 6880179098213844772}
+  _alignPoints: []
+  _useDuration: 2
+  _holdUntilCancelled: 0
+  _singleOccupancy: 1
+  _allowPlayer: 1
+  _allowNPC: 1
+  _maxInteractionRange: 0
+  _npcArrivalTolerance: 0.1
+  _allowNpcPositionSnapOnUse: 0
+  _npcPositionSnapDistance: 0.05
+  _alignNpcRotationWhileUsing: 1
+  _npcAlignRotationSpeed: 8
+  _healthDelta: 100
+  _staminaDelta: 100
+  _hungerDelta: 100
+  _thirstDelta: 100
+  _onUseStarted:
+    m_PersistentCalls:
+      m_Calls: []
+  _onReady:
+    m_PersistentCalls:
+      m_Calls: []
+  _onUsed:
+    m_PersistentCalls:
+      m_Calls: []
 --- !u!114 &126103207991507701
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -160,10 +211,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Sol.BedSleepInteractable
   _prompt: Sleep
   _displayName: Bed
+  _interactionPoint: {fileID: 0}
   _defaultHours: 8
   _minHours: 1
   _maxHours: 24
   _healthRecoveryPercentPerHour: 8.8
+  _staminaRecoveryPercentPerHour: 12.5
   _sleepFadeDuration: 0.5
 --- !u!114 &3581911085302400877
 MonoBehaviour:

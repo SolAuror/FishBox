@@ -10,7 +10,7 @@ namespace Sol.SaveLoad
     public class GameSaveData                               // Root class for all save data. Contains metadata and all relevant game state data for saving and loading.
     {
         public const int InitialVersion = 1;                // First version of the save data structure.
-        public const int CurrentVersion = 8;                // Increment when making changes to the save data structure.
+        public const int CurrentVersion = 9;                // SaveVersion 9 stores Time.CurrentTime as midnight-based civil-day progress.
 
         public int SaveVersion = CurrentVersion;            // Used to handle loading old save versions and applying necessary conversions.
 
@@ -52,7 +52,7 @@ namespace Sol.SaveLoad
     }
 
     [Serializable]
-    public class TimeSaveData                               // In-game time and date information.
+    public class TimeSaveData                               // In-game time and date information. SaveVersion 9 stores CurrentTime as midnight-based normalized civil-day progress.
     {
         public float CurrentTime;
         public int Day;
