@@ -1,4 +1,5 @@
 using Sol.Grab;
+using System.Collections.Generic;
 
 namespace Sol.Combat
 {
@@ -15,6 +16,7 @@ namespace Sol.Combat
         public bool CanStagger { get; }
         public bool DidStagger { get; }
         public bool Applied { get; }
+        public IReadOnlyList<string> DamageTagPaths { get; }
 
         public CombatDamageResult(
             Combatant attacker,
@@ -27,7 +29,8 @@ namespace Sol.Combat
             bool killed,
             bool canStagger,
             bool didStagger,
-            bool applied)
+            bool applied,
+            IReadOnlyList<string> damageTagPaths = null)
         {
             Attacker = attacker;
             Target = target;
@@ -40,6 +43,7 @@ namespace Sol.Combat
             CanStagger = canStagger;
             DidStagger = didStagger;
             Applied = applied;
+            DamageTagPaths = damageTagPaths ?? DefaultDamageTags.Physical;
         }
 
         public static CombatDamageResult Rejected(CombatHit hit)
@@ -55,7 +59,8 @@ namespace Sol.Combat
                 killed: false,
                 canStagger: false,
                 didStagger: false,
-                applied: false);
+                applied: false,
+                hit.DamageTagPaths);
         }
     }
 }

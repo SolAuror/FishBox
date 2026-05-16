@@ -98,6 +98,9 @@ namespace Sol.Editor
             AddRange(definitions, registry.Skills);
             AddRange(definitions, registry.Factions);
             AddRange(definitions, registry.Shops);
+            AddRange(definitions, registry.Tags);
+            AddRange(definitions, registry.StatusEffects);
+            AddRange(definitions, registry.Traits);
             return definitions;
         }
 

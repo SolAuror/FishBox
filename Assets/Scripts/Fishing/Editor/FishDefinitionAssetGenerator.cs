@@ -6,6 +6,7 @@ using UnityEditorInternal;
 using UnityEngine;
 using Sol.Grab;
 using Sol.Quests;
+using Sol.Rpg;
 
 namespace Sol.AI.Editor
 {
@@ -118,6 +119,16 @@ namespace Sol.Editor
         {
             ShopIdDropdownAttribute config = (ShopIdDropdownAttribute)attribute;
             ReferenceDropdown.DrawShop(position, label, property, config?.AllowEmpty ?? true);
+        }
+    }
+
+    [CustomPropertyDrawer(typeof(GameplayTagIdDropdownAttribute))]
+    public sealed class GameplayTagIdDropdownDrawer : PropertyDrawer
+    {
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            GameplayTagIdDropdownAttribute config = (GameplayTagIdDropdownAttribute)attribute;
+            ReferenceDropdown.DrawGameplayTag(position, label, property, config?.AllowEmpty ?? true);
         }
     }
 

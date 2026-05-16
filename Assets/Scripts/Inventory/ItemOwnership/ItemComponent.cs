@@ -2,6 +2,7 @@
 using UnityEngine;
 using Sol.Actions;
 using Sol.Outline;
+using Sol.Rpg;
 
 namespace Sol.Grab
 {
@@ -128,7 +129,7 @@ namespace Sol.Grab
 
     [RequireComponent(typeof(GrabbableComponent))]
     [RequireComponent(typeof(Collider))]
-    public class ItemComponent : MonoBehaviour, IInteractable
+    public class ItemComponent : MonoBehaviour, IInteractable, IGameplayTagProvider, IGameplayStatModifierProvider
     {
         #region Inspector Settings
         [Header("Item Info")]
@@ -218,6 +219,8 @@ namespace Sol.Grab
         public int MaxStackSize => Definition != null ? Definition.MaxStackSize : _maxStackSize;
         public ItemUseOccasion UseOccasion => Definition != null ? Definition.UseOccasion : _useOccasion;
         public IReadOnlyList<ItemUseEffect> UseEffects => Definition != null ? Definition.UseEffects : _useEffects;
+        public GameplayTagSet Tags => Definition != null ? Definition.Tags : GameplayTagSet.Empty;
+        public GameplayStatModifierSet StatModifiers => Definition != null ? Definition.StatModifiers : null;
         public bool CanUseFromInventory => IsConsumable && UseOccasion != ItemUseOccasion.Never;
         public float Damage => ItemTypeRules.UsesWeaponStats(Type) ? (Definition != null ? Definition.Damage : _damage) : 0f;
         public float Defense => ItemTypeRules.UsesArmorStats(Type) ? (Definition != null ? Definition.Defense : _defense) : 0f;

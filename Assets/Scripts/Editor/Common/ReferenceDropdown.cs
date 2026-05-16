@@ -23,7 +23,8 @@ namespace Sol.Editor
             Item,
             Npc,
             Quest,
-            Shop
+            Shop,
+            GameplayTag
         }
 
         public readonly struct Entry
@@ -56,6 +57,9 @@ namespace Sol.Editor
         public static void DrawShopLayout(GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => DrawLayout(ReferenceKind.Shop, label, idProp, allowEmpty);
 
+        public static void DrawGameplayTagLayout(GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
+            => DrawLayout(ReferenceKind.GameplayTag, label, idProp, allowEmpty);
+
         // Rect helpers
         public static void DrawItem(Rect rect, GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => Draw(ReferenceKind.Item, rect, label, idProp, allowEmpty);
@@ -68,6 +72,9 @@ namespace Sol.Editor
 
         public static void DrawShop(Rect rect, GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => Draw(ReferenceKind.Shop, rect, label, idProp, allowEmpty);
+
+        public static void DrawGameplayTag(Rect rect, GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
+            => Draw(ReferenceKind.GameplayTag, rect, label, idProp, allowEmpty);
 
         public static void DrawLayout(ReferenceKind kind, GUIContent label, SerializedProperty idProp, bool allowEmpty)
         {
@@ -236,6 +243,7 @@ namespace Sol.Editor
                         QuestRegistry.ScheduleEditorSync();
                         break;
                     case ReferenceKind.Shop:
+                    case ReferenceKind.GameplayTag:
                         RpgDefinitionRegistry.ScheduleEditorSync();
                         break;
                 }
@@ -265,6 +273,7 @@ namespace Sol.Editor
                 ReferenceKind.Npc => BuildNpcEntries(),
                 ReferenceKind.Quest => BuildQuestEntries(),
                 ReferenceKind.Shop => BuildShopEntries(),
+                ReferenceKind.GameplayTag => BuildGameplayTagEntries(),
                 _ => new List<Entry>()
             };
         }
@@ -409,6 +418,33 @@ namespace Sol.Editor
 
                     string title = string.IsNullOrWhiteSpace(shop.DisplayName) ? id : shop.DisplayName.Trim();
                     entries.Add(new Entry(id, $"{title} ({id})", $"{title} ({id})"));
+                }
+            }
+
+            entries.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.MenuPath, b.MenuPath));
+            return entries;
+        }
+
+        private static List<Entry> BuildGameplayTagEntries()
+        {
+            List<Entry> entries = new List<Entry>();
+            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            RpgDefinitionRegistry registry = RpgDefinitionRegistry.Get();
+            if (registry?.Tags != null)
+            {
+                for (int i = 0; i < registry.Tags.Count; i++)
+                {
+                    GameplayTagDefinition tag = registry.Tags[i];
+                    if (tag == null || string.IsNullOrWhiteSpace(tag.Id))
+                        continue;
+
+                    string id = tag.Id.Trim();
+                    if (!seen.Add(id))
+                        continue;
+
+                    string title = string.IsNullOrWhiteSpace(tag.TagPath) ? id : tag.TagPath.Trim();
+                    entries.Add(new Entry(id, $"{title} ({id})", title.Replace('.', '/') + $" ({id})"));
                 }
             }
 

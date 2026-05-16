@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Sol.Fishing;
 using Sol.Grab;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol.Editor
@@ -114,6 +115,7 @@ namespace Sol.Editor
 
             ValidateUse(definition, warnings);
             ValidateEquipment(definition, warnings);
+            ValidateTags(definition.Tags, warnings);
             return warnings;
         }
 
@@ -252,6 +254,23 @@ namespace Sol.Editor
                 EquipmentSlotType slot = allowed[i];
                 if (!ItemTypeRules.CanItemUseSlot(definition.ItemType, definition.EquipDomain, definition.WeaponHanding, slot))
                     warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, $"{slot} is not valid for this equipment domain."));
+            }
+        }
+
+        private static void ValidateTags(GameplayTagSet tags, List<ItemAuthoringWarning> warnings)
+        {
+            if (tags == null)
+                return;
+
+            RpgDefinitionRegistry registry = RpgDefinitionRegistry.Get();
+            HashSet<string> seen = new(System.StringComparer.OrdinalIgnoreCase);
+            foreach (string tagId in tags.EnumerateTagIds())
+            {
+                if (!seen.Add(tagId))
+                    warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Info, $"Duplicate gameplay tag '{tagId}' is ignored at runtime."));
+
+                if (registry == null || registry.GetTag(tagId) == null)
+                    warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, $"Gameplay tag '{tagId}' is not in the RPG registry."));
             }
         }
 

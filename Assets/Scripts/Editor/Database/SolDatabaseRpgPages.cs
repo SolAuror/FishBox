@@ -70,4 +70,55 @@ namespace Sol.Editor
             return $"{owner}  Gold {definition.Gold}  Stock {definition.Stock?.Count ?? 0}";
         }
     }
+
+    internal sealed class SolDatabaseTagsPage : SolDatabaseRpgDefinitionPage<GameplayTagDefinition>
+    {
+        public override SolDatabaseTab Tab => SolDatabaseTab.Tags;
+        public override string DisplayName => "Tags";
+        protected override string IdPrefix => RpgDefinitionIds.TagPrefix;
+        protected override string NewDisplayName => "New Tag";
+        protected override bool IncludeRegistryIssues => true;
+        protected override IReadOnlyList<GameplayTagDefinition> GetDefinitions(RpgDefinitionRegistry registry) => registry?.Tags;
+        protected override string BuildSubtitle(GameplayTagDefinition definition)
+        {
+            if (definition == null)
+                return string.Empty;
+
+            string path = string.IsNullOrWhiteSpace(definition.TagPath) ? "No tag path" : definition.TagPath;
+            return $"{definition.Category}  {path}";
+        }
+    }
+
+    internal sealed class SolDatabaseStatusEffectsPage : SolDatabaseRpgDefinitionPage<StatusEffectDefinition>
+    {
+        public override SolDatabaseTab Tab => SolDatabaseTab.StatusEffects;
+        public override string DisplayName => "Statuses";
+        protected override string IdPrefix => RpgDefinitionIds.StatusEffectPrefix;
+        protected override string NewDisplayName => "New Status";
+        protected override IReadOnlyList<StatusEffectDefinition> GetDefinitions(RpgDefinitionRegistry registry) => registry?.StatusEffects;
+        protected override string BuildSubtitle(StatusEffectDefinition definition)
+        {
+            if (definition == null)
+                return string.Empty;
+
+            string periodic = definition.PeriodicDamage > 0f ? $"Damage {definition.PeriodicDamage:0.#}/{definition.TickInterval:0.#}s" : "No periodic damage";
+            return $"Duration {definition.Duration:0.#}s  {definition.StackRule}  {periodic}";
+        }
+    }
+
+    internal sealed class SolDatabaseTraitsPage : SolDatabaseRpgDefinitionPage<TraitDefinition>
+    {
+        public override SolDatabaseTab Tab => SolDatabaseTab.Traits;
+        public override string DisplayName => "Traits";
+        protected override string IdPrefix => RpgDefinitionIds.TraitPrefix;
+        protected override string NewDisplayName => "New Trait";
+        protected override IReadOnlyList<TraitDefinition> GetDefinitions(RpgDefinitionRegistry registry) => registry?.Traits;
+        protected override string BuildSubtitle(TraitDefinition definition)
+        {
+            if (definition == null)
+                return string.Empty;
+
+            return $"Reactions {definition.Reactions?.Count ?? 0}  Modifiers {definition.StatModifiers?.Modifiers?.Count ?? 0}";
+        }
+    }
 }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using Sol.Rpg;
 
 namespace Sol.Combat
 {
@@ -85,6 +86,10 @@ namespace Sol.Combat
             if (cost <= 0f)
                 return true;
 
+            cost = GameplayStatSystem.Evaluate(GameplayStatIds.StaminaCost, cost, gameObject);
+            if (cost <= 0f || IgnoresStaminaCosts())
+                return true;
+
             if (_playerSoul == null && _npcSoul == null)
                 return true;
 
@@ -96,6 +101,10 @@ namespace Sol.Combat
             RefreshReferences();
             float cost = Mathf.Max(0f, amount);
             if (cost <= 0f)
+                return true;
+
+            cost = GameplayStatSystem.Evaluate(GameplayStatIds.StaminaCost, cost, gameObject);
+            if (cost <= 0f || IgnoresStaminaCosts())
                 return true;
 
             bool spent;
@@ -130,7 +139,7 @@ namespace Sol.Combat
             if (!IsAlive || Time.time < _lastStaminaSpendTime + Mathf.Max(0f, _staminaRegenDelay))
                 return;
 
-            float regen = Mathf.Max(0f, _staminaRegenPerSecond);
+            float regen = Mathf.Max(0f, GameplayStatSystem.Evaluate(GameplayStatIds.StaminaRegen, _staminaRegenPerSecond, gameObject));
             if (regen <= 0f || Stamina >= MaxStamina)
                 return;
 
@@ -139,6 +148,16 @@ namespace Sol.Combat
                 _playerSoul.RestoreStamina(amount);
             else if (_npcSoul != null)
                 _npcSoul.RestoreStamina(amount);
+        }
+
+        private bool IgnoresStaminaCosts()
+        {
+            GameplayTagSet tags = gameObject.GetGameplayTags();
+            if (tags.HasExact("Trait.Tireless") || tags.HasTagOrChild("Trait.Tireless"))
+                return true;
+
+            TraitController traits = GetComponent<TraitController>();
+            return traits != null && traits.HasReaction(TraitReaction.IgnoreStaminaCosts);
         }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.Serialization;
 using Sol;
+using Sol.Rpg;
 
 namespace Sol.Player
 {
@@ -9,7 +10,7 @@ namespace Sol.Player
     /// Player-specific vitals and identity. Kept independent from NPCSoul.
     /// </summary>
     [AddComponentMenu("Sol/Player/Player Soul")]
-    public class PlayerSoul : MonoBehaviour
+    public class PlayerSoul : MonoBehaviour, IGameplayTagProvider
     {
         #region Inspector Settings
         [Header("Identity")]
@@ -18,6 +19,7 @@ namespace Sol.Player
         [Header("Vitals")]
         [SerializeField] private SoulStat _healthStat = new SoulStat(100f, 100f);
         [SerializeField] private SoulStat _staminaStat = new SoulStat(100f, 100f);
+        [SerializeField] private GameplayTagSet _tags = new();
 
         [HideInInspector]
         [SerializeField] private float _health = 100f;
@@ -40,13 +42,14 @@ namespace Sol.Player
         }
 
         public string OwnerId => EntityCodeUtility.DefaultPlayerOwnerId;
+        public GameplayTagSet Tags => _tags ?? GameplayTagSet.Empty;
 
         public float MaxHealth
         {
             get
             {
                 EnsureSoulStatsMigrated();
-                return _healthStat.Max;
+                return GameplayStatSystem.Evaluate(GameplayStatIds.MaxHealth, _healthStat.Max, gameObject);
             }
             set
             {
@@ -85,7 +88,7 @@ namespace Sol.Player
             get
             {
                 EnsureSoulStatsMigrated();
-                return _staminaStat.Max;
+                return GameplayStatSystem.Evaluate(GameplayStatIds.MaxStamina, _staminaStat.Max, gameObject);
             }
             set
             {
@@ -121,7 +124,8 @@ namespace Sol.Player
             get
             {
                 EnsureSoulStatsMigrated();
-                return _healthStat.Normalized;
+                float max = MaxHealth;
+                return max > 0f ? Mathf.Clamp01(Health / max) : 0f;
             }
         }
 
@@ -130,7 +134,8 @@ namespace Sol.Player
             get
             {
                 EnsureSoulStatsMigrated();
-                return _staminaStat.Normalized;
+                float max = MaxStamina;
+                return max > 0f ? Mathf.Clamp01(Stamina / max) : 0f;
             }
         }
 
@@ -149,6 +154,9 @@ namespace Sol.Player
         private void Awake()
         {
             EnsurePlayerIdentity();
+            _tags ??= new GameplayTagSet();
+            _tags.Normalize();
+            _tags.AddRuntimeTagPath("Actor.Player");
             ClampVitals();
             OwnerRegistry.Register(OwnerId, gameObject);
         }
@@ -156,6 +164,8 @@ namespace Sol.Player
         private void OnEnable()
         {
             EnsurePlayerIdentity();
+            _tags ??= new GameplayTagSet();
+            _tags.AddRuntimeTagPath("Actor.Player");
             OwnerRegistry.Register(OwnerId, gameObject);
         }
 
@@ -177,6 +187,9 @@ namespace Sol.Player
         private void OnValidate()
         {
             EnsurePlayerIdentity();
+            _tags ??= new GameplayTagSet();
+            _tags.Normalize();
+            _tags.AddRuntimeTagPath("Actor.Player");
             ClampVitals();
         }
 

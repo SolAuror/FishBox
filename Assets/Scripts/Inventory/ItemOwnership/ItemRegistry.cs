@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
+using Sol.Rpg;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -46,6 +47,8 @@ namespace Sol
             public EquipDomain EquipDomain = EquipDomain.Auto;
             public WeaponHanding WeaponHanding = WeaponHanding.OneHanded;
             public List<EquipmentSlotType> AllowedEquipSlots = new();
+            public GameplayTagSet Tags = new();
+            public GameplayStatModifierSet StatModifiers = new();
             public ItemAuthoringTemplate AuthoringTemplate = ItemAuthoringTemplate.None;
             [TextArea] public string AuthoringNotes = string.Empty;
             public ItemComponent Prefab;
@@ -71,6 +74,10 @@ namespace Sol
                     MaxStackSize = Mathf.Max(1, MaxStackSize);
                 UseEffects ??= new List<ItemUseEffect>();
                 AllowedEquipSlots ??= new List<EquipmentSlotType>();
+                Tags ??= new GameplayTagSet();
+                StatModifiers ??= new GameplayStatModifierSet();
+                Tags.Normalize();
+                StatModifiers.Normalize();
                 EquipBone = EquipBone?.Trim() ?? string.Empty;
                 AuthoringNotes = AuthoringNotes?.Trim() ?? string.Empty;
             }

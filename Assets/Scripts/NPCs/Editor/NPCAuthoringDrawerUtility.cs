@@ -94,6 +94,7 @@ namespace Sol.Editor
             DrawArchetype(serializedObject);
             DrawProperty(serializedObject, "_canTrade", label: "Trader");
             DrawProperty(serializedObject, "_isHostile", label: "Hostile");
+            DrawProperty(serializedObject, "_tags", label: "Gameplay Tags", includeChildren: true);
             DrawArchetypeActions(serializedObject, soul);
             DrawProperty(serializedObject, "_authoringNotes");
 

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Sol.Grab;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol.Combat
@@ -24,7 +25,7 @@ namespace Sol.Combat
                     armor += Mathf.Max(0f, item.Defense);
             }
 
-            return armor;
+            return GameplayStatSystem.Evaluate(GameplayStatIds.ArmorRating, armor, gameObject);
         }
 
         public bool TryGetEquippedWeapon(out ItemComponent weapon, out EquipmentSlotType slot)

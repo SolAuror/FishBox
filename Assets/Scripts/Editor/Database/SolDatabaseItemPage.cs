@@ -680,6 +680,7 @@ namespace Sol.Editor
 
             SerializedProperty entry = entries.GetArrayElementAtIndex(selectedEntryIndex);
             DrawDefinitionSection(entry);
+            DrawGameplayTagsSection(entry);
             DrawInventoryRulesSection(entry);
             DrawUseDefinitionSection(entry);
             DrawEquipmentDefinitionSection(entry);
@@ -709,6 +710,18 @@ namespace Sol.Editor
                 EditorGUILayout.PropertyField(entry.FindPropertyRelative("MaxStackSize"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("IsConsumable"));
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("IsTradeable"));
+            EditorGUILayout.Space(4f);
+        }
+
+        internal static void DrawGameplayTagsSection(SerializedProperty entry)
+        {
+            EditorGUILayout.LabelField("Gameplay Tags", EditorStyles.boldLabel);
+            SerializedProperty tags = entry.FindPropertyRelative("Tags");
+            if (tags != null)
+                EditorGUILayout.PropertyField(tags, includeChildren: true);
+            SerializedProperty modifiers = entry.FindPropertyRelative("StatModifiers");
+            if (modifiers != null)
+                EditorGUILayout.PropertyField(modifiers, includeChildren: true);
             EditorGUILayout.Space(4f);
         }
 

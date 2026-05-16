@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.Serialization;
 using Sol;
+using Sol.Rpg;
 
 namespace Sol.AI
 {
@@ -43,7 +44,7 @@ namespace Sol.AI
     /// <summary>
     /// Unified runtime stats for actors (player and NPC).
     /// </summary>
-    public class NPCSoul : MonoBehaviour
+    public class NPCSoul : MonoBehaviour, IGameplayTagProvider
     {
         #region Inspector Settings
         [Header("Identity")]
@@ -103,6 +104,7 @@ namespace Sol.AI
         [SerializeField] private NPCArchetype _npcArchetype = NPCArchetype.None;
         [SerializeField] private bool _canTrade;
         [SerializeField] private bool _isHostile;
+        [SerializeField] private GameplayTagSet _tags = new();
         [TextArea(2, 6)]
         [SerializeField] private string _authoringNotes = string.Empty;
         [HideInInspector]
@@ -125,7 +127,11 @@ namespace Sol.AI
                 EnsureIdentityMigration();
                 return _canTrade;
             }
-            set => _canTrade = value;
+            set
+            {
+                _canTrade = value;
+                RefreshRuntimeIdentityTags();
+            }
         }
 
         public bool IsHostile
@@ -135,17 +141,22 @@ namespace Sol.AI
                 EnsureIdentityMigration();
                 return _isHostile;
             }
-            set => _isHostile = value;
+            set
+            {
+                _isHostile = value;
+                RefreshRuntimeIdentityTags();
+            }
         }
 
         public string AuthoringNotes => _authoringNotes;
+        public GameplayTagSet Tags => _tags ?? GameplayTagSet.Empty;
 
         public float MaxHealth
         {
             get
             {
                 EnsureSoulStatsMigrated();
-                return _healthStat.Max;
+                return GameplayStatSystem.Evaluate(GameplayStatIds.MaxHealth, _healthStat.Max, gameObject);
             }
             set
             {
@@ -182,7 +193,7 @@ namespace Sol.AI
             get
             {
                 EnsureSoulStatsMigrated();
-                return _staminaStat.Max;
+                return GameplayStatSystem.Evaluate(GameplayStatIds.MaxStamina, _staminaStat.Max, gameObject);
             }
             set
             {
@@ -218,7 +229,8 @@ namespace Sol.AI
             get
             {
                 EnsureSoulStatsMigrated();
-                return _healthStat.Normalized;
+                float max = MaxHealth;
+                return max > 0f ? Mathf.Clamp01(Health / max) : 0f;
             }
         }
 
@@ -227,7 +239,8 @@ namespace Sol.AI
             get
             {
                 EnsureSoulStatsMigrated();
-                return _staminaStat.Normalized;
+                float max = MaxStamina;
+                return max > 0f ? Mathf.Clamp01(Stamina / max) : 0f;
             }
         }
 
@@ -247,6 +260,7 @@ namespace Sol.AI
         {
             EnsureIdentityMigration();
             EnsureOwnerId();
+            RefreshRuntimeIdentityTags();
             OwnerRegistry.Register(OwnerId, gameObject);
             ClampVitals();
         }
@@ -255,6 +269,7 @@ namespace Sol.AI
         {
             EnsureIdentityMigration();
             EnsureOwnerId();
+            RefreshRuntimeIdentityTags();
             OwnerRegistry.Register(OwnerId, gameObject);
         }
 
@@ -323,6 +338,9 @@ namespace Sol.AI
         {
             EnsureIdentityMigration();
             _characterName = _characterName?.Trim() ?? string.Empty;
+            _tags ??= new GameplayTagSet();
+            _tags.Normalize();
+            RefreshRuntimeIdentityTags();
             EnsureOwnerId();
             ClampVitals();
         }
@@ -411,6 +429,19 @@ namespace Sol.AI
 
                 _identityMigratedV2 = true;
             }
+        }
+
+        private void RefreshRuntimeIdentityTags()
+        {
+            _tags ??= new GameplayTagSet();
+            _tags.RemoveRuntimeTagPath(_entityType == EntityType.Player ? "Actor.NPC" : "Actor.Player");
+            _tags.AddRuntimeTagPath(_entityType == EntityType.Player ? "Actor.Player" : "Actor.NPC");
+            _tags.RemoveRuntimeTagPath(_isHostile ? "Actor.Civilian" : "Actor.Hostile");
+            _tags.AddRuntimeTagPath(_isHostile ? "Actor.Hostile" : "Actor.Civilian");
+            if (_canTrade)
+                _tags.AddRuntimeTagPath("Job.Trader");
+            else
+                _tags.RemoveRuntimeTagPath("Job.Trader");
         }
     }
 }

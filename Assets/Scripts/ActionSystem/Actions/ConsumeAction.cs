@@ -1,4 +1,6 @@
 ﻿using Sol.Audio;
+using Sol.Grab;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol.Actions
@@ -78,6 +80,7 @@ namespace Sol.Actions
                 return;
             }
 
+            ItemComponent consumedItem = _slot.Item;
             bool consumed = Context.Inventory.Use(_slot, _interactor);
             Outcome = consumed
                 ? ConsumeActionOutcome.Success
@@ -85,6 +88,7 @@ namespace Sol.Actions
 
             if (consumed)
             {
+                GameplayEvents.RaiseItemConsumed(consumedItem, _interactor);
                 Vector3 worldPos = _interactor.Transform != null ? _interactor.Transform.position : Vector3.zero;
                 AudioService.Instance?.PlaySfx(AudioEvent.ItemConsume, worldPos);
             }

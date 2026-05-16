@@ -55,6 +55,15 @@ namespace Sol.Editor
                 case RpgShopDefinition shop:
                     ValidateShop(shop, registry, warnings);
                     break;
+                case GameplayTagDefinition tag:
+                    ValidateGameplayTag(tag, warnings);
+                    break;
+                case StatusEffectDefinition status:
+                    ValidateStatusEffect(status, registry, warnings);
+                    break;
+                case TraitDefinition trait:
+                    ValidateTrait(trait, registry, warnings);
+                    break;
             }
 
             return warnings;
@@ -73,6 +82,10 @@ namespace Sol.Editor
             ValidateDuplicateIds(registry.Skills, RpgDefinitionIds.SkillPrefix, "skill", warnings);
             ValidateDuplicateIds(registry.Factions, RpgDefinitionIds.FactionPrefix, "faction", warnings);
             ValidateDuplicateIds(registry.Shops, RpgDefinitionIds.ShopPrefix, "shop", warnings);
+            ValidateDuplicateIds(registry.Tags, RpgDefinitionIds.TagPrefix, "gameplay tag", warnings);
+            ValidateDuplicateIds(registry.StatusEffects, RpgDefinitionIds.StatusEffectPrefix, "status effect", warnings);
+            ValidateDuplicateIds(registry.Traits, RpgDefinitionIds.TraitPrefix, "trait", warnings);
+            ValidateGameplayTagPaths(registry.Tags, warnings);
             return warnings;
         }
 
@@ -84,6 +97,9 @@ namespace Sol.Editor
                 RpgSkillDefinition => RpgDefinitionIds.SkillPrefix,
                 RpgFactionDefinition => RpgDefinitionIds.FactionPrefix,
                 RpgShopDefinition => RpgDefinitionIds.ShopPrefix,
+                GameplayTagDefinition => RpgDefinitionIds.TagPrefix,
+                StatusEffectDefinition => RpgDefinitionIds.StatusEffectPrefix,
+                TraitDefinition => RpgDefinitionIds.TraitPrefix,
                 _ => string.Empty
             };
         }
@@ -204,6 +220,99 @@ namespace Sol.Editor
                 if (entry.PriceMultiplier <= 0f)
                     warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Warning, $"Stock entry {i + 1} price multiplier should be greater than zero."));
             }
+        }
+
+        private static void ValidateGameplayTag(GameplayTagDefinition tag, List<RpgAuthoringWarning> warnings)
+        {
+            if (string.IsNullOrWhiteSpace(tag.TagPath))
+            {
+                warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Error, "Gameplay tag path is empty."));
+                return;
+            }
+
+            if (!GameplayTagUtility.IsValidPath(tag.TagPath))
+                warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Error, $"Gameplay tag path '{tag.TagPath}' is not a valid dotted path."));
+        }
+
+        private static void ValidateGameplayTagPaths(IReadOnlyList<GameplayTagDefinition> tags, List<RpgAuthoringWarning> warnings)
+        {
+            if (tags == null)
+                return;
+
+            HashSet<string> paths = new(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < tags.Count; i++)
+            {
+                GameplayTagDefinition tag = tags[i];
+                if (tag == null || string.IsNullOrWhiteSpace(tag.TagPath))
+                    continue;
+
+                string path = tag.TagPath.Trim();
+                if (!paths.Add(path))
+                    warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Error, $"Duplicate gameplay tag path {path}."));
+            }
+
+            for (int i = 0; i < tags.Count; i++)
+            {
+                GameplayTagDefinition tag = tags[i];
+                if (tag == null || string.IsNullOrWhiteSpace(tag.TagPath))
+                    continue;
+
+                foreach (string parentPath in GameplayTagUtility.EnumerateParentPaths(tag.TagPath))
+                {
+                    if (!paths.Contains(parentPath))
+                        warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Info, $"Gameplay tag '{tag.TagPath}' has no authored parent tag '{parentPath}'."));
+                }
+            }
+        }
+
+        private static void ValidateStatusEffect(StatusEffectDefinition status, RpgDefinitionRegistry registry, List<RpgAuthoringWarning> warnings)
+        {
+            ValidateTagSet(status.Tags, registry, warnings, "status tag");
+            ValidateTagSet(status.GrantedTags, registry, warnings, "granted tag");
+
+            bool hasTags = HasAny(status.Tags) || HasAny(status.GrantedTags);
+            bool hasDamage = status.PeriodicDamage > 0f;
+            bool hasModifiers = status.StatModifiers?.Modifiers != null && status.StatModifiers.Modifiers.Count > 0;
+            if (!hasTags && !hasDamage && !hasModifiers)
+                warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Warning, "Status effect has no tags, periodic damage, or stat modifiers."));
+
+            if (status.PeriodicDamage > 0f && status.TickInterval <= 0f)
+                warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Error, "Periodic damage requires a tick interval above zero."));
+        }
+
+        private static void ValidateTrait(TraitDefinition trait, RpgDefinitionRegistry registry, List<RpgAuthoringWarning> warnings)
+        {
+            ValidateTagSet(trait.Tags, registry, warnings, "trait tag");
+            ValidateTagSet(trait.GrantedTags, registry, warnings, "granted tag");
+
+            bool hasTags = HasAny(trait.Tags) || HasAny(trait.GrantedTags);
+            bool hasModifiers = trait.StatModifiers?.Modifiers != null && trait.StatModifiers.Modifiers.Count > 0;
+            bool hasReactions = trait.Reactions != null && trait.Reactions.Count > 0;
+            if (!hasTags && !hasModifiers && !hasReactions)
+                warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Warning, "Trait has no tags, stat modifiers, or reactions."));
+        }
+
+        private static void ValidateTagSet(GameplayTagSet tags, RpgDefinitionRegistry registry, List<RpgAuthoringWarning> warnings, string label)
+        {
+            if (tags == null)
+                return;
+
+            foreach (string tagId in tags.EnumerateTagIds())
+            {
+                if (registry == null || registry.GetTag(tagId) == null)
+                    warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Warning, $"Referenced {label} '{tagId}' is not in the RPG registry."));
+            }
+        }
+
+        private static bool HasAny(GameplayTagSet tags)
+        {
+            if (tags == null)
+                return false;
+
+            foreach (string _ in tags.EnumerateTagIds())
+                return true;
+
+            return false;
         }
     }
 }

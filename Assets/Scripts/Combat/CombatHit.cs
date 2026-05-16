@@ -1,4 +1,5 @@
 using Sol.Grab;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Sol.Combat
@@ -22,6 +23,7 @@ namespace Sol.Combat
         public CombatAttackStyle AttackStyle { get; }
         public float StaggerMultiplier { get; }
         public Vector3 HitDirection { get; }
+        public IReadOnlyList<string> DamageTagPaths { get; }
 
         public CombatHit(
             Combatant attacker,
@@ -33,7 +35,8 @@ namespace Sol.Combat
             CombatAttackKind attackKind,
             Vector3 hitDirection,
             CombatAttackStyle attackStyle = CombatAttackStyle.Light,
-            float staggerMultiplier = 1f)
+            float staggerMultiplier = 1f,
+            IReadOnlyList<string> damageTagPaths = null)
         {
             Attacker = attacker;
             Target = target;
@@ -45,6 +48,12 @@ namespace Sol.Combat
             AttackStyle = attackStyle;
             StaggerMultiplier = Mathf.Max(0f, staggerMultiplier);
             HitDirection = hitDirection;
+            DamageTagPaths = damageTagPaths ?? DefaultDamageTags.Physical;
         }
+    }
+
+    public static class DefaultDamageTags
+    {
+        public static readonly IReadOnlyList<string> Physical = new[] { "Damage.Physical" };
     }
 }

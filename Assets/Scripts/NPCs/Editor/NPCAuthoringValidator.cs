@@ -72,6 +72,7 @@ namespace Sol.Editor
             ValidateDialogue(aiNpc, warnings);
             ValidateShop(aiNpc, warnings);
             ValidateSchedule(aiNpc, warnings);
+            ValidateTags(soul.Tags, warnings);
 
             if (soul.MaxHealth <= 0f)
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, "Max health is 0 - this NPC will be considered dead immediately."));
@@ -164,6 +165,23 @@ namespace Sol.Editor
                         NPCAuthoringWarningSeverity.Warning,
                         $"Assigned schedule '{aiNpc.ScheduleDefinition.ScheduleId}' has issue: {scheduleWarnings[i].Message}"));
                 }
+            }
+        }
+
+        private static void ValidateTags(GameplayTagSet tags, List<NPCAuthoringWarning> warnings)
+        {
+            if (tags == null)
+                return;
+
+            RpgDefinitionRegistry registry = RpgDefinitionRegistry.Get();
+            HashSet<string> seen = new(System.StringComparer.OrdinalIgnoreCase);
+            foreach (string tagId in tags.EnumerateTagIds())
+            {
+                if (!seen.Add(tagId))
+                    warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Info, $"Duplicate gameplay tag '{tagId}' is ignored at runtime."));
+
+                if (registry == null || registry.GetTag(tagId) == null)
+                    warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Gameplay tag '{tagId}' is not in the RPG registry."));
             }
         }
 
