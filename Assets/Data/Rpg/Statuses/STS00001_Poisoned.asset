@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6189f6497d0412a9c852ef5a7ef48e8, type: 3}
+  m_Name: STS00001_Poisoned
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Rpg.StatusEffectDefinition
+  _id: STS00001
+  _displayName: Poisoned
+  _description: Deals poison damage over time and grants Status.Poisoned while active.
+  _tags:
+    _tags:
+    - _tagId: TAG00025
+  _grantedTags:
+    _tags:
+    - _tagId: TAG00025
+  _duration: 8
+  _stackRule: 1
+  _maxStacks: 3
+  _group: 0
+  _negatedBy: []
+  _nullifies: []
+  _tickInterval: 1
+  _periodicDamage: 2
+  _periodicDamageTags:
+  - Damage.Poison
+  _statModifiers:
+    _modifiers: []
+  _phases: []

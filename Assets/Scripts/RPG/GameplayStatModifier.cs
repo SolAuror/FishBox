@@ -21,7 +21,9 @@ namespace Sol.Rpg
         PercentAdd = 1,
         PercentMultiply = 2,
         Minimum = 3,
-        Maximum = 4
+        Maximum = 4,
+        Override = 5,
+        AbsoluteMultiply = 6
     }
 
     [Serializable]
@@ -31,25 +33,62 @@ namespace Sol.Rpg
         [SerializeField] private GameplayStatModifierOperation _operation = GameplayStatModifierOperation.FlatAdd;
         [SerializeField] private float _value;
         [SerializeField] private string _requiredTargetTag = string.Empty;
+        [SerializeField] private GameplayTagSet _requireTags = new();
+        [SerializeField] private GameplayTagSet _forbidTags = new();
 
         public string StatId => _statId?.Trim() ?? string.Empty;
         public GameplayStatModifierOperation Operation => _operation;
         public float Value => _value;
         public string RequiredTargetTag => _requiredTargetTag?.Trim() ?? string.Empty;
+        public GameplayTagSet RequireTags => _requireTags ?? GameplayTagSet.Empty;
+        public GameplayTagSet ForbidTags => _forbidTags ?? GameplayTagSet.Empty;
 
         public bool AppliesTo(string statId, GameplayTagSet targetTags)
         {
             if (string.IsNullOrWhiteSpace(statId) || !string.Equals(StatId, statId.Trim(), StringComparison.OrdinalIgnoreCase))
                 return false;
 
-            return string.IsNullOrWhiteSpace(RequiredTargetTag)
-                || (targetTags != null && (targetTags.HasExact(RequiredTargetTag) || targetTags.HasTagOrChild(RequiredTargetTag)));
+            return HasLegacyRequiredTargetTag(targetTags)
+                && HasAllRequiredTags(targetTags)
+                && HasNoForbiddenTags(targetTags);
         }
 
         public void Normalize()
         {
             _statId = string.IsNullOrWhiteSpace(_statId) ? GameplayStatIds.IncomingDamage : _statId.Trim();
             _requiredTargetTag = GameplayTagUtility.NormalizePathOrEmpty(_requiredTargetTag);
+            _requireTags ??= new GameplayTagSet();
+            _forbidTags ??= new GameplayTagSet();
+            _requireTags.Normalize();
+            _forbidTags.Normalize();
+        }
+
+        private bool HasLegacyRequiredTargetTag(GameplayTagSet targetTags)
+        {
+            return string.IsNullOrWhiteSpace(RequiredTargetTag)
+                || (targetTags != null && (targetTags.HasExact(RequiredTargetTag) || targetTags.HasTagOrChild(RequiredTargetTag)));
+        }
+
+        private bool HasAllRequiredTags(GameplayTagSet targetTags)
+        {
+            foreach (string path in RequireTags.EnumerateTagPaths())
+            {
+                if (targetTags == null || !targetTags.HasTagOrChild(path))
+                    return false;
+            }
+
+            return true;
+        }
+
+        private bool HasNoForbiddenTags(GameplayTagSet targetTags)
+        {
+            foreach (string path in ForbidTags.EnumerateTagPaths())
+            {
+                if (targetTags != null && targetTags.HasTagOrChild(path))
+                    return false;
+            }
+
+            return true;
         }
     }
 
@@ -121,6 +160,8 @@ namespace Sol.Rpg
             float flat = 0f;
             float percentAdd = 0f;
             float percentMultiply = 1f;
+            float absoluteMultiply = 1f;
+            float? overrideValue = null;
             float? minimum = null;
             float? maximum = null;
 
@@ -147,6 +188,12 @@ namespace Sol.Rpg
                         case GameplayStatModifierOperation.PercentMultiply:
                             percentMultiply *= 1f + modifier.Value;
                             break;
+                        case GameplayStatModifierOperation.Override:
+                            overrideValue = modifier.Value;
+                            break;
+                        case GameplayStatModifierOperation.AbsoluteMultiply:
+                            absoluteMultiply *= modifier.Value;
+                            break;
                         case GameplayStatModifierOperation.Minimum:
                             minimum = minimum.HasValue ? Mathf.Max(minimum.Value, modifier.Value) : modifier.Value;
                             break;
@@ -157,7 +204,7 @@ namespace Sol.Rpg
                 }
             }
 
-            float result = (baseValue + flat) * (1f + percentAdd) * percentMultiply;
+            float result = ((overrideValue ?? baseValue) + flat) * (1f + percentAdd) * percentMultiply * absoluteMultiply;
             if (minimum.HasValue)
                 result = Mathf.Max(result, minimum.Value);
             if (maximum.HasValue)

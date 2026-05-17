@@ -269,15 +269,62 @@ namespace Sol.Editor
         {
             ValidateTagSet(status.Tags, registry, warnings, "status tag");
             ValidateTagSet(status.GrantedTags, registry, warnings, "granted tag");
+            ValidateStatusReferences(status.NegatedBy, registry, warnings, "negated-by status");
+            ValidateStatusReferences(status.Nullifies, registry, warnings, "nullified status");
+            ValidateStatusPhases(status, registry, warnings);
 
             bool hasTags = HasAny(status.Tags) || HasAny(status.GrantedTags);
             bool hasDamage = status.PeriodicDamage > 0f;
             bool hasModifiers = status.StatModifiers?.Modifiers != null && status.StatModifiers.Modifiers.Count > 0;
-            if (!hasTags && !hasDamage && !hasModifiers)
-                warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Warning, "Status effect has no tags, periodic damage, or stat modifiers."));
+            bool hasRules = status.Group != StatusEffectGroup.None
+                || (status.NegatedBy != null && status.NegatedBy.Count > 0)
+                || (status.Nullifies != null && status.Nullifies.Count > 0);
+            bool hasPhases = HasAnyPhaseContent(status.Phases);
+            if (!hasTags && !hasDamage && !hasModifiers && !hasRules && !hasPhases)
+                warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Warning, "Status effect has no tags, periodic damage, stat modifiers, rules, or phases."));
 
             if (status.PeriodicDamage > 0f && status.TickInterval <= 0f)
                 warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Error, "Periodic damage requires a tick interval above zero."));
+        }
+
+        private static void ValidateStatusReferences(
+            IReadOnlyList<StatusEffectDefinition> definitions,
+            RpgDefinitionRegistry registry,
+            List<RpgAuthoringWarning> warnings,
+            string label)
+        {
+            if (definitions == null)
+                return;
+
+            for (int i = 0; i < definitions.Count; i++)
+            {
+                StatusEffectDefinition definition = definitions[i];
+                if (definition == null)
+                    continue;
+
+                if (registry != null && registry.GetStatusEffect(definition.Id) == null)
+                    warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Warning, $"Referenced {label} '{definition.Id}' is not in the RPG registry."));
+            }
+        }
+
+        private static void ValidateStatusPhases(StatusEffectDefinition status, RpgDefinitionRegistry registry, List<RpgAuthoringWarning> warnings)
+        {
+            IReadOnlyList<StatusEffectPhase> phases = status.Phases;
+            if (phases == null)
+                return;
+
+            HashSet<int> minStacks = new();
+            for (int i = 0; i < phases.Count; i++)
+            {
+                StatusEffectPhase phase = phases[i];
+                if (phase == null)
+                    continue;
+
+                if (!minStacks.Add(phase.MinStacks))
+                    warnings.Add(new RpgAuthoringWarning(RpgAuthoringWarningSeverity.Warning, $"Duplicate status phase minimum stack value {phase.MinStacks}."));
+
+                ValidateTagSet(phase.GrantedTags, registry, warnings, "phase granted tag");
+            }
         }
 
         private static void ValidateTrait(TraitDefinition trait, RpgDefinitionRegistry registry, List<RpgAuthoringWarning> warnings)
@@ -311,6 +358,26 @@ namespace Sol.Editor
 
             foreach (string _ in tags.EnumerateTagIds())
                 return true;
+
+            return false;
+        }
+
+        private static bool HasAnyPhaseContent(IReadOnlyList<StatusEffectPhase> phases)
+        {
+            if (phases == null)
+                return false;
+
+            for (int i = 0; i < phases.Count; i++)
+            {
+                StatusEffectPhase phase = phases[i];
+                if (phase == null)
+                    continue;
+
+                if (HasAny(phase.GrantedTags))
+                    return true;
+                if (phase.StatModifiers?.Modifiers != null && phase.StatModifiers.Modifiers.Count > 0)
+                    return true;
+            }
 
             return false;
         }
