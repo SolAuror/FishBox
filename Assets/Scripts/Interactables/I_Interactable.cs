@@ -6,6 +6,7 @@ using UnityEditor;
 #endif
 using Sol.Actions;
 using Sol.Grab;
+using Sol.Rpg;
 
 namespace Sol
 {
@@ -214,6 +215,42 @@ namespace Sol
         public static bool UsesWeaponStats(ItemType itemType) => itemType == ItemType.Weapon;
         public static bool UsesArmorStats(ItemType itemType) => itemType == ItemType.Armor;
         public static bool UsesEquipmentSettings(ItemType itemType) => IsEquipableType(itemType);
+        public static bool HasItemTag(ItemComponent item, string tagPath)
+        {
+            return item != null && item.Tags != null && item.Tags.HasTagOrChild(tagPath);
+        }
+
+        public static bool IsConsumableItem(ItemComponent item)
+        {
+            return item != null
+                && (HasItemTag(item, GameplayCapabilityTags.ItemConsumable)
+                    || IsConsumableType(item.Type));
+        }
+
+        public static bool IsEquipableItem(ItemComponent item)
+        {
+            return item != null
+                && (HasItemTag(item, GameplayCapabilityTags.ItemEquipment)
+                    || HasItemTag(item, GameplayCapabilityTags.ItemWeapon)
+                    || HasItemTag(item, GameplayCapabilityTags.ItemArmor)
+                    || IsEquipableType(item.Type));
+        }
+
+        public static bool UsesWeaponStats(ItemComponent item)
+        {
+            return item != null
+                && (HasItemTag(item, GameplayCapabilityTags.ItemWeapon)
+                    || item.Type == ItemType.Weapon);
+        }
+
+        public static bool UsesArmorStats(ItemComponent item)
+        {
+            return item != null
+                && (HasItemTag(item, GameplayCapabilityTags.ItemArmor)
+                    || item.Type == ItemType.Armor);
+        }
+
+        public static bool UsesEquipmentSettings(ItemComponent item) => IsEquipableItem(item);
 
         public static bool ShowConsumableFlag(ItemType itemType)
         {
@@ -231,7 +268,6 @@ namespace Sol
         public static bool ShowUseSection(ItemType itemType, bool isConsumable, int existingEffectCount)
         {
             return isConsumable
-                || IsConsumableType(itemType)
                 || existingEffectCount > 0;
         }
 
@@ -241,8 +277,22 @@ namespace Sol
         {
             return actionType switch
             {
-                ItemActionType.Use => isConsumable || IsConsumableType(itemType),
+                ItemActionType.Use => isConsumable,
                 ItemActionType.Equip => IsEquipableType(itemType),
+                ItemActionType.Drop => true,
+                _ => false
+            };
+        }
+
+        public static bool SupportsAction(ItemComponent item, ItemActionType actionType)
+        {
+            if (item == null)
+                return false;
+
+            return actionType switch
+            {
+                ItemActionType.Use => item.CanUseFromInventory,
+                ItemActionType.Equip => IsEquipableItem(item),
                 ItemActionType.Drop => true,
                 _ => false
             };
@@ -281,12 +331,14 @@ namespace Sol
             if (item.EquipCategory != EquipDomain.Auto)
                 return item.EquipCategory;
 
-            return item.Type == ItemType.Armor ? EquipDomain.Armor : EquipDomain.WeaponTool;
+            return HasItemTag(item, GameplayCapabilityTags.ItemArmor) || item.Type == ItemType.Armor
+                ? EquipDomain.Armor
+                : EquipDomain.WeaponTool;
         }
 
         public static bool CanItemUseSlot(ItemComponent item, EquipmentSlotType slotType)
         {
-            if (item == null || !IsEquipableType(item.Type))
+            if (item == null || !IsEquipableItem(item))
                 return false;
 
             EquipDomain domain = ResolveEquipDomain(item);
@@ -314,7 +366,7 @@ namespace Sol
         public static bool TryResolveDefaultSlot(ItemComponent item, out EquipmentSlotType slotType)
         {
             slotType = default;
-            if (item == null || !IsEquipableType(item.Type))
+            if (item == null || !IsEquipableItem(item))
                 return false;
 
             IReadOnlyList<EquipmentSlotType> allowed = item.AllowedEquipSlots;

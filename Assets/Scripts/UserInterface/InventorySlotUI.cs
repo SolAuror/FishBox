@@ -75,7 +75,6 @@ namespace Sol.HUD
         private InventorySlotPresentationMode _presentationMode;
         private bool _suppressTooltip;
         private bool _isHovered;
-        private bool _runtimeTableColumnsCreated;
 
         public InventorySlot Slot => _slot;
 
@@ -265,9 +264,8 @@ namespace Sol.HUD
 
         private void ApplyStatTexts(ItemComponent item)
         {
-            if (_presentationMode == InventorySlotPresentationMode.InventoryTable)
+            if (_presentationMode == InventorySlotPresentationMode.InventoryTable && HasAuthoredTableColumns())
             {
-                EnsureTableColumnTexts();
                 ApplyInventoryTableTexts(item);
                 return;
             }
@@ -310,56 +308,12 @@ namespace Sol.HUD
                 SetStatText(_statText2, string.Empty);
         }
 
-        private void EnsureTableColumnTexts()
+        private bool HasAuthoredTableColumns()
         {
-            if (_weightText != null && _damageText != null && _armorText != null && _valueText != null)
-                return;
-
-            if (_runtimeTableColumnsCreated)
-                return;
-
-            TextMeshProUGUI template = _statText2 ?? _statText1 ?? _statText ?? _nameText;
-            if (template == null)
-                return;
-
-            _weightText ??= CreateRuntimeColumnText("WeightText", template, 0.58f, 0.70f);
-            _damageText ??= CreateRuntimeColumnText("DamageText", template, 0.70f, 0.80f);
-            _armorText ??= CreateRuntimeColumnText("ArmorText", template, 0.80f, 0.90f);
-            _valueText ??= CreateRuntimeColumnText("ValueText", template, 0.90f, 0.99f);
-            _runtimeTableColumnsCreated = true;
-
-            if (_nameText != null && _nameText.rectTransform != null)
-            {
-                RectTransform rt = _nameText.rectTransform;
-                rt.anchorMin = new Vector2(0.17f, rt.anchorMin.y);
-                rt.anchorMax = new Vector2(0.56f, rt.anchorMax.y);
-                rt.offsetMin = new Vector2(0f, rt.offsetMin.y);
-                rt.offsetMax = new Vector2(0f, rt.offsetMax.y);
-            }
-        }
-
-        private TextMeshProUGUI CreateRuntimeColumnText(string childName, TextMeshProUGUI template, float anchorMinX, float anchorMaxX)
-        {
-            GameObject go = new(childName, typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
-            go.layer = gameObject.layer;
-            RectTransform rt = go.GetComponent<RectTransform>();
-            rt.SetParent(transform, false);
-            rt.anchorMin = new Vector2(anchorMinX, 0f);
-            rt.anchorMax = new Vector2(anchorMaxX, 1f);
-            rt.offsetMin = Vector2.zero;
-            rt.offsetMax = Vector2.zero;
-            rt.pivot = new Vector2(0.5f, 0.5f);
-
-            TextMeshProUGUI text = go.GetComponent<TextMeshProUGUI>();
-            text.font = template.font;
-            text.fontSharedMaterial = template.fontSharedMaterial;
-            text.fontSize = Mathf.Max(12f, template.fontSize);
-            text.color = template.color;
-            text.alignment = TextAlignmentOptions.MidlineRight;
-            text.raycastTarget = false;
-            text.textWrappingMode = TextWrappingModes.NoWrap;
-            text.overflowMode = TextOverflowModes.Ellipsis;
-            return text;
+            return _weightText != null
+                && _damageText != null
+                && _armorText != null
+                && _valueText != null;
         }
 
         private void SetTableColumnsVisible(bool visible)

@@ -3,6 +3,7 @@ using UnityEngine;
 using Sol.AI;
 using Sol.Audio;
 using Sol.Outline;
+using Sol.Rpg;
 
 namespace Sol.Fishing
 {
@@ -80,6 +81,7 @@ namespace Sol.Fishing
         private float _biteFailFlashUntilTime;
         private string _baitItemId = string.Empty;
         private string _baitName = string.Empty;
+        private GameplayTagSet _baitTags = new();
         private float _timer;
         private float _duration;
         private bool _shouldCancelCast;
@@ -143,7 +145,10 @@ namespace Sol.Fishing
         public float InterestRadius => _interestRadius;
         public string BaitItemId => _baitItemId;
         public string BaitName => _baitName;
-        public bool HasBait => !string.IsNullOrWhiteSpace(_baitItemId) || !string.IsNullOrWhiteSpace(_baitName);
+        public GameplayTagSet BaitTags => _baitTags ?? GameplayTagSet.Empty;
+        public bool HasBait => !string.IsNullOrWhiteSpace(_baitItemId)
+            || !string.IsNullOrWhiteSpace(_baitName)
+            || (_baitTags != null && !_baitTags.IsEmpty());
         public WaterVolume WaterVolume => _waterVolume;
         public AI_Fish CommittedFish => _committedFish;
         public bool HasHookedFish => _hookedFish != null;
@@ -198,7 +203,8 @@ namespace Sol.Fishing
             float interestMultiplier,
             float interestRadius,
             string baitItemId,
-            string baitName)
+            string baitName,
+            IEnumerable<string> baitTagPaths = null)
         {
             EnsurePhysicsComponents();
 
@@ -216,6 +222,8 @@ namespace Sol.Fishing
             _interestRadius = Mathf.Max(0.5f, interestRadius);
             _baitItemId = string.IsNullOrWhiteSpace(baitItemId) ? string.Empty : baitItemId.Trim();
             _baitName = string.IsNullOrWhiteSpace(baitName) ? string.Empty : baitName.Trim();
+            _baitTags = new GameplayTagSet();
+            _baitTags.AddRuntimeTagPaths(baitTagPaths);
             _shouldCancelCast = false;
             _shouldCompleteReel = false;
             _terminalOutcome = FishingLureOutcome.None;

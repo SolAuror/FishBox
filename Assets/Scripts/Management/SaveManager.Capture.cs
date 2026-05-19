@@ -43,6 +43,7 @@ namespace Sol.SaveLoad
                 NPCs = CollectNpcData(),
                 CaughtFish = new List<CaughtFishData>(FishRegistry.Instance.GetAllFishData()),
                 WorldItems = CollectWorldItemData(),
+                InteractionPoints = CollectInteractionPointData(),
                 Quests = Sol.Quests.QuestManager.Instance != null
                     ? Sol.Quests.QuestManager.Instance.CollectSaveData()
                     : new List<Sol.Quests.QuestSaveData>(),
@@ -68,6 +69,7 @@ namespace Sol.SaveLoad
                 data.MaxHealth = soul.MaxHealth;
                 data.Stamina = soul.Stamina;
                 data.MaxStamina = soul.MaxStamina;
+                data.TagPaths = soul.Tags.CaptureTagPaths();
             }
 
             Inventory inventory = playerRoot.GetComponent<Inventory>();
@@ -136,6 +138,7 @@ namespace Sol.SaveLoad
                     IsLocked = inventory.IsLocked,
                     LockLevel = inventory.LockLevel,
                     Gold = inventory.Gold + slottedGold,
+                    TagPaths = inventory.CollectTagPaths(),
                     Items = items
                 });
             }
@@ -167,7 +170,7 @@ namespace Sol.SaveLoad
                     if (excludedItems != null && excludedItems.Contains(item))
                         continue;
 
-                    if (item.Type == ItemType.Gold)
+                    if (item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemCurrencyGold))
                     {
                         goldValue += Mathf.Max(1, item.Value);
                         continue;
@@ -244,6 +247,7 @@ namespace Sol.SaveLoad
                     HasRuntimeFlags = true,
                     CanTrade = soul != null && soul.CanTrade,
                     IsHostile = soul != null && soul.IsHostile,
+                    TagPaths = soul != null ? soul.CollectTagPaths() : new List<string>(),
                     ConversationFlags = npc.CollectConversationFlags()
                 };
 
@@ -291,6 +295,7 @@ namespace Sol.SaveLoad
                     OwnerId = item.ItemOwnerId,
                     IsStolen = item.IsStolen,
                     FishCode = fishItem != null ? fishItem.FishCode : string.Empty,
+                    TagPaths = item.CollectTagPaths(),
                     Position = item.transform.position,
                     Rotation = item.transform.rotation
                 });
@@ -329,7 +334,8 @@ namespace Sol.SaveLoad
             {
                 ItemId = item.ItemId,
                 OwnerId = item.ItemOwnerId,
-                IsStolen = item.IsStolen
+                IsStolen = item.IsStolen,
+                TagPaths = item.CollectTagPaths()
             };
 
             CaughtFishItem fishItem = item.GetComponent<CaughtFishItem>();
@@ -337,6 +343,31 @@ namespace Sol.SaveLoad
                 data.FishCode = fishItem.FishCode;
 
             return data;
+        }
+
+        private List<InteractionPointSaveData> CollectInteractionPointData()
+        {
+            List<InteractionPointSaveData> points = new();
+            InteractionPoint[] allPoints = FindObjectsByType<InteractionPoint>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+
+            for (int i = 0; i < allPoints.Length; i++)
+            {
+                InteractionPoint point = allPoints[i];
+                if (point == null)
+                    continue;
+
+                points.Add(new InteractionPointSaveData
+                {
+                    InteractionPointId = point.InteractionPointId,
+                    HierarchyPath = GetHierarchyPath(point.transform),
+                    GameObjectName = point.gameObject.name,
+                    TagPaths = point.CollectTagPaths()
+                });
+            }
+
+            return points;
         }
 
         private List<ShopSaveData> CollectShopData()

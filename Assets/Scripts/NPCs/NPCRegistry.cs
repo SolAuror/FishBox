@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Sol.Quests;
+using Sol.Rpg;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -165,6 +167,8 @@ namespace Sol.AI
 
         private static void ForceEditorSync()
         {
+            RpgDefinitionRegistry.ForceEditorSyncNow();
+
             NPCRegistry registry = GetOrCreateEditorAsset();
             if (registry == null)
                 return;
@@ -268,10 +272,10 @@ namespace Sol.AI
             }
 
             bool modifiedAssets = ApplyAssignedIds(assignedIds);
-            List<Entry> rebuiltEntries = BuildEntries(discovered, assignedIds);
+            List<Entry> rebuiltEntries = BuildEntries(discovered, assignedIds, out bool capabilityTagsChanged);
             bool entriesChanged = ReplaceEntriesIfDifferent(rebuiltEntries);
 
-            if (modifiedAssets || entriesChanged)
+            if (modifiedAssets || entriesChanged || capabilityTagsChanged)
             {
                 _lookup = null;
                 EditorUtility.SetDirty(this);
@@ -343,8 +347,9 @@ namespace Sol.AI
             return modifiedAny;
         }
 
-        private static List<Entry> BuildEntries(List<DiscoveredNPC> discovered, Dictionary<NPCSoul, string> assignedIds)
+        private static List<Entry> BuildEntries(List<DiscoveredNPC> discovered, Dictionary<NPCSoul, string> assignedIds, out bool capabilityTagsChanged)
         {
+            capabilityTagsChanged = false;
             List<Entry> rebuilt = new(discovered.Count);
             for (int i = 0; i < discovered.Count; i++)
             {
@@ -357,9 +362,71 @@ namespace Sol.AI
                     OwnerId = assignedId,
                     Prefab = soul
                 });
+                capabilityTagsChanged |= MigrateCapabilityTags(soul, assignedId);
             }
 
             return rebuilt;
+        }
+
+        private static bool MigrateCapabilityTags(NPCSoul soul, string assignedId)
+        {
+            if (soul == null)
+                return false;
+
+            bool changed = false;
+            GameplayTagSet tags = soul.Tags;
+            AI_NPC aiNpc = soul.GetComponent<AI_NPC>();
+            if (aiNpc != null && !string.IsNullOrWhiteSpace(aiNpc.ShopId))
+            {
+                changed |= !tags.HasTagOrChild(GameplayCapabilityTags.JobTrader);
+                tags.AddSerializedTagPath(GameplayCapabilityTags.JobTrader);
+            }
+
+            if (soul.Archetype == NPCArchetype.QuestGiver || IsReferencedQuestGiver(soul, assignedId))
+            {
+                changed |= !tags.HasTagOrChild(GameplayCapabilityTags.JobQuestGiver);
+                tags.AddSerializedTagPath(GameplayCapabilityTags.JobQuestGiver);
+            }
+
+            if (soul.IsHostile)
+            {
+                changed |= !tags.HasTagOrChild(GameplayCapabilityTags.ActorHostile);
+                tags.AddSerializedTagPath(GameplayCapabilityTags.ActorHostile);
+            }
+            else if (!tags.HasTagOrChild(GameplayCapabilityTags.ActorHostile))
+            {
+                changed |= !tags.HasTagOrChild(GameplayCapabilityTags.ActorCivilian);
+                tags.AddSerializedTagPath(GameplayCapabilityTags.ActorCivilian);
+            }
+
+            tags.Normalize();
+            if (changed)
+                EditorUtility.SetDirty(soul);
+            return changed;
+        }
+
+        private static bool IsReferencedQuestGiver(NPCSoul soul, string assignedId)
+        {
+            QuestRegistry questRegistry = QuestRegistry.Get();
+            if (questRegistry?.Quests == null)
+                return false;
+
+            for (int i = 0; i < questRegistry.Quests.Count; i++)
+            {
+                QuestDefinition quest = questRegistry.Quests[i];
+                if (quest == null || string.IsNullOrWhiteSpace(quest.GiverNpcName))
+                    continue;
+
+                string giver = quest.GiverNpcName.Trim();
+                if (string.Equals(giver, assignedId, System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(giver, soul.OwnerId, System.StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(giver, soul.CharacterName, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool ReplaceEntriesIfDifferent(List<Entry> rebuiltEntries)

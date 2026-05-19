@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 using Sol;
@@ -44,7 +45,7 @@ namespace Sol.AI
     /// <summary>
     /// Unified runtime stats for actors (player and NPC).
     /// </summary>
-    public class NPCSoul : MonoBehaviour, IGameplayTagProvider
+    public class NPCSoul : MonoBehaviour, IGameplayTagProvider, IActorVitals
     {
         #region Inspector Settings
         [Header("Identity")]
@@ -102,13 +103,17 @@ namespace Sol.AI
         [Header("Authoring")]
         [FormerlySerializedAs("_authoringTemplate")]
         [SerializeField] private NPCArchetype _npcArchetype = NPCArchetype.None;
+        [HideInInspector]
         [SerializeField] private bool _canTrade;
+        [HideInInspector]
         [SerializeField] private bool _isHostile;
         [SerializeField] private GameplayTagSet _tags = new();
         [TextArea(2, 6)]
         [SerializeField] private string _authoringNotes = string.Empty;
         [HideInInspector]
         [SerializeField] private bool _identityMigratedV2;
+        [HideInInspector]
+        [SerializeField] private bool _legacyCapabilityTagsMigrated;
         #endregion
 
         public NPCArchetype Archetype
@@ -125,12 +130,12 @@ namespace Sol.AI
             get
             {
                 EnsureIdentityMigration();
-                return _canTrade;
+                return HasTag(GameplayCapabilityTags.JobTrader);
             }
             set
             {
                 _canTrade = value;
-                RefreshRuntimeIdentityTags();
+                SetTagState(GameplayCapabilityTags.JobTrader, value);
             }
         }
 
@@ -139,17 +144,18 @@ namespace Sol.AI
             get
             {
                 EnsureIdentityMigration();
-                return _isHostile;
+                return HasTag(GameplayCapabilityTags.ActorHostile);
             }
             set
             {
                 _isHostile = value;
-                RefreshRuntimeIdentityTags();
+                SetHostileTagState(value);
             }
         }
 
         public string AuthoringNotes => _authoringNotes;
         public GameplayTagSet Tags => _tags ?? GameplayTagSet.Empty;
+        public bool IsQuestGiver => HasTag(GameplayCapabilityTags.JobQuestGiver);
 
         public float MaxHealth
         {
@@ -422,26 +428,122 @@ namespace Sol.AI
 
             if (!_identityMigratedV2)
             {
-                if (_npcArchetype == NPCArchetype.QuestGiver)
-                    _canTrade = true;
                 if (_npcArchetype == NPCArchetype.Bandit)
                     _isHostile = true;
 
                 _identityMigratedV2 = true;
             }
+
+            MigrateLegacyCapabilityTagsIfNeeded();
         }
 
         private void RefreshRuntimeIdentityTags()
         {
             _tags ??= new GameplayTagSet();
-            _tags.RemoveRuntimeTagPath(_entityType == EntityType.Player ? "Actor.NPC" : "Actor.Player");
-            _tags.AddRuntimeTagPath(_entityType == EntityType.Player ? "Actor.Player" : "Actor.NPC");
-            _tags.RemoveRuntimeTagPath(_isHostile ? "Actor.Civilian" : "Actor.Hostile");
-            _tags.AddRuntimeTagPath(_isHostile ? "Actor.Hostile" : "Actor.Civilian");
-            if (_canTrade)
-                _tags.AddRuntimeTagPath("Job.Trader");
+            _tags.RemoveRuntimeTagPath(_entityType == EntityType.Player ? GameplayCapabilityTags.ActorNpc : GameplayCapabilityTags.ActorPlayer);
+            _tags.AddRuntimeTagPath(_entityType == EntityType.Player ? GameplayCapabilityTags.ActorPlayer : GameplayCapabilityTags.ActorNpc);
+
+            if (_tags.HasTagOrChild(GameplayCapabilityTags.ActorHostile))
+                _tags.RemoveRuntimeTagPath(GameplayCapabilityTags.ActorCivilian);
+            else if (!_tags.HasTagOrChild(GameplayCapabilityTags.ActorCivilian))
+                _tags.AddRuntimeTagPath(GameplayCapabilityTags.ActorCivilian);
+
+            _isHostile = _tags.HasTagOrChild(GameplayCapabilityTags.ActorHostile);
+            _canTrade = _tags.HasTagOrChild(GameplayCapabilityTags.JobTrader);
+        }
+
+        public bool HasTag(string tagPath)
+        {
+            _tags ??= new GameplayTagSet();
+            return _tags.HasTagOrChild(tagPath);
+        }
+
+        public List<string> CollectTagPaths()
+        {
+            _tags ??= new GameplayTagSet();
+            List<string> paths = new();
+            foreach (string path in _tags.EnumerateTagPaths())
+                paths.Add(path);
+            return paths;
+        }
+
+        public void ApplySavedTagPaths(IReadOnlyList<string> tagPaths)
+        {
+            if (tagPaths == null || tagPaths.Count == 0)
+                return;
+
+            _tags ??= new GameplayTagSet();
+            ClearSavedCapabilityTag(GameplayCapabilityTags.JobTrader);
+            ClearSavedCapabilityTag(GameplayCapabilityTags.JobQuestGiver);
+            ClearSavedCapabilityTag(GameplayCapabilityTags.ActorHostile);
+            ClearSavedCapabilityTag(GameplayCapabilityTags.ActorCivilian);
+
+            for (int i = 0; i < tagPaths.Count; i++)
+                _tags.AddRuntimeTagPath(tagPaths[i]);
+
+            RefreshRuntimeIdentityTags();
+        }
+
+        public void SetTagState(string tagPath, bool enabled)
+        {
+            _tags ??= new GameplayTagSet();
+            if (enabled)
+            {
+                _tags.AddRuntimeTagPath(tagPath);
+            }
             else
-                _tags.RemoveRuntimeTagPath("Job.Trader");
+            {
+                _tags.RemoveRuntimeTagPath(tagPath);
+                _tags.RemoveSerializedTagPath(tagPath);
+            }
+
+            RefreshRuntimeIdentityTags();
+        }
+
+        private void SetHostileTagState(bool hostile)
+        {
+            _tags ??= new GameplayTagSet();
+            if (hostile)
+            {
+                _tags.RemoveRuntimeTagPath(GameplayCapabilityTags.ActorCivilian);
+                _tags.RemoveSerializedTagPath(GameplayCapabilityTags.ActorCivilian);
+                _tags.AddRuntimeTagPath(GameplayCapabilityTags.ActorHostile);
+            }
+            else
+            {
+                _tags.RemoveRuntimeTagPath(GameplayCapabilityTags.ActorHostile);
+                _tags.RemoveSerializedTagPath(GameplayCapabilityTags.ActorHostile);
+                _tags.AddRuntimeTagPath(GameplayCapabilityTags.ActorCivilian);
+            }
+
+            RefreshRuntimeIdentityTags();
+        }
+
+        private void ClearSavedCapabilityTag(string tagPath)
+        {
+            _tags.RemoveRuntimeTagPath(tagPath);
+            _tags.RemoveSerializedTagPath(tagPath);
+        }
+
+        private void MigrateLegacyCapabilityTagsIfNeeded()
+        {
+            if (_legacyCapabilityTagsMigrated)
+                return;
+
+            _tags ??= new GameplayTagSet();
+
+            if (_canTrade)
+                _tags.AddSerializedTagPath(GameplayCapabilityTags.JobTrader);
+
+            if (_npcArchetype == NPCArchetype.QuestGiver)
+                _tags.AddSerializedTagPath(GameplayCapabilityTags.JobQuestGiver);
+
+            if (_isHostile || _npcArchetype == NPCArchetype.Bandit)
+                _tags.AddSerializedTagPath(GameplayCapabilityTags.ActorHostile);
+            else if (!_tags.HasTagOrChild(GameplayCapabilityTags.ActorHostile))
+                _tags.AddSerializedTagPath(GameplayCapabilityTags.ActorCivilian);
+
+            _legacyCapabilityTagsMigrated = true;
         }
     }
 }

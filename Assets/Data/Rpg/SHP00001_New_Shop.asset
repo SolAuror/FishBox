@@ -27,12 +27,12 @@ MonoBehaviour:
   - ItemId: ITM00031
     MinQuantity: 1
     MaxQuantity: 1
-    PriceMultiplier: 0
+    PriceMultiplier: 1
   - ItemId: ITM00019
     MinQuantity: 1
     MaxQuantity: 3
-    PriceMultiplier: 0
+    PriceMultiplier: 1
   - ItemId: ITM00020
     MinQuantity: 0
     MaxQuantity: 2
-    PriceMultiplier: 0
+    PriceMultiplier: 1

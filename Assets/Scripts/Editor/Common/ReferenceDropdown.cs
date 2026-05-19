@@ -24,6 +24,7 @@ namespace Sol.Editor
             Npc,
             Quest,
             Shop,
+            Stat,
             GameplayTag
         }
 
@@ -57,6 +58,9 @@ namespace Sol.Editor
         public static void DrawShopLayout(GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => DrawLayout(ReferenceKind.Shop, label, idProp, allowEmpty);
 
+        public static void DrawStatLayout(GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
+            => DrawLayout(ReferenceKind.Stat, label, idProp, allowEmpty);
+
         public static void DrawGameplayTagLayout(GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => DrawLayout(ReferenceKind.GameplayTag, label, idProp, allowEmpty);
 
@@ -72,6 +76,9 @@ namespace Sol.Editor
 
         public static void DrawShop(Rect rect, GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => Draw(ReferenceKind.Shop, rect, label, idProp, allowEmpty);
+
+        public static void DrawStat(Rect rect, GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
+            => Draw(ReferenceKind.Stat, rect, label, idProp, allowEmpty);
 
         public static void DrawGameplayTag(Rect rect, GUIContent label, SerializedProperty idProp, bool allowEmpty = true)
             => Draw(ReferenceKind.GameplayTag, rect, label, idProp, allowEmpty);
@@ -243,6 +250,7 @@ namespace Sol.Editor
                         QuestRegistry.ScheduleEditorSync();
                         break;
                     case ReferenceKind.Shop:
+                    case ReferenceKind.Stat:
                     case ReferenceKind.GameplayTag:
                         RpgDefinitionRegistry.ScheduleEditorSync();
                         break;
@@ -273,6 +281,7 @@ namespace Sol.Editor
                 ReferenceKind.Npc => BuildNpcEntries(),
                 ReferenceKind.Quest => BuildQuestEntries(),
                 ReferenceKind.Shop => BuildShopEntries(),
+                ReferenceKind.Stat => BuildStatEntries(),
                 ReferenceKind.GameplayTag => BuildGameplayTagEntries(),
                 _ => new List<Entry>()
             };
@@ -423,6 +432,50 @@ namespace Sol.Editor
 
             entries.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.MenuPath, b.MenuPath));
             return entries;
+        }
+
+        private static List<Entry> BuildStatEntries()
+        {
+            List<Entry> entries = new List<Entry>();
+            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            AddStatEntry(entries, seen, GameplayStatIds.MaxHealth, "Max Health", "Built-In/Vitals");
+            AddStatEntry(entries, seen, GameplayStatIds.MaxStamina, "Max Stamina", "Built-In/Vitals");
+            AddStatEntry(entries, seen, GameplayStatIds.ArmorRating, "Armor Rating", "Built-In/Combat");
+            AddStatEntry(entries, seen, GameplayStatIds.StaminaCost, "Stamina Cost", "Built-In/Combat");
+            AddStatEntry(entries, seen, GameplayStatIds.StaminaRegen, "Stamina Regen", "Built-In/Combat");
+            AddStatEntry(entries, seen, GameplayStatIds.OutgoingDamage, "Outgoing Damage", "Built-In/Combat");
+            AddStatEntry(entries, seen, GameplayStatIds.IncomingDamage, "Incoming Damage", "Built-In/Combat");
+
+            RpgDefinitionRegistry registry = RpgDefinitionRegistry.Get();
+            if (registry?.Stats != null)
+            {
+                for (int i = 0; i < registry.Stats.Count; i++)
+                {
+                    RpgStatDefinition stat = registry.Stats[i];
+                    if (stat == null || string.IsNullOrWhiteSpace(stat.Id))
+                        continue;
+
+                    string id = stat.Id.Trim();
+                    if (!seen.Add(id))
+                        continue;
+
+                    string title = string.IsNullOrWhiteSpace(stat.DisplayName) ? id : stat.DisplayName.Trim();
+                    string category = stat.Category.ToString();
+                    entries.Add(new Entry(id, $"{title} ({id})", $"RPG/{category}/{title} ({id})"));
+                }
+            }
+
+            entries.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.MenuPath, b.MenuPath));
+            return entries;
+        }
+
+        private static void AddStatEntry(List<Entry> entries, HashSet<string> seen, string id, string title, string folder)
+        {
+            if (string.IsNullOrWhiteSpace(id) || !seen.Add(id))
+                return;
+
+            entries.Add(new Entry(id, $"{title} ({id})", $"{folder}/{title} ({id})"));
         }
 
         private static List<Entry> BuildGameplayTagEntries()

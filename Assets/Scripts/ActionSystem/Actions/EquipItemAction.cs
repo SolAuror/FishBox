@@ -19,7 +19,7 @@ namespace Sol.Actions
         {
             return _item != null
                 && Context.Equipment != null
-                && Sol.ItemTypeRules.IsEquipableType(_item.Type);
+                && Sol.ItemTypeRules.IsEquipableItem(_item);
         }
 
         public override void OnStart()

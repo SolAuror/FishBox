@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Authored quests become runtime state the moment the player accepts them, and stay as runtime state until they're completed, failed, or expired. The manager listens to game-world signals (catches, items collected, NPCs spoken to, items equipped) and advances the current sequential objective when the signal matches. Progress persists through [SaveManager](save-system.md).
+Authored quests become runtime state the moment the player accepts them, and stay as runtime state until they're completed, failed, or expired. The manager listens to game-world signals (catches, items collected, NPCs spoken to, items equipped) and advances the current sequential objective when the signal matches. Matching is tag-first where flexible content is useful, with exact ids still available for specific targets. Progress persists through [SaveManager](save-system.md).
 
 ## Key files
 
@@ -57,6 +57,22 @@ Events surfaced by `QuestManager`:
 
 Catch-style objectives dedupe by fish id, so catching the same fish twice by save-scumming doesn't double-count (`_countedFishByQuest`).
 
+## Tags And Exact Ids
+
+Quest authoring supports both precise ids and flexible tag sets:
+
+- Acceptable item ids are exact overrides for `CollectItem`, `DeliverItem`, and `EquipItem`.
+- `AcceptableItemTags` matches live `ItemComponent.Tags`, so an objective can ask for any `Item.Food`, any `Item.Fishing.Lure`, or any `Item.Quest`.
+- `AcceptableFishTags` matches caught fish tags, including inherited definition tags such as `Fish.Predator` and runtime rarity tags such as `Fish.Rarity.Rare`.
+- `AcceptableNpcTags` and `AcceptableInteractionTags` are the authoring surface for NPC/interactable-targeted objective expansion.
+- The legacy `ItemTag` string now tries real gameplay tag matching first. Name-contains behavior remains only as a one-version shim for old quest assets.
+
+Quest offer conditions live on `QuestDefinition`:
+
+- Required/forbidden giver tags gate NPC-offered quests.
+- Required/forbidden player tags gate quests based on player state, traits, status, or story tags.
+- Exact giver id still controls specific turn-in and quest-target behavior.
+
 ## Timed quests
 
 If `QuestDefinition.IsTimed` is true, `QuestManager.Update` ticks `RemainingSeconds` with `Time.unscaledDeltaTime` — meaning pausing gameplay via `Time.timeScale = 0` or opening a blocking UI freezes the clock. That's intentional: players shouldn't lose a quest because they opened the settings menu.
@@ -81,6 +97,7 @@ If `QuestDefinition.IsTimed` is true, `QuestManager.Update` ticks `RemainingSeco
 
 ## Gotchas
 
+- **Use tags for broad requests, ids for exact requests.** "Bring any rare predator fish" should be `Fish.Rarity.Rare` + `Fish.Predator`; "bring this named quest item" should use an item id.
 - **Objectives are sequential, not parallel.** `_currentObjectiveIndex` advances by one. If you want "do any 2 of 3", you'll need to redesign — that shape doesn't exist today.
 - **`OnQuestUpdated` fires every frame for timed quests.** Don't hook it with expensive UI updates; bind to `OnObjectiveAdvanced` for non-timer state changes.
 - **Auto-offer runs via a coroutine on a persistent runner** ([PersistentCoroutineRunner](../../Assets/Scripts/UserInterface/PersistentCoroutineRunner.cs)). If you tear down the `QuestManager` mid-game, the coroutine carries on pointing at a null instance — the singleton pattern here assumes "created once, never destroyed."

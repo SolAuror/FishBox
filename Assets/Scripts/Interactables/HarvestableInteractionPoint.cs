@@ -1,4 +1,5 @@
 using Sol.Grab;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol
@@ -31,6 +32,7 @@ namespace Sol
             if (_depleteAfterUse)
             {
                 _depleted = true;
+                SetRuntimeTag(GameplayCapabilityTags.StateDepleted, true);
                 if (_respawnSeconds > 0f)
                     _respawnAt = Time.time + _respawnSeconds;
             }
@@ -82,6 +84,7 @@ namespace Sol
                 return;
 
             _depleted = false;
+            SetRuntimeTag(GameplayCapabilityTags.StateDepleted, false);
             _respawnAt = 0f;
         }
 

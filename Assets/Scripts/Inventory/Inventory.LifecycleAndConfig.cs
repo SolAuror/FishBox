@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
+using Sol.Rpg;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -14,6 +15,7 @@ namespace Sol
         private void Awake()
         {
             ResolveOwnerIdentity();
+            SyncStateTags();
             SeedFromInspector();
             NormalizeGoldSlots();
             SyncContainedItemOwnersToInventory();
@@ -53,6 +55,8 @@ namespace Sol
                 _requiredKeyItemName = string.Empty;
                 _requiredKeyItemId = string.Empty;
             }
+
+            SyncStateTags();
         }
 
 
@@ -85,6 +89,8 @@ namespace Sol
                 _requiredKeyItemName = string.Empty;
                 _requiredKeyItemId = string.Empty;
             }
+
+            SyncStateTags();
 
 #if UNITY_EDITOR
             if (IsWorldContainer)
@@ -158,6 +164,78 @@ namespace Sol
         private static string NormalizeOwnerIdOrEmpty(string rawOwnerId)
         {
             return ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(rawOwnerId);
+        }
+
+        public void SetRuntimeTag(string tagPath, bool enabled)
+        {
+            _tags ??= new GameplayTagSet();
+            if (enabled)
+                _tags.AddRuntimeTagPath(tagPath);
+            else
+                _tags.RemoveRuntimeTagPath(tagPath);
+
+            SyncLegacyFieldsFromTags();
+        }
+
+        public List<string> CollectTagPaths()
+        {
+            return Tags.CaptureTagPaths();
+        }
+
+        public void ApplySavedTagPaths(IEnumerable<string> tagPaths)
+        {
+            _tags ??= new GameplayTagSet();
+            _tags.AddRuntimeTagPaths(tagPaths);
+            SyncLegacyFieldsFromTags();
+            SyncStateTags();
+        }
+
+        private void SyncStateTags()
+        {
+            _tags ??= new GameplayTagSet();
+            _tags.Normalize();
+
+            if (!IsWorldContainer)
+            {
+                _tags.RemoveRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StateLocked);
+                _tags.RemoveRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StateLockpickable);
+                _tags.RemoveRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StateOwned);
+                _tags.RemoveRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StatePrivate);
+                _tags.AddRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StatePublic);
+                return;
+            }
+
+            if (_isLocked)
+                _tags.AddRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StateLocked);
+            else
+                _tags.RemoveRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StateLocked);
+
+            if (_isLockpickable)
+                _tags.AddRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StateLockpickable);
+            else
+                _tags.RemoveRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StateLockpickable);
+
+            if (HasOwner)
+            {
+                _tags.AddRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StateOwned);
+                _tags.AddRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StatePrivate);
+                _tags.RemoveRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StatePublic);
+            }
+            else
+            {
+                _tags.RemoveRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StateOwned);
+                _tags.RemoveRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StatePrivate);
+                _tags.AddRuntimeTagPath(Sol.Rpg.GameplayCapabilityTags.StatePublic);
+            }
+        }
+
+        private void SyncLegacyFieldsFromTags()
+        {
+            if (_tags == null)
+                return;
+
+            _isLocked = _tags.HasTagOrChild(Sol.Rpg.GameplayCapabilityTags.StateLocked);
+            _isLockpickable = _tags.HasTagOrChild(Sol.Rpg.GameplayCapabilityTags.StateLockpickable);
         }
     }
 }

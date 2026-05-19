@@ -122,6 +122,16 @@ namespace Sol.Editor
         }
     }
 
+    [CustomPropertyDrawer(typeof(StatIdDropdownAttribute))]
+    public sealed class StatIdDropdownDrawer : PropertyDrawer
+    {
+        public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
+        {
+            StatIdDropdownAttribute config = (StatIdDropdownAttribute)attribute;
+            ReferenceDropdown.DrawStat(position, label, property, config?.AllowEmpty ?? true);
+        }
+    }
+
     [CustomPropertyDrawer(typeof(GameplayTagIdDropdownAttribute))]
     public sealed class GameplayTagIdDropdownDrawer : PropertyDrawer
     {

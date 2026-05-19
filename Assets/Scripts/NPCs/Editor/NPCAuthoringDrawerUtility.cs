@@ -92,9 +92,8 @@ namespace Sol.Editor
 
             EditorGUILayout.Space(4f);
             DrawArchetype(serializedObject);
-            DrawProperty(serializedObject, "_canTrade", label: "Trader");
-            DrawProperty(serializedObject, "_isHostile", label: "Hostile");
             DrawProperty(serializedObject, "_tags", label: "Gameplay Tags", includeChildren: true);
+            EditorGUILayout.HelpBox("Trader, quest giver, hostile, and civilian status are controlled by Gameplay Tags.", MessageType.None);
             DrawArchetypeActions(serializedObject, soul);
             DrawProperty(serializedObject, "_authoringNotes");
 
@@ -349,8 +348,8 @@ namespace Sol.Editor
 
             EditorGUILayout.HelpBox(
                 aiNpc.IsTrader
-                    ? "Trader checkbox enables trade options."
-                    : "Trader checkbox is off. Trade-related conversation options are hidden until this NPC can trade.",
+                    ? "Job.Trader tag enables trade options."
+                    : "Add Job.Trader to Gameplay Tags to show trade-related conversation options.",
                 aiNpc.IsTrader ? MessageType.None : MessageType.Info);
 
             SerializedObject aiSO = new(aiNpc);

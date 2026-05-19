@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Sol.Grab;
+using Sol.Rpg;
 using UnityEditor;
 using UnityEngine;
 
@@ -149,7 +150,7 @@ namespace Sol.Editor
                 Icon = icon,
                 WarningCount = warnings.Count,
                 WarningTooltip = JoinWarningMessages(warnings),
-                IsConsumable = entry != null && (entry.IsConsumable || ItemTypeRules.IsConsumableType(entry.ItemType)),
+                IsConsumable = entry != null && entry.HasConsumableTag,
                 IsEquipable = entry != null && ItemTypeRules.IsEquipableType(entry.ItemType),
                 IsStackable = entry != null && entry.IsStackable,
                 MissingIcon = entry?.Icon == null
@@ -708,8 +709,7 @@ namespace Sol.Editor
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("IsStackable"));
             if (entry.FindPropertyRelative("IsStackable")?.boolValue == true)
                 EditorGUILayout.PropertyField(entry.FindPropertyRelative("MaxStackSize"));
-            EditorGUILayout.PropertyField(entry.FindPropertyRelative("IsConsumable"));
-            EditorGUILayout.PropertyField(entry.FindPropertyRelative("IsTradeable"));
+            EditorGUILayout.HelpBox("Consumable and tradeable capability are controlled by Gameplay Tags: Item.Consumable and Item.Tradeable.", MessageType.None);
             EditorGUILayout.Space(4f);
         }
 
@@ -728,14 +728,24 @@ namespace Sol.Editor
         internal static void DrawUseDefinitionSection(SerializedProperty entry)
         {
             SerializedProperty effects = entry.FindPropertyRelative("UseEffects");
-            SerializedProperty consumable = entry.FindPropertyRelative("IsConsumable");
-            if (consumable == null || effects == null || (!consumable.boolValue && effects.arraySize == 0))
+            if (effects == null || (!EntryHasTag(entry, GameplayCapabilityTags.ItemConsumable) && effects.arraySize == 0))
                 return;
 
             EditorGUILayout.LabelField("Use", EditorStyles.boldLabel);
             EditorGUILayout.PropertyField(entry.FindPropertyRelative("UseOccasion"));
             EditorGUILayout.PropertyField(effects, includeChildren: true);
             EditorGUILayout.Space(4f);
+        }
+
+        private static bool EntryHasTag(SerializedProperty entry, string tagPath)
+        {
+            ItemRegistry registry = ItemRegistry.Get();
+            if (registry?.Entries == null || entry == null)
+                return false;
+
+            SerializedProperty idProperty = entry.FindPropertyRelative("ItemId");
+            ItemRegistry.Entry definition = registry.GetDefinition(idProperty?.stringValue);
+            return definition != null && definition.Tags.HasTagOrChild(tagPath);
         }
 
         internal static void DrawEquipmentDefinitionSection(SerializedProperty entry)

@@ -56,6 +56,8 @@ GameObject:
   - component: {fileID: 1206358725295440189}
   - component: {fileID: 2201453678901234568}
   - component: {fileID: 8027193551907499419}
+  - component: {fileID: 911950392055166791}
+  - component: {fileID: -4242577805961254595}
   m_Layer: 10
   m_Name: NPC_Elsbeth
   m_TagString: NPC
@@ -184,6 +186,14 @@ MonoBehaviour:
         ScheduleLocationId: elsbeth_home
         StartHour: 0
         EndHour: 24
+        RequiredSpeakerTags:
+          _tags: []
+        ForbiddenSpeakerTags:
+          _tags: []
+        RequiredPlayerTags:
+          _tags: []
+        ForbiddenPlayerTags:
+          _tags: []
       Options:
       - Label: Trade
         Action: 2
@@ -200,6 +210,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
       - Label: Goodbye
         Action: 1
         NextNodeId: 
@@ -215,6 +233,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
     - NodeId: root_market
       SpeakerLine: Morning prices are kinder before the crowd finds me.
       Visibility:
@@ -225,6 +251,14 @@ MonoBehaviour:
         ScheduleLocationId: elsbeth_market
         StartHour: 0
         EndHour: 24
+        RequiredSpeakerTags:
+          _tags: []
+        ForbiddenSpeakerTags:
+          _tags: []
+        RequiredPlayerTags:
+          _tags: []
+        ForbiddenPlayerTags:
+          _tags: []
       Options:
       - Label: Trade
         Action: 2
@@ -241,6 +275,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
       - Label: Goodbye
         Action: 1
         NextNodeId: 
@@ -256,6 +298,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
     - NodeId: root_tavern
       SpeakerLine: The stall is shut. If you want gossip, though, this is the right
         hour.
@@ -267,6 +317,14 @@ MonoBehaviour:
         ScheduleLocationId: elsbeth_tavern
         StartHour: 0
         EndHour: 24
+        RequiredSpeakerTags:
+          _tags: []
+        ForbiddenSpeakerTags:
+          _tags: []
+        RequiredPlayerTags:
+          _tags: []
+        ForbiddenPlayerTags:
+          _tags: []
       Options:
       - Label: Trade
         Action: 2
@@ -283,6 +341,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
       - Label: Goodbye
         Action: 1
         NextNodeId: 
@@ -298,6 +364,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
     - NodeId: root_social
       SpeakerLine: Breakfast first, bargains second. Unless the bargain is truly
         excellent.
@@ -309,6 +383,14 @@ MonoBehaviour:
         ScheduleLocationId: elsbeth_social
         StartHour: 0
         EndHour: 24
+        RequiredSpeakerTags:
+          _tags: []
+        ForbiddenSpeakerTags:
+          _tags: []
+        RequiredPlayerTags:
+          _tags: []
+        ForbiddenPlayerTags:
+          _tags: []
       Options:
       - Label: Trade
         Action: 2
@@ -325,6 +407,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
       - Label: Goodbye
         Action: 1
         NextNodeId: 
@@ -340,6 +430,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
     - NodeId: root_fallback
       SpeakerLine: What can I do for you?
       Visibility:
@@ -350,6 +448,14 @@ MonoBehaviour:
         ScheduleLocationId: 
         StartHour: 0
         EndHour: 24
+        RequiredSpeakerTags:
+          _tags: []
+        ForbiddenSpeakerTags:
+          _tags: []
+        RequiredPlayerTags:
+          _tags: []
+        ForbiddenPlayerTags:
+          _tags: []
       Options:
       - Label: Trade
         Action: 2
@@ -366,6 +472,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
       - Label: Goodbye
         Action: 1
         NextNodeId: 
@@ -381,6 +495,14 @@ MonoBehaviour:
           ScheduleLocationId: 
           StartHour: 0
           EndHour: 24
+          RequiredSpeakerTags:
+            _tags: []
+          ForbiddenSpeakerTags:
+            _tags: []
+          RequiredPlayerTags:
+            _tags: []
+          ForbiddenPlayerTags:
+            _tags: []
   _conversationFlags: []
   config: {fileID: 11400000, guid: c68c8bbfbee74db438c3a68072420ff1, type: 2}
   patrolRoot: {fileID: 0}
@@ -432,9 +554,15 @@ MonoBehaviour:
   _soulStatsMigrated: 1
   _npcArchetype: 6
   _canTrade: 1
-  _isHostile: 0
+  _isHostile: 1
+  _tags:
+    _tags:
+    - _tagId: TAG00018
+    - _tagId: TAG00004
+    - _tagId: TAG00037
   _authoringNotes: 
   _identityMigratedV2: 1
+  _legacyCapabilityTagsMigrated: 1
 --- !u!114 &5873582968478298247
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -616,6 +744,8 @@ MonoBehaviour:
   _lockLevel: 0
   _requiredKeyItemName: 
   _requiredKeyItemId: 
+  _tags:
+    _tags: []
 --- !u!114 &3943507199344602462
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -786,6 +916,31 @@ MonoBehaviour:
     m_Bits: 4294967295
   _originOverride: {fileID: 0}
   _defaultAttackStyle: 0
+--- !u!114 &911950392055166791
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 325812429563024634}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59ed46e8222c4e649016de7e6bcd72bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Rpg.GameplayStatAggregator
+--- !u!114 &-4242577805961254595
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 325812429563024634}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 792c4d78ca324f5891275cdaa4ba1a8f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Rpg.EquipmentModifierProvider
+  _equipment: {fileID: 3943507199344602462}
 --- !u!1 &390930411455353718
 GameObject:
   m_ObjectHideFlags: 0

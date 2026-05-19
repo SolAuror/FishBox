@@ -10,11 +10,7 @@ namespace Sol.Combat
             get
             {
                 RefreshReferences();
-                if (_playerSoul != null)
-                    return _playerSoul.IsAlive;
-                if (_npcSoul != null)
-                    return _npcSoul.IsAlive;
-                return true;
+                return _vitals?.IsAlive ?? true;
             }
         }
 
@@ -32,11 +28,7 @@ namespace Sol.Combat
             get
             {
                 RefreshReferences();
-                if (_playerSoul != null)
-                    return _playerSoul.Health;
-                if (_npcSoul != null)
-                    return _npcSoul.Health;
-                return 0f;
+                return _vitals?.Health ?? 0f;
             }
         }
 
@@ -45,11 +37,7 @@ namespace Sol.Combat
             get
             {
                 RefreshReferences();
-                if (_playerSoul != null)
-                    return _playerSoul.MaxHealth;
-                if (_npcSoul != null)
-                    return _npcSoul.MaxHealth;
-                return 0f;
+                return _vitals?.MaxHealth ?? 0f;
             }
         }
 
@@ -58,11 +46,7 @@ namespace Sol.Combat
             get
             {
                 RefreshReferences();
-                if (_playerSoul != null)
-                    return _playerSoul.Stamina;
-                if (_npcSoul != null)
-                    return _npcSoul.Stamina;
-                return float.PositiveInfinity;
+                return _vitals?.Stamina ?? float.PositiveInfinity;
             }
         }
 
@@ -71,11 +55,7 @@ namespace Sol.Combat
             get
             {
                 RefreshReferences();
-                if (_playerSoul != null)
-                    return _playerSoul.MaxStamina;
-                if (_npcSoul != null)
-                    return _npcSoul.MaxStamina;
-                return float.PositiveInfinity;
+                return _vitals?.MaxStamina ?? float.PositiveInfinity;
             }
         }
 
@@ -90,7 +70,7 @@ namespace Sol.Combat
             if (cost <= 0f || IgnoresStaminaCosts())
                 return true;
 
-            if (_playerSoul == null && _npcSoul == null)
+            if (_vitals == null)
                 return true;
 
             return Stamina >= cost;
@@ -107,13 +87,7 @@ namespace Sol.Combat
             if (cost <= 0f || IgnoresStaminaCosts())
                 return true;
 
-            bool spent;
-            if (_playerSoul != null)
-                spent = _playerSoul.SpendStamina(cost);
-            else if (_npcSoul != null)
-                spent = _npcSoul.SpendStamina(cost);
-            else
-                spent = true;
+            bool spent = _vitals?.SpendStamina(cost) ?? true;
 
             if (spent)
                 _lastStaminaSpendTime = Time.time;
@@ -124,14 +98,7 @@ namespace Sol.Combat
         public void TakeDamage(float amount)
         {
             RefreshReferences();
-            if (_playerSoul != null)
-            {
-                _playerSoul.TakeDamage(amount);
-                return;
-            }
-
-            if (_npcSoul != null)
-                _npcSoul.TakeDamage(amount);
+            _vitals?.TakeDamage(amount);
         }
 
         private void RegenerateStamina()
@@ -144,10 +111,7 @@ namespace Sol.Combat
                 return;
 
             float amount = regen * Time.deltaTime;
-            if (_playerSoul != null)
-                _playerSoul.RestoreStamina(amount);
-            else if (_npcSoul != null)
-                _npcSoul.RestoreStamina(amount);
+            _vitals?.RestoreStamina(amount);
         }
 
         private bool IgnoresStaminaCosts()

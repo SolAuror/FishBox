@@ -6,7 +6,7 @@
 
 NPC characters use the same locomotion and soul stack as the player, but their intent comes from AI states instead of input. Each NPC has a `NavMeshAgent`, locomotion components, `NPCSoul` identity, and an `AI_NPC` partial class that coordinates state, dialogue, inventory, death/loot, and trading.
 
-The authoring tool seeds NPCs from archetypes such as `Civilian`, `Guard`, `Bandit`, `Quest Giver`, and `Unique`. Traders now use shop ids for merchant stock. NPC inventory still exists, but it is no longer the source of merchant shop stock.
+The authoring tool seeds NPCs from archetypes such as `Civilian`, `Guard`, `Bandit`, `Quest Giver`, and `Unique`. Archetypes are templates that apply gameplay tags; runtime role truth lives in tags such as `Job.Trader`, `Job.QuestGiver`, `Job.Guard`, `Faction.Bandit`, `Actor.Hostile`, and `Actor.Unique`. Traders now use shop ids for merchant stock. NPC inventory still exists, but it is no longer the source of merchant shop stock.
 
 NPCs can also be assigned an `NpcScheduleDefinition` that drives their day — see [NPC Schedules](npc-schedule.md) for the full system.
 
@@ -37,6 +37,7 @@ NPCs can also be assigned an `NpcScheduleDefinition` that drives their day — s
 - Trader interaction/dialogue asks `AI_NPC` for its trade action.
 - If `AI_NPC.ShopId` resolves to a `RpgShopDefinition`, trade opens a `ShopRuntimeSession`.
 - If no shop id is assigned, legacy direct inventory trade can still be used where appropriate.
+- `AI_NPC.IsTrader` reads `Job.Trader`; `AI_NPC.IsQuestGiver` reads `Job.QuestGiver`. Legacy setters add/remove those tags.
 
 ## Trading Model
 
@@ -53,6 +54,7 @@ flowchart TD
 
 Authoring rules:
 
+- Add `Job.Trader` to make an NPC a trader. Add `Job.QuestGiver` to surface quest-offer dialogue. A tagged NPC can gain or lose those roles at runtime.
 - Assign the shop id in the NPC authoring UI.
 - Author merchant stock in the `Shops` tab, not in the NPC inventory.
 - NPC inventory remains for non-shop possessions, loot, quest delivery, and direct/free transfer.
@@ -85,7 +87,7 @@ The `State.Chase` enum value is reserved, but no complete chase state is wired y
 
 ## Persistence
 
-NPCs persist through `NPCSoul`. Save/load captures each soul's position, rotation, health, current state, conversation-ready flags, and non-shop inventory.
+NPCs persist through `NPCSoul`. Save/load captures each soul's position, rotation, health, role/state tag paths, conversation-ready flags, and non-shop inventory.
 
 Merchant shop stock/gold does not persist through NPC inventory. It persists through `ShopSaveData` and restores through `ShopRuntimeStore`.
 
@@ -106,3 +108,4 @@ Schedule state is **not** serialized — it is re-derived from the clock on load
 - Starting a conversation does not automatically stop the `NavMeshAgent`; the active state must provide zero movement if the NPC should stand still.
 - `State.Chase` is a placeholder until a concrete chase state lands.
 - Merchant stock belongs to `RpgShopDefinition` and `ShopRuntimeSession`, not the NPC inventory seed list.
+- Prefer role/status tags over new booleans. `Actor.Hostile`, `Actor.Dead`, `Actor.InCombat`, `Actor.Criminal`, and `Actor.Wanted` can be combined with faction ids/tags for later law and combat behavior.

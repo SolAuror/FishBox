@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
+using Sol.Rpg;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -50,7 +51,7 @@ namespace Sol
     /// Actor inventories are standard "Inventory" type (player/NPC),
     /// while world containers can be locked and owned.
     /// </summary>
-    public partial class Inventory : MonoBehaviour
+    public partial class Inventory : MonoBehaviour, IGameplayTagProvider
     {
         private const string SkeletonKeyItemId = "ITM00006";
         private const string LockpickItemId = "ITM00007";
@@ -79,6 +80,9 @@ namespace Sol
         [Tooltip("Optional key item id in the interactor inventory that can open this while locked.")]
         [ItemIdDropdown]
         [SerializeField] private string _requiredKeyItemId = string.Empty;
+
+        [Header("Tags")]
+        [SerializeField] private GameplayTagSet _tags = new();
 #endregion
 
         private readonly List<InventorySlot> _slots = new();
@@ -111,8 +115,16 @@ namespace Sol
             }
         }
         public bool HasOwner => !string.IsNullOrWhiteSpace(OwnerId);
-        public bool IsLocked => IsWorldContainer && _isLocked;
-        public bool IsLockpickable => IsWorldContainer && _isLockpickable;
+        public GameplayTagSet Tags
+        {
+            get
+            {
+                SyncStateTags();
+                return _tags ?? GameplayTagSet.Empty;
+            }
+        }
+        public bool IsLocked => IsWorldContainer && Tags.HasTagOrChild(GameplayCapabilityTags.StateLocked);
+        public bool IsLockpickable => IsWorldContainer && Tags.HasTagOrChild(GameplayCapabilityTags.StateLockpickable);
         public int LockLevel => IsWorldContainer ? Mathf.Max(0, _lockLevel) : 0;
         public string RequiredKeyItemName => IsWorldContainer ? _requiredKeyItemName : string.Empty;
         public string RequiredKeyItemId => IsWorldContainer ? _requiredKeyItemId : string.Empty;
@@ -137,4 +149,3 @@ namespace Sol
 #endif
     }
 }
-

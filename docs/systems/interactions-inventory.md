@@ -8,10 +8,10 @@ One system covers four jobs that naturally overlap:
 
 - **World interaction**: what the crosshair is pointing at, whether it is usable, and what pressing E does.
 - **Inventory**: a list-style container with stacks, capacity, gold, seeded contents, and world-container ownership/lock rules.
-- **Equipment + item actions**: equipping to bones, using consumables, dropping items, and routing item commands through `ItemActionSystem`.
+- **Equipment + item actions**: equipping to bones, exposing equipped item stat modifiers, using consumables, dropping items, and routing item commands through `ItemActionSystem`.
 - **Trading**: merchant shop trading through shop sessions, plus direct inventory transfer for loot, containers, quest delivery, and debug/free exchange.
 
-Item design is registry-authoritative. `ItemRegistry` owns gameplay-facing design fields, item prefabs are visual/world instances, and `ItemComponent` is the runtime facade that keeps older systems working against live item objects.
+Item design is registry-authoritative. `ItemRegistry` owns gameplay-facing design fields, item prefabs are visual/world instances, and `ItemComponent` is the runtime facade that keeps older systems working against live item objects. Capability and category checks are tag-first: an item is usable, tradeable, equipable, a key, gold, bait, lure, or caught fish because its `GameplayTagSet` says so.
 
 ## Key Files
 
@@ -23,12 +23,13 @@ Item design is registry-authoritative. `ItemRegistry` owns gameplay-facing desig
 - [EquipmentSlotType.cs](../../Assets/Scripts/Inventory/EquipmentSlotType.cs): armor, held, and sheathed equipment slot enum.
 - [ItemRegistry.cs](../../Assets/Scripts/Inventory/ItemOwnership/ItemRegistry.cs): authoritative item definition registry and item-id-to-visual-prefab lookup.
 - [ItemComponent.cs](../../Assets/Scripts/Inventory/ItemOwnership/ItemComponent.cs): pickup-able world item and runtime facade for registry-backed design values.
+- [EquipmentModifierProvider.cs](../../Assets/Scripts/RPG/EquipmentModifierProvider.cs): exposes equipped item stat modifiers to the RPG stat pipeline.
 - [TradeController.cs](../../Assets/Scripts/Inventory/TradeController.cs): direct inventory-to-inventory transfer helper.
 - [ShopRuntimeSession.cs](../../Assets/Scripts/RPG/ShopRuntimeSession.cs): mutable merchant shop state seeded from `RpgShopDefinition`.
 - [ShopRuntimeStore.cs](../../Assets/Scripts/RPG/ShopRuntimeStore.cs): active shop session cache and restore entry point.
 - [ContainerInteractable.cs](../../Assets/Scripts/Interactables/ContainerInteractable.cs): world containers that open loot/direct-transfer UI.
 - [OwnerIdentity.cs](../../Assets/Scripts/Inventory/ItemOwnership/OwnerIdentity.cs) / [OwnerRegistry.cs](../../Assets/Scripts/Inventory/ItemOwnership/OwnerRegistry.cs): stable owner ids for theft and lock rules.
-- [BedSleepInteractable.cs](../../Assets/Scripts/Interactables/BedSleepInteractable.cs): sleep-through-night interactable; talks to [Time of Day](time-of-day.md).
+- [SleepInteractable.cs](../../Assets/Scripts/Interactables/SleepInteractable.cs): sleep-through-night interactable; talks to [Time of Day](time-of-day.md).
 - [CaughtFishItem.cs](../../Assets/Scripts/Fishing/CaughtFishItem.cs): specialized item spawned for caught fish.
 
 ## Item Authority
@@ -36,21 +37,33 @@ Item design is registry-authoritative. `ItemRegistry` owns gameplay-facing desig
 `ItemRegistry.Entry` is the design record. It owns:
 
 - `ItemId`, display name, type, value, icon, and flavor text.
-- Stackability, max stack size, consumable flag, and tradeability.
+- Stackability and max stack size.
+- Gameplay tags for item category and affordances, such as `Item.Consumable`, `Item.Tradeable`, `Item.Equipment`, `Item.Key`, `Item.Currency.Gold`, `Item.Fishing.Bait`, and `Item.Fishing.Lure`.
 - Use occasion and use effects.
 - Damage, defense, equip domain, handing, equip socket, offsets, and allowed equip slots.
+- Runtime gameplay stat modifiers.
 - Authoring template/notes.
 - Visual/world prefab reference.
 
 `ItemComponent` keeps per-instance/runtime state:
 
 - Item id.
-- Owner id and stolen state.
+- Owner id.
+- Runtime state tags such as `State.Owned` and `State.Stolen`.
 - Pickup grip and world/equip transform hooks.
 - Runtime fish code or other specialized dynamic state.
 - The actual GameObject used for pickups, equipped visuals, inventory previews, and trade previews.
 
 When a live item asks for `ItemName`, `Value`, `Icon`, `UseEffects`, `Damage`, or similar fields, `ItemComponent` resolves the definition from `ItemRegistry`. Missing definitions fall back to legacy serialized values with a warning instead of crashing.
+
+Legacy item type and bool fields are still read as a one-version migration shim. They add matching runtime tags, but new gameplay should query tags:
+
+- Use/eat/drink/potion behavior: `Item.Consumable`.
+- Trade/sell behavior: `Item.Tradeable`.
+- Equip behavior: `Item.Equipment`, `Item.Weapon`, or `Item.Armor`.
+- Inventory gold behavior: `Item.Currency.Gold`.
+- Key checks: `Item.Key`.
+- Fishing loadouts: `Item.Fishing.Rod`, `Item.Fishing.Lure`, and `Item.Fishing.Bait`.
 
 ## Entry Points
 
@@ -112,16 +125,19 @@ NPC inventory seed contents are no longer merchant stock. NPC inventories remain
 
 - Containers can be `Inventory` or `Container` mode.
 - World containers can be locked, keyed, lockpickable, and owned.
+- Container state is tag-backed: `State.Locked`, `State.Lockpickable`, `State.Owned`, `State.Private`, and `State.Public`.
 - Owner identity is stable (`OWN#####`) and survives scene reloads/saves via `OwnerRegistry`.
+- Owner ids answer "owned by whom?" while ownership/security tags answer "what law/state behavior applies?"
 - `InventoryAccessResult` distinguishes locked, not-owner, invalid interactor, and allowed results.
 
 ## Adding A New Item
 
 1. Open `Window/Sol/Database` and create the item in the `Items` tab.
-2. Fill registry design fields: name, type, value, icon, flavor text, stack rules, tradeability, use effects, equipment stats, and notes.
-3. Assign or create a visual/world prefab with `ItemComponent`.
-4. Put pickup/equipment visuals, preview mesh/material setup, pickup grip, and specialized runtime components on the prefab.
-5. Author gameplay values in the registry, not on prefab legacy fields.
+2. Fill registry design fields: name, type, value, icon, flavor text, stack rules, tags, use effects, equipment stats, and notes.
+3. Add stat modifiers for runtime combat/vital effects when the item should affect stats such as armor rating, stamina cost, stamina regeneration, outgoing damage, or incoming damage.
+4. Assign or create a visual/world prefab with `ItemComponent`.
+5. Put pickup/equipment visuals, preview mesh/material setup, pickup grip, and specialized runtime components on the prefab.
+6. Author gameplay values in the registry, not on prefab legacy fields.
 
 To migrate older prefab-authored items, run `Tools/Sol/Items/Migrate Prefab Design Into Registry`, then resolve drift warnings in the database overview.
 
@@ -138,8 +154,10 @@ To migrate older prefab-authored items, run `Tools/Sol/Items/Migrate Prefab Desi
 
 - `Equipment.Equip` returns `false` when the slot is occupied. Callers that want equip-or-swap should follow the `ItemActionSystem.ExecuteEquip` pattern.
 - World scale is preserved across bone attach. Do not bypass `Equipment` by re-parenting equipped items manually.
+- `Equipment` ensures an `EquipmentModifierProvider` exists on the actor. Custom equipment flows that bypass `Equipment` will also bypass equipped item stat modifiers.
+- A single equipped item is counted once even if it occupies multiple slots.
 - Consumed inventory items are removed by slot, not by reference. Use `InventorySlot.PopItem()` for per-instance stack handling.
-- `CaughtFishItem` is a subclass of `ItemComponent`. Type checks should use `is ItemComponent`, not exact type equality.
+- Caught fish are item objects tagged with `Item.Fishing.Caught` plus inherited `Fish.*` tags. Prefer tag queries over component checks when matching quests, filters, or bait preferences.
 - Locked containers respect required key name or required key id. Prefer id; names are legacy.
 - Item prefabs are not design authority. They still render, equip, preview, and host specialized components, but gameplay-facing values come from `ItemRegistry`.
 - `RpgShopDefinition` is authored seed data, not mutable runtime state. Runtime shop stock and gold live in `ShopRuntimeSession` and save/load through shop save data.

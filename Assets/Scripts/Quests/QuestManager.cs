@@ -5,6 +5,7 @@ using Sol.AI;
 using Sol.Actions;
 using Sol.Grab;
 using Sol.HUD;
+using Sol.Rpg;
 using Sol.ToD;
 using System.Collections;
 
@@ -50,6 +51,7 @@ namespace Sol.Quests
             public string Prefix;
             public FishRarity Rarity;
             public int Value;
+            public GameplayTagSet Tags;
         }
     }
 }

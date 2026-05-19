@@ -1360,6 +1360,8 @@ GameObject:
   - component: {fileID: 3606666919602049045}
   - component: {fileID: 2201453678901234571}
   - component: {fileID: 946590604252461158}
+  - component: {fileID: 7122664830240541221}
+  - component: {fileID: 5372426293130193358}
   m_Layer: 10
   m_Name: NPC_Garus
   m_TagString: NPC
@@ -1508,8 +1510,13 @@ MonoBehaviour:
   _npcArchetype: 1
   _canTrade: 0
   _isHostile: 0
+  _tags:
+    _tags:
+    - _tagId: TAG00005
+    - _tagId: TAG00037
   _authoringNotes: 
   _identityMigratedV2: 1
+  _legacyCapabilityTagsMigrated: 1
 --- !u!114 &6086372019348665044
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1709,6 +1716,8 @@ MonoBehaviour:
   _lockLevel: 0
   _requiredKeyItemName: 
   _requiredKeyItemId: 
+  _tags:
+    _tags: []
 --- !u!114 &3912491570957861099
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1879,6 +1888,31 @@ MonoBehaviour:
     m_Bits: 4294967295
   _originOverride: {fileID: 0}
   _defaultAttackStyle: 0
+--- !u!114 &7122664830240541221
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4089207878467959076}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59ed46e8222c4e649016de7e6bcd72bd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Rpg.GameplayStatAggregator
+--- !u!114 &5372426293130193358
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4089207878467959076}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 792c4d78ca324f5891275cdaa4ba1a8f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Sol.Rpg.EquipmentModifierProvider
+  _equipment: {fileID: 3912491570957861099}
 --- !u!1 &4100392470388779022
 GameObject:
   m_ObjectHideFlags: 0

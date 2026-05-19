@@ -83,6 +83,57 @@ namespace Sol.Rpg
             ClearCache();
         }
 
+        public void AddSerializedTagPath(string tagPath)
+        {
+            if (ReferenceEquals(this, Empty))
+                return;
+
+            string normalizedPath = GameplayTagUtility.NormalizePathOrEmpty(tagPath);
+            if (string.IsNullOrEmpty(normalizedPath))
+                return;
+
+            GameplayTagDefinition definition = RpgDefinitionRegistry.Get()?.GetTagByPath(normalizedPath);
+            if (definition != null)
+            {
+                AddSerializedTagId(definition.Id);
+                return;
+            }
+
+            AddRuntimeTagPath(normalizedPath);
+        }
+
+        public void RemoveSerializedTagId(string tagId)
+        {
+            if (ReferenceEquals(this, Empty) || _tags == null)
+                return;
+
+            string normalizedId = EntityCodeUtility.NormalizeOrEmpty(tagId, RpgDefinitionIds.TagPrefix);
+            if (string.IsNullOrEmpty(normalizedId))
+                return;
+
+            for (int i = _tags.Count - 1; i >= 0; i--)
+            {
+                if (string.Equals(_tags[i]?.TagId, normalizedId, StringComparison.OrdinalIgnoreCase))
+                    _tags.RemoveAt(i);
+            }
+
+            ClearCache();
+        }
+
+        public void RemoveSerializedTagPath(string tagPath)
+        {
+            if (ReferenceEquals(this, Empty) || _tags == null)
+                return;
+
+            string normalizedPath = GameplayTagUtility.NormalizePathOrEmpty(tagPath);
+            if (string.IsNullOrEmpty(normalizedPath))
+                return;
+
+            GameplayTagDefinition definition = RpgDefinitionRegistry.Get()?.GetTagByPath(normalizedPath);
+            if (definition != null)
+                RemoveSerializedTagId(definition.Id);
+        }
+
         public bool HasExact(string tagIdOrPath)
         {
             if (string.IsNullOrWhiteSpace(tagIdOrPath))
@@ -146,6 +197,54 @@ namespace Sol.Rpg
             return false;
         }
 
+        public bool HasAllTagsOrChildren(GameplayTagSet requiredTags)
+        {
+            if (requiredTags == null)
+                return true;
+
+            foreach (string path in requiredTags.EnumerateTagPaths())
+            {
+                if (!HasTagOrChild(path))
+                    return false;
+            }
+
+            return true;
+        }
+
+        public bool HasNoTagsOrChildren(GameplayTagSet forbiddenTags)
+        {
+            if (forbiddenTags == null)
+                return true;
+
+            foreach (string path in forbiddenTags.EnumerateTagPaths())
+            {
+                if (HasTagOrChild(path))
+                    return false;
+            }
+
+            return true;
+        }
+
+        public bool HasAnyTagOrChild(GameplayTagSet candidateTags)
+        {
+            if (candidateTags == null)
+                return false;
+
+            foreach (string path in candidateTags.EnumerateTagPaths())
+            {
+                if (HasTagOrChild(path))
+                    return true;
+            }
+
+            return false;
+        }
+
+        public bool IsEmpty()
+        {
+            EnsureCache();
+            return _ids.Count == 0 && _paths.Count == 0;
+        }
+
         public IEnumerable<string> EnumerateTagIds()
         {
             if (_tags == null)
@@ -180,6 +279,15 @@ namespace Sol.Rpg
             ClearCache();
         }
 
+        public void AddRuntimeTagPaths(IEnumerable<string> tagPaths)
+        {
+            if (tagPaths == null)
+                return;
+
+            foreach (string path in tagPaths)
+                AddRuntimeTagPath(path);
+        }
+
         public void AddRuntimeTagId(string tagId)
         {
             if (ReferenceEquals(this, Empty))
@@ -207,6 +315,19 @@ namespace Sol.Rpg
             ClearCache();
         }
 
+        public void RemoveRuntimeTagId(string tagId)
+        {
+            if (ReferenceEquals(this, Empty))
+                return;
+
+            string normalizedId = EntityCodeUtility.NormalizeOrEmpty(tagId, RpgDefinitionIds.TagPrefix);
+            if (string.IsNullOrEmpty(normalizedId) || _runtimeIds == null)
+                return;
+
+            _runtimeIds.Remove(normalizedId);
+            ClearCache();
+        }
+
         public void ClearRuntimeTagsWithPrefix(string tagPathPrefix)
         {
             if (ReferenceEquals(this, Empty))
@@ -221,6 +342,19 @@ namespace Sol.Rpg
 
             _runtimePaths.RemoveWhere(path => GameplayTagUtility.IsChildOfOrEqual(path, prefix));
             ClearCache();
+        }
+
+        public List<string> CaptureTagPaths()
+        {
+            List<string> result = new();
+            foreach (string path in EnumerateTagPaths())
+            {
+                if (!string.IsNullOrWhiteSpace(path) && !result.Contains(path))
+                    result.Add(path);
+            }
+
+            result.Sort(StringComparer.OrdinalIgnoreCase);
+            return result;
         }
 
         public void ClearCache()

@@ -10,7 +10,7 @@ namespace Sol.SaveLoad
     public class GameSaveData                               // Root class for all save data. Contains metadata and all relevant game state data for saving and loading.
     {
         public const int InitialVersion = 1;                // First version of the save data structure.
-        public const int CurrentVersion = 9;                // SaveVersion 9 stores Time.CurrentTime as midnight-based civil-day progress.
+        public const int CurrentVersion = 10;               // SaveVersion 10 stores runtime gameplay tag snapshots.
 
         public int SaveVersion = CurrentVersion;            // Used to handle loading old save versions and applying necessary conversions.
 
@@ -21,6 +21,7 @@ namespace Sol.SaveLoad
         public List<NPCSaveData> NPCs = new();              // Data for NPCs, including position, health, inventory, etc.
         public List<CaughtFishData> CaughtFish = new();     // Data for fish caught by the player, used to populate the fish encyclopedia.
         public List<WorldItemSaveData> WorldItems = new(); // Data for items placed in the world (e.g. dropped items), including position and rotation.
+        public List<InteractionPointSaveData> InteractionPoints = new();
         public List<QuestSaveData> Quests = new();          // Quest runtime states (active/ready/completed/failed). SaveVersion 4.
         public List<ShopSaveData> Shops = new();            // Mutable RPG shop runtime states. SaveVersion 8.
     }
@@ -47,6 +48,7 @@ namespace Sol.SaveLoad
         public float Stamina;
         public float MaxStamina;
         public int Gold;
+        public List<string> TagPaths = new();
         public List<ItemInstanceSaveData> InventoryItems = new();
         public List<EquippedItemSaveData> EquippedItems = new();
     }
@@ -72,6 +74,7 @@ namespace Sol.SaveLoad
         public bool IsLocked;
         public int LockLevel;
         public int Gold;
+        public List<string> TagPaths = new();
         public List<ItemInstanceSaveData> Items = new();
     }
 
@@ -82,6 +85,7 @@ namespace Sol.SaveLoad
         public string OwnerId = string.Empty;
         public bool IsStolen;
         public string FishCode = string.Empty;
+        public List<string> TagPaths = new();
     }
 
     [Serializable]
@@ -91,8 +95,18 @@ namespace Sol.SaveLoad
         public string OwnerId = string.Empty;
         public bool IsStolen;
         public string FishCode = string.Empty;
+        public List<string> TagPaths = new();
         public SerializableVector3 Position;
         public SerializableQuaternion Rotation;
+    }
+
+    [Serializable]
+    public class InteractionPointSaveData
+    {
+        public string InteractionPointId = string.Empty;
+        public string HierarchyPath = string.Empty;
+        public string GameObjectName = string.Empty;
+        public List<string> TagPaths = new();
     }
 
     [Serializable]
@@ -116,6 +130,7 @@ namespace Sol.SaveLoad
         public bool HasRuntimeFlags;
         public bool CanTrade;
         public bool IsHostile;
+        public List<string> TagPaths = new();
         public int Gold;
         public List<ItemInstanceSaveData> InventoryItems = new();
         public List<string> ConversationFlags = new();

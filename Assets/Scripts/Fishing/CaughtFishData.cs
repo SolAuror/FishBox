@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Sol.AI {
@@ -29,6 +30,7 @@ namespace Sol.AI {
         public float rarityPercent;
         public string prefix;
         public bool isPredator;
+        public List<string> tagPaths = new();
 
         public CaughtFishData(string code, FishDefinition species, float size, float weight, FishRarity rarity, float rarityPercent, string prefix, bool isPredator) {
             this.fishCode = code;

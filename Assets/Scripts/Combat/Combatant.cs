@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Sol.AI;
 using Sol.Grab;
 using Sol.Player;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol.Combat
@@ -26,11 +27,20 @@ namespace Sol.Combat
         private readonly HashSet<ItemComponent> _armorScratch = new();
         private PlayerSoul _playerSoul;
         private NPCSoul _npcSoul;
+        private IActorVitals _vitals;
         private Equipment _equipment;
         private float _lastStaminaSpendTime = float.NegativeInfinity;
 
         public PlayerSoul PlayerSoul => _playerSoul;
         public NPCSoul NpcSoul => _npcSoul;
+        public IActorVitals Vitals
+        {
+            get
+            {
+                RefreshReferences();
+                return _vitals;
+            }
+        }
         public Equipment Equipment => _equipment;
         public bool IsPlayer => _playerSoul != null;
         public bool IsNpc => _npcSoul != null;

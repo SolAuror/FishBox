@@ -197,7 +197,7 @@ namespace Sol.Editor
             IReadOnlyList<ItemUseEffect> effects = definition.UseEffects;
             int effectCount = effects?.Count ?? 0;
 
-            bool isConsumable = definition.IsConsumable || ItemTypeRules.IsConsumableType(definition.ItemType);
+            bool isConsumable = definition.HasConsumableTag;
             if (isConsumable && definition.UseOccasion != ItemUseOccasion.Never && effectCount == 0)
                 warnings.Add(new ItemAuthoringWarning(ItemAuthoringWarningSeverity.Warning, "Consumable item has no use effects."));
 

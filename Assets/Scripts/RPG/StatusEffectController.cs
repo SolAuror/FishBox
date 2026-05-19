@@ -20,11 +20,13 @@ namespace Sol.Rpg
         private void OnEnable()
         {
             RebuildGrantedTags();
+            MarkProviderCacheDirty();
         }
 
         private void OnDisable()
         {
             ClearGrantedRuntimeTags();
+            MarkProviderCacheDirty();
         }
 
         public bool Apply(StatusEffectDefinition definition, GameObject source = null)
@@ -334,6 +336,12 @@ namespace Sol.Rpg
                 if (_activeEffects[i] == null)
                     _activeEffects.RemoveAt(i);
             }
+        }
+
+        private void MarkProviderCacheDirty()
+        {
+            if (TryGetComponent(out GameplayStatAggregator aggregator))
+                aggregator.MarkDirty();
         }
     }
 }

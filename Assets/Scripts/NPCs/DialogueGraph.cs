@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Sol.Rpg;
 using Sol.Quests;
 using UnityEngine;
 
@@ -103,6 +104,11 @@ namespace Sol.AI
         [Tooltip("For TimeWindow: exclusive end hour in sky-aligned civil time. Can wrap past midnight.")]
         [Range(0f, 24f)]
         public float EndHour = 24f;
+
+        public GameplayTagSet RequiredSpeakerTags = new();
+        public GameplayTagSet ForbiddenSpeakerTags = new();
+        public GameplayTagSet RequiredPlayerTags = new();
+        public GameplayTagSet ForbiddenPlayerTags = new();
     }
 
     public enum DialogueVisibilityRule

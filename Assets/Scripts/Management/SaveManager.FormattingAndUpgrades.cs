@@ -89,12 +89,62 @@ namespace Sol.SaveLoad
             data.NPCs ??= new List<NPCSaveData>();
             data.CaughtFish ??= new List<CaughtFishData>();
             data.WorldItems ??= new List<WorldItemSaveData>();
+            data.InteractionPoints ??= new List<InteractionPointSaveData>();
             data.Quests ??= new List<Sol.Quests.QuestSaveData>();
+            data.Player.TagPaths ??= new List<string>();
+            for (int i = 0; i < data.Player.InventoryItems.Count; i++)
+                if (data.Player.InventoryItems[i] != null)
+                    data.Player.InventoryItems[i].TagPaths ??= new List<string>();
+
+            for (int i = 0; i < data.Player.EquippedItems.Count; i++)
+                if (data.Player.EquippedItems[i]?.Item != null)
+                    data.Player.EquippedItems[i].Item.TagPaths ??= new List<string>();
+
+            for (int i = 0; i < data.Containers.Count; i++)
+            {
+                ContainerSaveData container = data.Containers[i];
+                if (container == null)
+                    continue;
+
+                container.TagPaths ??= new List<string>();
+                if (container.IsLocked)
+                    container.TagPaths.Add(Sol.Rpg.GameplayCapabilityTags.StateLocked);
+
+                for (int itemIndex = 0; itemIndex < container.Items.Count; itemIndex++)
+                    if (container.Items[itemIndex] != null)
+                        container.Items[itemIndex].TagPaths ??= new List<string>();
+            }
+
             for (int i = 0; i < data.NPCs.Count; i++)
             {
-                if (data.NPCs[i] != null)
-                    data.NPCs[i].ConversationFlags ??= new List<string>();
+                if (data.NPCs[i] == null)
+                    continue;
+
+                data.NPCs[i].ConversationFlags ??= new List<string>();
+                data.NPCs[i].TagPaths ??= new List<string>();
+                if (data.NPCs[i].CanTrade)
+                    data.NPCs[i].TagPaths.Add(Sol.Rpg.GameplayCapabilityTags.JobTrader);
+                if (data.NPCs[i].IsHostile)
+                    data.NPCs[i].TagPaths.Add(Sol.Rpg.GameplayCapabilityTags.ActorHostile);
+                for (int itemIndex = 0; itemIndex < data.NPCs[i].InventoryItems.Count; itemIndex++)
+                    if (data.NPCs[i].InventoryItems[itemIndex] != null)
+                        data.NPCs[i].InventoryItems[itemIndex].TagPaths ??= new List<string>();
             }
+
+            for (int i = 0; i < data.WorldItems.Count; i++)
+            {
+                WorldItemSaveData item = data.WorldItems[i];
+                if (item == null)
+                    continue;
+
+                item.TagPaths ??= new List<string>();
+                if (item.IsStolen)
+                    item.TagPaths.Add(Sol.Rpg.GameplayCapabilityTags.StateStolen);
+            }
+
+            for (int i = 0; i < data.CaughtFish.Count; i++)
+                if (data.CaughtFish[i] != null)
+                    data.CaughtFish[i].tagPaths ??= new List<string>();
 
             switch (data.SaveVersion)
             {

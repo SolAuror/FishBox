@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Serialization;
 using Sol.AI;
 using Sol;
+using Sol.Rpg;
 
 namespace Sol.Quests
 {
@@ -58,6 +59,10 @@ namespace Sol.Quests
 
         [Tooltip("For EquipItem: optional tag on ItemComponent (e.g. 'Lure', 'Bait') when acceptable ids are empty.")]
         public string ItemTag = string.Empty;
+        public GameplayTagSet AcceptableItemTags = new();
+        public GameplayTagSet AcceptableFishTags = new();
+        public GameplayTagSet AcceptableNpcTags = new();
+        public GameplayTagSet AcceptableInteractionTags = new();
 
         [Tooltip("For EquipItem: when true, restrict matching to the selected equipment slot.")]
         public bool MatchSlot = false;

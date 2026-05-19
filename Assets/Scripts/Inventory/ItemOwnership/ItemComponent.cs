@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using Sol.Actions;
+using Sol.Fishing;
 using Sol.Outline;
 using Sol.Rpg;
 
@@ -154,8 +155,10 @@ namespace Sol.Grab
         [SerializeField] [Min(0f)] private float _weight;
         [Tooltip("Inspector: tunes is stackable.")]
         [SerializeField] private bool _isStackable;
+        [HideInInspector]
         [SerializeField] private bool _isConsumable;
         [Tooltip("Inspector: tunes is tradeable.")]
+        [HideInInspector]
         [SerializeField] private bool _isTradeable = true;
         [Tooltip("Inspector: tunes max stack size.")]
         [SerializeField] private int _maxStackSize = 1;
@@ -189,6 +192,9 @@ namespace Sol.Grab
         [SerializeField] private ItemAuthoringTemplate _authoringTemplate = ItemAuthoringTemplate.None;
         [SerializeField] [TextArea] private string _itemAuthoringNotes = string.Empty;
         [SerializeField] [HideInInspector] private bool _legacyDesignMigratedToRegistry;
+
+        [Header("Tags")]
+        [SerializeField] private GameplayTagSet _runtimeTags = new();
         #endregion
 
         private GameObject _lastInteractorOwner;
@@ -208,25 +214,32 @@ namespace Sol.Grab
         }
         public GameObject ItemOwner => ResolveOwnerReference();
         public bool HasOwner => !string.IsNullOrWhiteSpace(ItemOwnerId);
-        public bool IsStolen => _isStolen;
+        public bool IsStolen => Tags.HasTagOrChild(GameplayCapabilityTags.StateStolen);
         public int Value => Definition != null ? Definition.Value : _value;
         public float Weight => Definition != null ? Definition.Weight : _weight;
         public string FlavourText => Definition != null ? Definition.FlavourText : _flavourText;
         public Sprite Icon => Definition != null ? Definition.Icon : _icon;
         public bool IsStackable => Definition != null ? Definition.IsStackable : _isStackable;
-        public bool IsConsumable => Definition != null ? Definition.IsConsumable || ItemTypeRules.IsConsumableType(Definition.ItemType) : _isConsumable || ItemTypeRules.IsConsumableType(_itemType);
-        public bool IsTradeable => Definition != null ? Definition.IsTradeable : _isTradeable;
+        public bool IsConsumable => Tags.HasTagOrChild(GameplayCapabilityTags.ItemConsumable);
+        public bool IsTradeable => Tags.HasTagOrChild(GameplayCapabilityTags.ItemTradeable);
         public int MaxStackSize => Definition != null ? Definition.MaxStackSize : _maxStackSize;
         public ItemUseOccasion UseOccasion => Definition != null ? Definition.UseOccasion : _useOccasion;
         public IReadOnlyList<ItemUseEffect> UseEffects => Definition != null ? Definition.UseEffects : _useEffects;
-        public GameplayTagSet Tags => Definition != null ? Definition.Tags : GameplayTagSet.Empty;
+        public GameplayTagSet Tags
+        {
+            get
+            {
+                SyncRuntimeTagsFromDefinitionAndLegacy();
+                return _runtimeTags ?? GameplayTagSet.Empty;
+            }
+        }
         public GameplayStatModifierSet StatModifiers => Definition != null ? Definition.StatModifiers : null;
         public bool CanUseFromInventory => IsConsumable && UseOccasion != ItemUseOccasion.Never;
-        public float Damage => ItemTypeRules.UsesWeaponStats(Type) ? (Definition != null ? Definition.Damage : _damage) : 0f;
-        public float Defense => ItemTypeRules.UsesArmorStats(Type) ? (Definition != null ? Definition.Defense : _defense) : 0f;
-        public string EquipBone => ItemTypeRules.UsesEquipmentSettings(Type) ? (Definition != null ? Definition.EquipBone : _equipBone) : string.Empty;
-        public Vector3 EquipOffset => ItemTypeRules.UsesEquipmentSettings(Type) ? (Definition != null ? Definition.EquipOffset : _equipOffset) : Vector3.zero;
-        public Vector3 EquipRotation => ItemTypeRules.UsesEquipmentSettings(Type) ? (Definition != null ? Definition.EquipRotation : _equipRotation) : Vector3.zero;
+        public float Damage => ItemTypeRules.UsesWeaponStats(this) ? (Definition != null ? Definition.Damage : _damage) : 0f;
+        public float Defense => ItemTypeRules.UsesArmorStats(this) ? (Definition != null ? Definition.Defense : _defense) : 0f;
+        public string EquipBone => ItemTypeRules.UsesEquipmentSettings(this) ? (Definition != null ? Definition.EquipBone : _equipBone) : string.Empty;
+        public Vector3 EquipOffset => ItemTypeRules.UsesEquipmentSettings(this) ? (Definition != null ? Definition.EquipOffset : _equipOffset) : Vector3.zero;
+        public Vector3 EquipRotation => ItemTypeRules.UsesEquipmentSettings(this) ? (Definition != null ? Definition.EquipRotation : _equipRotation) : Vector3.zero;
         public EquipDomain EquipCategory => Definition != null ? Definition.EquipDomain : _equipDomain;
         public WeaponHanding WeaponHanding => Definition != null ? Definition.WeaponHanding : _weaponHanding;
         public IReadOnlyList<EquipmentSlotType> AllowedEquipSlots => Definition != null ? Definition.AllowedEquipSlots : _allowedEquipSlots;
@@ -272,10 +285,10 @@ namespace Sol.Grab
         public List<ItemActionType> GetAvailableActions()
         {
             List<ItemActionType> actions = new(3);
-            if (CanUseFromInventory && ItemTypeRules.SupportsAction(Type, IsConsumable, ItemActionType.Use))
+            if (ItemTypeRules.SupportsAction(this, ItemActionType.Use))
                 actions.Add(ItemActionType.Use);
 
-            if (ItemTypeRules.SupportsAction(Type, IsConsumable, ItemActionType.Equip))
+            if (ItemTypeRules.SupportsAction(this, ItemActionType.Equip))
                 actions.Add(ItemActionType.Equip);
 
             actions.Add(ItemActionType.Drop);
@@ -284,9 +297,9 @@ namespace Sol.Grab
 
         public ItemActionType GetPrimaryAction()
         {
-            if (CanUseFromInventory && ItemTypeRules.SupportsAction(Type, IsConsumable, ItemActionType.Use))
+            if (ItemTypeRules.SupportsAction(this, ItemActionType.Use))
                 return ItemActionType.Use;
-            if (ItemTypeRules.SupportsAction(Type, IsConsumable, ItemActionType.Equip))
+            if (ItemTypeRules.SupportsAction(this, ItemActionType.Equip))
                 return ItemActionType.Equip;
             return ItemActionType.Drop;
         }
@@ -344,7 +357,7 @@ namespace Sol.Grab
 
         public bool WouldBeStealing(GameObject actor)
         {
-            if (actor == null || !actor.CompareTag("Player"))
+            if (!IsPlayerActor(actor))
                 return false;
 
             if (!HasOwner)
@@ -356,12 +369,14 @@ namespace Sol.Grab
         public void SetStolen(bool stolen)
         {
             _isStolen = stolen;
+            SetRuntimeTag(GameplayCapabilityTags.StateStolen, stolen);
         }
 
         public void SetOwner(GameObject owner)
         {
             _itemOwner = owner;
             _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(OwnerRegistry.ResolveOwnerId(owner));
+            SyncOwnershipTags();
         }
 
         public void SetOwnerId(string ownerId)
@@ -369,6 +384,34 @@ namespace Sol.Grab
             _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(ownerId);
             _itemOwner = null;
             ResolveOwnerReference();
+            SyncOwnershipTags();
+        }
+
+        public bool HasTag(string tagPath)
+        {
+            return Tags.HasTagOrChild(tagPath);
+        }
+
+        public void SetRuntimeTag(string tagPath, bool enabled)
+        {
+            _runtimeTags ??= new GameplayTagSet();
+            if (enabled)
+                _runtimeTags.AddRuntimeTagPath(tagPath);
+            else
+                _runtimeTags.RemoveRuntimeTagPath(tagPath);
+        }
+
+        public List<string> CollectTagPaths()
+        {
+            return Tags.CaptureTagPaths();
+        }
+
+        public void ApplySavedTagPaths(IEnumerable<string> tagPaths)
+        {
+            _runtimeTags ??= new GameplayTagSet();
+            _runtimeTags.AddRuntimeTagPaths(tagPaths);
+            _isStolen = _runtimeTags.HasTagOrChild(GameplayCapabilityTags.StateStolen);
+            SyncOwnershipTags();
         }
 
         public void ConfigureRuntimeItem(string itemName, int value, string flavourText = null, Sprite icon = null)
@@ -444,7 +487,7 @@ namespace Sol.Grab
 
         private bool ShouldShowStealPrompt()
         {
-            if (_lastInteractorOwner == null || !_lastInteractorOwner.CompareTag("Player"))
+            if (!IsPlayerActor(_lastInteractorOwner))
                 return false;
 
             if (!HasOwner)
@@ -473,6 +516,8 @@ namespace Sol.Grab
 
         private void ApplyRuntimeValidation()
         {
+            _runtimeTags ??= new GameplayTagSet();
+            _runtimeTags.Normalize();
             _itemName = string.IsNullOrWhiteSpace(_itemName) ? "Item" : _itemName.Trim();
             _value = _itemType == ItemType.Gold ? 1 : Mathf.Max(0, _value);
             _weight = Mathf.Max(0f, _weight);
@@ -482,6 +527,102 @@ namespace Sol.Grab
             _itemAuthoringNotes = _itemAuthoringNotes?.Trim() ?? string.Empty;
             if (_itemOwner != null)
                 _itemOwnerId = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(OwnerRegistry.ResolveOwnerId(_itemOwner));
+
+            SyncRuntimeTagsFromDefinitionAndLegacy();
+        }
+
+        private void SyncRuntimeTagsFromDefinitionAndLegacy()
+        {
+            _runtimeTags ??= new GameplayTagSet();
+            _runtimeTags.Normalize();
+
+            Sol.ItemRegistry.Entry definition = Definition;
+            if (definition != null && definition.Tags != null)
+                _runtimeTags.AddRuntimeTagPaths(definition.Tags.EnumerateTagPaths());
+
+            if (_isConsumable || ItemTypeRules.IsConsumableType(_itemType))
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.ItemConsumable);
+
+            if (_isTradeable || _itemType == ItemType.Gold)
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.ItemTradeable);
+
+            AddLegacyItemTypeTags(Type);
+            AddFishingComponentTags();
+            SyncOwnershipTags();
+
+            if (_isStolen)
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.StateStolen);
+        }
+
+        private void AddLegacyItemTypeTags(ItemType type)
+        {
+            AddRuntimeTagForItemType(type);
+
+            if (ItemTypeRules.IsEquipableType(type))
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.ItemEquipment);
+
+            if (type == ItemType.Gold)
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.ItemCurrency);
+        }
+
+        private void AddRuntimeTagForItemType(ItemType type)
+        {
+            string tagPath = type switch
+            {
+                ItemType.Weapon => GameplayCapabilityTags.ItemWeapon,
+                ItemType.Armor => GameplayCapabilityTags.ItemArmor,
+                ItemType.Equipable => GameplayCapabilityTags.ItemEquipment,
+                ItemType.Material => GameplayCapabilityTags.ItemMaterial,
+                ItemType.Food => GameplayCapabilityTags.ItemFood,
+                ItemType.Drink => GameplayCapabilityTags.ItemDrink,
+                ItemType.Potion => GameplayCapabilityTags.ItemPotion,
+                ItemType.Key => GameplayCapabilityTags.ItemKey,
+                ItemType.QuestItem => GameplayCapabilityTags.ItemQuest,
+                ItemType.Gold => GameplayCapabilityTags.ItemCurrencyGold,
+                _ => string.Empty
+            };
+
+            if (!string.IsNullOrWhiteSpace(tagPath))
+                _runtimeTags.AddRuntimeTagPath(tagPath);
+        }
+
+        private void AddFishingComponentTags()
+        {
+            if (GetComponent<FishingRodItem>() != null)
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.ItemFishingRod);
+
+            if (GetComponent<FishingBaitItem>() != null)
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.ItemFishingBait);
+
+            if (GetComponent<FishingLureItem>() != null)
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.ItemFishingLure);
+
+            if (GetComponent<CaughtFishItem>() != null)
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.ItemFishingCaught);
+        }
+
+        private void SyncOwnershipTags()
+        {
+            _runtimeTags ??= new GameplayTagSet();
+            if (HasOwner)
+            {
+                _runtimeTags.AddRuntimeTagPath(GameplayCapabilityTags.StateOwned);
+                return;
+            }
+
+            _runtimeTags.RemoveRuntimeTagPath(GameplayCapabilityTags.StateOwned);
+        }
+
+        private static bool IsPlayerActor(GameObject actor)
+        {
+            if (actor == null)
+                return false;
+
+            IGameplayTagProvider provider = actor.GetComponentInParent<IGameplayTagProvider>();
+            if (provider != null && provider.Tags.HasTagOrChild(GameplayCapabilityTags.ActorPlayer))
+                return true;
+
+            return actor.CompareTag("Player");
         }
     }
 }

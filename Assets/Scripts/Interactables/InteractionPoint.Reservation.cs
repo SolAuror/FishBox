@@ -1,4 +1,5 @@
 using UnityEngine;
+using Sol.Rpg;
 
 namespace Sol
 {
@@ -21,6 +22,8 @@ namespace Sol
 
             _reservedInteractor = interactor;
             _reservationExpiresAt = Time.time + Mathf.Max(0.1f, reservationDuration);
+            _tags ??= new GameplayTagSet();
+            _tags.AddRuntimeTagPath(GameplayCapabilityTags.StateReserved);
             return true;
         }
 
@@ -33,6 +36,8 @@ namespace Sol
             {
                 _reservedInteractor = null;
                 _reservationExpiresAt = 0f;
+                _tags ??= new GameplayTagSet();
+                _tags.RemoveRuntimeTagPath(GameplayCapabilityTags.StateReserved);
             }
         }
 
@@ -65,6 +70,8 @@ namespace Sol
 
             _reservedInteractor = null;
             _reservationExpiresAt = 0f;
+            _tags ??= new GameplayTagSet();
+            _tags.RemoveRuntimeTagPath(GameplayCapabilityTags.StateReserved);
         }
     }
 }

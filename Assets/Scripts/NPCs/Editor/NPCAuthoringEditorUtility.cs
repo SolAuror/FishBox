@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using Sol.AI;
+using Sol.Rpg;
 using UnityEditor;
 using UnityEngine;
 
@@ -92,6 +93,7 @@ namespace Sol.Editor
             SetBool(serializedObject, "_identityMigratedV2", true);
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            ApplyArchetypeTags(soul, archetype, overwrite: true);
             EditorUtility.SetDirty(soul);
             PrefabUtility.RecordPrefabInstancePropertyModifications(soul);
         }
@@ -125,6 +127,7 @@ namespace Sol.Editor
             }
 
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
+            ApplyArchetypeTags(soul, archetype, overwrite: false);
             EditorUtility.SetDirty(soul);
             PrefabUtility.RecordPrefabInstancePropertyModifications(soul);
         }
@@ -244,6 +247,31 @@ namespace Sol.Editor
                 Undo.AddComponent<Sol.Inventory>(go);
 
             EditorUtility.SetDirty(go);
+        }
+
+        private static void ApplyArchetypeTags(NPCSoul soul, NPCArchetype archetype, bool overwrite)
+        {
+            if (soul == null)
+                return;
+
+            GameplayTagSet tags = soul.Tags;
+            if (overwrite)
+            {
+                tags.RemoveSerializedTagPath(GameplayCapabilityTags.ActorHostile);
+                tags.RemoveSerializedTagPath(GameplayCapabilityTags.ActorCivilian);
+                if (archetype != NPCArchetype.QuestGiver)
+                    tags.RemoveSerializedTagPath(GameplayCapabilityTags.JobQuestGiver);
+            }
+
+            if (archetype == NPCArchetype.Bandit)
+                tags.AddSerializedTagPath(GameplayCapabilityTags.ActorHostile);
+            else if (overwrite || !tags.HasTagOrChild(GameplayCapabilityTags.ActorHostile))
+                tags.AddSerializedTagPath(GameplayCapabilityTags.ActorCivilian);
+
+            if (archetype == NPCArchetype.QuestGiver)
+                tags.AddSerializedTagPath(GameplayCapabilityTags.JobQuestGiver);
+
+            tags.Normalize();
         }
 
         private static void SetString(SerializedObject serializedObject, string propertyName, string value)

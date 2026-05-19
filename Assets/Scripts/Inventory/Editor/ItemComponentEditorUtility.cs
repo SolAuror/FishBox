@@ -52,6 +52,7 @@ namespace Sol.Editor
             SerializedProperty entry = entries.GetArrayElementAtIndex(entryIndex);
             DrawRegistryIdentitySection(entry, itemObject, item);
             DrawRegistryAuthoringSection(entry, item);
+            SolDatabaseItemPage.DrawGameplayTagsSection(entry);
             SolDatabaseItemPage.DrawInventoryRulesSection(entry);
             SolDatabaseItemPage.DrawUseDefinitionSection(entry);
             SolDatabaseItemPage.DrawEquipmentDefinitionSection(entry);
@@ -300,7 +301,6 @@ namespace Sol.Editor
 
             ItemType itemType = GetItemType(serializedObject);
             bool showStacking = ItemTypeRules.ShowStackingFields(itemType);
-            bool showConsumable = ItemTypeRules.ShowConsumableFlag(itemType);
 
             if (showStacking)
             {
@@ -310,10 +310,7 @@ namespace Sol.Editor
                     DrawProperty(serializedObject, "_maxStackSize");
             }
 
-            if (showConsumable)
-                DrawProperty(serializedObject, "_isConsumable");
-
-            DrawProperty(serializedObject, "_isTradeable");
+            EditorGUILayout.HelpBox("Consumable and tradeable capability are registry gameplay tags on migrated items.", MessageType.None);
 
             EndSection();
         }

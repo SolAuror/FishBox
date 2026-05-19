@@ -14,7 +14,7 @@ namespace Sol
             if (action == ItemActionType.Use)
                 return item.CanUseFromInventory;
 
-            if (!ItemTypeRules.SupportsAction(item.Type, item.IsConsumable, action))
+            if (!ItemTypeRules.SupportsAction(item, action))
                 return false;
 
             if (action != ItemActionType.Equip)

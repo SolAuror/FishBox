@@ -213,7 +213,7 @@ namespace Sol.HUD
             foreach (InventorySlot slot in inventory.Slots)
             {
                 if (slot?.Item == null) continue;
-                if (slot.Item.Type == Sol.Grab.ItemType.Gold) continue;
+                if (slot.Item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemCurrencyGold)) continue;
                 if (hideNonTradeable && !slot.Item.IsTradeable) continue;
                 return slot;
             }

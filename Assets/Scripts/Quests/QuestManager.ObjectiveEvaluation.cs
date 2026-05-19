@@ -6,6 +6,7 @@ using Sol.Actions;
 using Sol.Fishing;
 using Sol.Grab;
 using Sol.HUD;
+using Sol.Rpg;
 using Sol.ToD;
 using System.Collections;
 
@@ -67,21 +68,21 @@ namespace Sol.Quests
                     break;
 
                 case QuestObjectiveType.CatchCount:
-                    CountNewFishForObjective(q, obj, _ => true, (snapshot, slot) =>
+                    CountNewFishForObjective(q, obj, snapshot => DoesObjectiveMatchFish(obj, snapshot), (snapshot, slot) =>
                     {
                         q.CurrentObjectiveProgress = Mathf.Min(q.CurrentObjectiveProgress + 1, Mathf.Max(1, obj.Count));
                     });
                     break;
 
                 case QuestObjectiveType.CatchRarity:
-                    CountNewFishForObjective(q, obj, snapshot => snapshot.Rarity == obj.Rarity, (snapshot, slot) =>
+                    CountNewFishForObjective(q, obj, snapshot => snapshot.Rarity == obj.Rarity && DoesObjectiveMatchFish(obj, snapshot), (snapshot, slot) =>
                     {
                         q.CurrentObjectiveProgress = Mathf.Min(q.CurrentObjectiveProgress + 1, Mathf.Max(1, obj.Count));
                     });
                     break;
 
                 case QuestObjectiveType.CatchTotalValue:
-                    CountNewFishForObjective(q, obj, _ => true, (snapshot, slot) =>
+                    CountNewFishForObjective(q, obj, snapshot => DoesObjectiveMatchFish(obj, snapshot), (snapshot, slot) =>
                     {
                         q.CurrentObjectiveProgress = Mathf.Min(
                             q.CurrentObjectiveProgress + Mathf.Max(0, snapshot.Value),
@@ -194,7 +195,7 @@ namespace Sol.Quests
                 if (slot?.Item == null)
                     continue;
 
-                if (objective.MatchesAnyAcceptableItemId(slot.Item.ItemId))
+                if (DoesObjectiveMatchItem(objective, slot.Item))
                     total += Mathf.Max(1, slot.Count);
             }
 
@@ -210,7 +211,7 @@ namespace Sol.Quests
             while (q.PrefixProgress.Count < obj.PrefixRequirements.Count)
                 q.PrefixProgress.Add(0);
 
-            CountNewFishForObjective(q, obj, _ => true, (snapshot, slot) =>
+            CountNewFishForObjective(q, obj, snapshot => DoesObjectiveMatchFish(obj, snapshot), (snapshot, slot) =>
             {
                 for (int p = 0; p < obj.PrefixRequirements.Count; p++)
                 {
@@ -316,6 +317,20 @@ namespace Sol.Quests
             if (obj.MatchesAnyAcceptableItemId(item.ItemId))
                 return true;
 
+            if (obj.AcceptableItemTags != null
+                && !obj.AcceptableItemTags.IsEmpty()
+                && item.Tags.HasAnyTagOrChild(obj.AcceptableItemTags))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(obj.ItemTag)
+                && item.Tags.HasTagOrChild(obj.ItemTag))
+            {
+                return true;
+            }
+
+            // One-version shim for pre-tag quest assets that used a loose item-name substring.
             if (!string.IsNullOrWhiteSpace(obj.ItemTag)
                 && !string.IsNullOrWhiteSpace(item.ItemName)
                 && item.ItemName.IndexOf(obj.ItemTag, StringComparison.OrdinalIgnoreCase) >= 0)
@@ -324,6 +339,14 @@ namespace Sol.Quests
             }
 
             return false;
+        }
+
+        private static bool DoesObjectiveMatchFish(QuestObjective obj, FishSnapshot snapshot)
+        {
+            if (obj?.AcceptableFishTags == null || obj.AcceptableFishTags.IsEmpty())
+                return true;
+
+            return snapshot.Tags != null && snapshot.Tags.HasAnyTagOrChild(obj.AcceptableFishTags);
         }
 
 
@@ -358,6 +381,7 @@ namespace Sol.Quests
                         Prefix = fishData.prefix,
                         Rarity = fishData.rarity,
                         Value = fishData.cachedValue,
+                        Tags = slot.Item.Tags,
                     };
                     return true;
                 }
@@ -378,6 +402,7 @@ namespace Sol.Quests
                 Prefix = fish.Prefix,
                 Rarity = fish.Rarity,
                 Value = Mathf.Max(0, slot.Item.Value),
+                Tags = slot.Item.Tags,
             };
             return true;
         }

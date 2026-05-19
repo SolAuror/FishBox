@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Serialization;
 using Sol;
@@ -10,7 +11,7 @@ namespace Sol.Player
     /// Player-specific vitals and identity. Kept independent from NPCSoul.
     /// </summary>
     [AddComponentMenu("Sol/Player/Player Soul")]
-    public class PlayerSoul : MonoBehaviour, IGameplayTagProvider
+    public class PlayerSoul : MonoBehaviour, IGameplayTagProvider, IActorVitals
     {
         #region Inspector Settings
         [Header("Identity")]
@@ -150,6 +151,18 @@ namespace Sol.Player
 
         public event Action OnDeath;
         public event Action<PlayerSoul> OnVitalsChanged;
+
+        public List<string> CollectTagPaths()
+        {
+            return Tags.CaptureTagPaths();
+        }
+
+        public void ApplySavedTagPaths(IEnumerable<string> tagPaths)
+        {
+            _tags ??= new GameplayTagSet();
+            _tags.AddRuntimeTagPaths(tagPaths);
+            _tags.AddRuntimeTagPath(GameplayCapabilityTags.ActorPlayer);
+        }
 
         private void Awake()
         {

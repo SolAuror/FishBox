@@ -7,6 +7,7 @@ using UnityEngine.UI;
 using Sol.Actions;
 using Sol.Grab;
 using Sol.Fishing;
+using Sol.Rpg;
 
 namespace Sol.HUD
 {
@@ -323,10 +324,10 @@ namespace Sol.HUD
             bool canDetachLure = false;
             if (interactor?.Owner != null && interactor.Owner.TryGetComponent<FishingState>(out var fishingState))
             {
-                canAddLureToRod = item.GetComponent<FishingLureItem>() != null && fishingState.CanLoadLure(item);
+                canAddLureToRod = item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingLure) && fishingState.CanLoadLure(item);
                 canHookToRod = fishingState.CanLoadBait(item);
 
-                bool isEquippedRod = item.GetComponent<FishingRodItem>() != null
+                bool isEquippedRod = item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingRod)
                     && interactor.Owner.TryGetComponent<Equipment>(out var equipment)
                     && equipment.IsEquipped(item);
 

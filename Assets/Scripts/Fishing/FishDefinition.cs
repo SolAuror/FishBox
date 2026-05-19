@@ -1,4 +1,5 @@
 using UnityEngine;
+using Sol.Rpg;
 
 namespace Sol.AI
 {
@@ -10,9 +11,18 @@ namespace Sol.AI
         [Tooltip("Fallback tier used when the fish is spawned outside a weighted fish volume.")]
         public FishRarity rarity = FishRarity.Common;
         public bool isPredator;
+        public GameplayTagSet tags = new();
         [Tooltip("Species baseline value before size and spawn rarity multipliers are applied.")]
         [Min(0)] public int baseValue = 10;
         public GameObject catchItemPrefab;
+        public GameplayTagSet Tags
+        {
+            get
+            {
+                EnsureDerivedTags();
+                return tags ?? GameplayTagSet.Empty;
+            }
+        }
 
         [Header("Stats")]
         [Min(0.01f)] public float minSize = 0.5f;
@@ -39,6 +49,7 @@ namespace Sol.AI
         [Header("Bait Preference")]
         [Tooltip("Leave blank to treat any bait as neutral, with no favorite-bait bonus.")]
         public string favoriteBaitItemId = string.Empty;
+        public GameplayTagSet favoriteBaitTags = new();
         [Tooltip("Optional fallback bait name match when no specific item id is set.")]
         public string favoriteBaitName = string.Empty;
         [Min(1f)] public float favoriteBaitLureMultiplier = 1f;
@@ -58,6 +69,18 @@ namespace Sol.AI
             modelScaleMultiplier = Mathf.Max(0.01f, modelScaleMultiplier);
             struggleIntervalMax = Mathf.Max(struggleIntervalMin, struggleIntervalMax);
             struggleDurationMax = Mathf.Max(struggleDurationMin, struggleDurationMax);
+            EnsureDerivedTags();
+            favoriteBaitTags ??= new GameplayTagSet();
+            favoriteBaitTags.Normalize();
+        }
+
+        private void EnsureDerivedTags()
+        {
+            tags ??= new GameplayTagSet();
+            tags.Normalize();
+            tags.AddRuntimeTagPath(GameplayCapabilityTags.FishRarity(rarity));
+            if (isPredator)
+                tags.AddRuntimeTagPath(GameplayCapabilityTags.FishPredator);
         }
     }
 }

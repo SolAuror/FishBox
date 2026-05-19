@@ -17,11 +17,13 @@ namespace Sol.Rpg
         private void OnEnable()
         {
             RebuildTraitTags();
+            MarkProviderCacheDirty();
         }
 
         private void OnDisable()
         {
             gameObject.GetGameplayTags().ClearRuntimeTagsWithPrefix("Trait");
+            MarkProviderCacheDirty();
         }
 
         private void OnValidate()
@@ -83,6 +85,12 @@ namespace Sol.Rpg
                 foreach (string path in trait.GrantedTags.EnumerateTagPaths())
                     tags.AddRuntimeTagPath(path);
             }
+        }
+
+        private void MarkProviderCacheDirty()
+        {
+            if (TryGetComponent(out GameplayStatAggregator aggregator))
+                aggregator.MarkDirty();
         }
     }
 }

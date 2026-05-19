@@ -12,7 +12,7 @@ namespace Sol.AI
 {
     /// <summary>
     /// AI_NPC partial - trade and corpse-loot behaviour.
-    /// Trade is gated on <see cref="IsTrader"/> (derived from the NPCSoul trader checkbox).
+    /// Trade is gated on <see cref="IsTrader"/> (derived from NPC gameplay tags).
     /// </summary>
     public partial class AI_NPC
     {
@@ -41,13 +41,19 @@ namespace Sol.AI
         /// </summary>
         public bool IsTrader
         {
-            get => (soul != null && soul.CanTrade) || !string.IsNullOrWhiteSpace(_shopId);
+            get
+            {
+                MigrateShopCapabilityTagIfNeeded();
+                return soul != null && soul.HasTag(GameplayCapabilityTags.JobTrader);
+            }
             set
             {
                 if (soul != null)
                     soul.CanTrade = value;
             }
         }
+
+        public bool IsQuestGiver => soul != null && soul.HasTag(GameplayCapabilityTags.JobQuestGiver);
 
         public string ShopId => _shopId;
 
@@ -100,6 +106,14 @@ namespace Sol.AI
                 return null;
 
             return ShopRuntimeStore.GetOrCreateSession(_shopId);
+        }
+
+        private void MigrateShopCapabilityTagIfNeeded()
+        {
+            if (soul == null || string.IsNullOrWhiteSpace(_shopId) || soul.HasTag(GameplayCapabilityTags.JobTrader))
+                return;
+
+            soul.SetTagState(GameplayCapabilityTags.JobTrader, true);
         }
 
         private void ItemizeGoldForCorpseLoot(Interactor looter = null)

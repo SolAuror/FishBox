@@ -1,4 +1,5 @@
 using Sol.Grab;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol.Combat
@@ -20,6 +21,11 @@ namespace Sol.Combat
             CombatAttackKind attackKind = GetAttackKind(weapon);
             float staminaCost = profile.ApplyStaminaCost(GetAttackStaminaCost(weapon));
             float baseDamage = profile.ApplyDamage(GetAttackBaseDamage(weapon, fallbackDamage));
+            baseDamage = GameplayStatSystem.Evaluate(
+                GameplayStatIds.OutgoingDamage,
+                baseDamage,
+                gameObject,
+                target != null ? target.gameObject : null);
             return new CombatHit(
                 this,
                 target,

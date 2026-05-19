@@ -1,67 +1,97 @@
 # Combat
 
-*Swing, hit, react. The shared melee implementation player and NPCs both use.*
+*Melee attacks, shared combatants, stamina, armor, damage packets, and hit reactions.*
 
 ## Purpose
 
-The combat system is a small, shared melee stack: one attack component that does the actual hit query, one player wrapper that wires input into it, and one hit-reaction component that plays a flinch on the receiving end. Player and hostile NPCs use the same `BasicMeleeAttack` — what differs is who owns the soul on the GameObject.
+The combat system is the shared melee runtime for player and NPC actors. `BasicMeleeAttack` owns the hit query and attack timing, while `Combatant` adapts an actor's vitals, equipment, stamina costs, armor, and damage numbers into a common interface. Player and hostile NPCs use the same attack path; what differs is which soul/vitals component and hostility tags are present on the actor.
 
-There is no projectile, ranged, or weapon-modifier system here yet; weapons are inventory items, and damage on this layer is read from serialized fields on the attack component.
+Runtime math now routes through the RPG stat modifier system. Equipped items, traits, status effects, and custom providers can modify stamina cost, stamina regeneration, armor rating, outgoing damage, and incoming damage.
 
-## Key files
+## Key Files
 
-- [BasicMeleeAttack.cs](../../Assets/Scripts/Combat/BasicMeleeAttack.cs) — the shared attack. Owns damage, range, radius, cooldown, forward-arc dot threshold, hit height offset, target layer mask, and an optional origin transform. Resolves either a `PlayerSoul` or `NPCSoul` on the same GameObject and routes hits accordingly.
-- [PlayerPunchCombat.cs](../../Assets/Scripts/Combat/PlayerPunchCombat.cs) — player-side wrapper. `[RequireComponent(typeof(BasicMeleeAttack))]`, holds references to `LocomotionInput`, `LocomotionController`, and `FishingState`, and pushes its serialized punch tuning into the underlying `BasicMeleeAttack` via `ApplyLegacyConfig`.
-- [HitReaction.cs](../../Assets/Scripts/Combat/HitReaction.cs) — receiver-side flinch. Plays an `AnimationClip` through a `PlayableGraph` when an animator is available; otherwise runs a coroutine that leans `_fallbackRoot` away from the hit direction and settles back.
+- [BasicMeleeAttack.cs](../../Assets/Scripts/Combat/BasicMeleeAttack.cs): shared melee attack query, attack profiles, cooldowns, target checks, and hit dispatch.
+- [Combatant.cs](../../Assets/Scripts/Combat/Combatant.cs): actor combat facade and cached references.
+- [Combatant.References.cs](../../Assets/Scripts/Combat/Combatant.References.cs): resolves player/NPC souls, generic `IActorVitals`, equipment, and target transforms.
+- [Combatant.Vitals.cs](../../Assets/Scripts/Combat/Combatant.Vitals.cs): health, stamina, stamina spending, stamina regeneration, and damage forwarding through `IActorVitals`.
+- [Combatant.Equipment.cs](../../Assets/Scripts/Combat/Combatant.Equipment.cs): equipped weapon lookup, attack kind, fallback damage, stamina cost, and armor rating.
+- [Combatant.MeleeHit.cs](../../Assets/Scripts/Combat/Combatant.MeleeHit.cs): creates `CombatHit` packets and applies outgoing damage modifiers.
+- [CombatResolver.cs](../../Assets/Scripts/Combat/CombatResolver.cs): damage application, armor mitigation, damage-tag defenses, incoming damage modifiers, stagger, kill events, and hit reaction triggers.
+- [CombatHit.cs](../../Assets/Scripts/Combat/CombatHit.cs): immutable hit data produced by melee attacks.
+- [DamagePacket.cs](../../Assets/Scripts/Combat/DamagePacket.cs): mutable damage packet used by melee and status/periodic damage paths.
+- [CombatAttackProfile.cs](../../Assets/Scripts/Combat/CombatAttackProfile.cs): light/power attack multipliers for damage, stamina, cooldown, and stagger.
+- [PlayerPunchCombat.cs](../../Assets/Scripts/Combat/PlayerPunchCombat.cs): player-side wrapper that keeps legacy punch tuning synced into `BasicMeleeAttack`.
+- [HitReaction.cs](../../Assets/Scripts/Combat/HitReaction.cs): receiver-side flinch animation/fallback lean.
+- [IActorVitals.cs](../../Assets/Scripts/RPG/IActorVitals.cs): health/stamina contract implemented by `PlayerSoul` and `NPCSoul`.
 
-## Entry points
+## Entry Points
 
-- `BasicMeleeAttack` exposes three runtime calls used by animation events or controllers:
-  - `BeginAttack()` — starts a swing if `CanStartAttack()` allows it; clears the per-swing hit set and sets the next allowed time from `Cooldown`.
-  - `ResolveHitFrame()` — runs the overlap query and applies damage. Drive this from a melee animation event or whenever the active hit window opens.
-  - `EndAttack()` — closes the swing.
-- `PlayerPunchCombat` is the inspector-friendly setup component on the player. It does not currently consume input directly in `Update`; it keeps a synced config block on `BasicMeleeAttack` so existing player prefabs continue to work while the runtime path is the shared one.
-- `HitReaction` is fired from `BasicMeleeAttack.TryDamageTarget` when the target is an `NPCSoul` — call `PlayHitReaction(direction)` directly if you need to trigger a flinch from elsewhere.
+- `BasicMeleeAttack.BeginAttack()` / `BeginAttack(style)`: starts a swing if cooldown, readiness, alive state, and stamina checks pass.
+- `BasicMeleeAttack.ResolveHitFrame()`: runs the overlap capsule and applies one hit per valid target for the active swing.
+- `BasicMeleeAttack.EndAttack()`: clears active swing state.
+- `CombatResolver.ApplyHit(hit)`: applies a melee hit.
+- `CombatResolver.ApplyDamagePacket(packet)`: applies non-melee damage such as status ticks.
+- `Combatant.ResolveOrAdd(...)`: finds or adds the combat facade for an actor or target transform.
 
-## Hit resolution
+## Damage Flow
 
 ```mermaid
 flowchart TD
-    Begin["BeginAttack()"] --> Active["_attackActive = true<br/>cooldown armed"]
-    Active --> Frame["ResolveHitFrame()"]
-    Frame --> Capsule["Physics.OverlapCapsuleNonAlloc<br/>(origin → origin + forward * range, radius)"]
-    Capsule --> Each["For each collider"]
-    Each --> Self{"IsChildOf(self)?"}
-    Self -- yes --> Skip["skip"]
-    Self -- no --> Soul{"PlayerSoul or NPCSoul?"}
-    Soul --> Hostile{"hostile + alive?"}
-    Hostile -- no --> Skip
-    Hostile -- yes --> Arc{"In forward arc<br/>(dot >= MinForwardDot)?"}
-    Arc -- no --> Skip
-    Arc -- yes --> Once{"Already hit<br/>this swing?"}
-    Once -- yes --> Skip
-    Once -- no --> Damage["TakeDamage(_damage)<br/>+ HitReaction (NPC targets)"]
-    Damage --> End["EndAttack()"]
+    Begin["BeginAttack(style)"] --> Checks["cooldown + readiness + alive + stamina checks"]
+    Checks --> Spend["TrySpendStamina<br/>Combat.StaminaCost modifiers"]
+    Spend --> Frame["ResolveHitFrame()"]
+    Frame --> Query["Physics.OverlapCapsuleNonAlloc"]
+    Query --> Target["hostility, alive, forward arc,<br/>one hit per swing"]
+    Target --> Hit["Combatant.CreateMeleeHit"]
+    Hit --> Outgoing["Combat.OutgoingDamage modifiers"]
+    Outgoing --> Packet["DamagePacket.FromHit"]
+    Packet --> Armor["armor mitigation<br/>Combat.ArmorRating modifiers"]
+    Armor --> Tags["damage-tag immunity/resistance"]
+    Tags --> Incoming["Combat.IncomingDamage modifiers"]
+    Incoming --> Vitals["IActorVitals.TakeDamage"]
+    Vitals --> Events["damage, stagger, kill events<br/>+ NPC HitReaction"]
 ```
 
-## Targeting rules
+## Stat Hooks
 
-- A swing on the player only damages `NPCSoul` targets that are both alive and have `IsHostile = true`.
-- A swing on an NPC only damages a `PlayerSoul` if the attacker NPC is itself hostile.
-- Each swing maintains a `HashSet<int>` of damaged target instance ids, so the same overlap query can't double-hit one target across multiple `ResolveHitFrame()` calls in a single swing.
-- The forward-arc check uses `_minForwardDot` against `(target.position + up * hitHeightOffset - origin).normalized`. Targets behind the attacker are rejected even if the capsule overlaps them.
+Combat reads these `GameplayStatIds`:
 
-## Hit reaction
+- `Combat.StaminaCost`: applied before `Combatant.CanSpendStamina` and `TrySpendStamina`.
+- `Combat.StaminaRegen`: applied to the actor's per-second stamina regeneration.
+- `Combat.ArmorRating`: applied after summing equipped armor item defense.
+- `Combat.OutgoingDamage`: applied after weapon/fallback damage and attack-profile damage multipliers.
+- `Combat.IncomingDamage`: applied after armor mitigation and damage-tag defenses.
+- `Vital.MaxHealth` and `Vital.MaxStamina`: applied by `PlayerSoul` and `NPCSoul`.
 
-- If a clip is assigned and the animator is enabled, `HitReaction` builds a one-shot `PlayableGraph` (`AnimationClipPlayable` → `AnimationPlayableOutput`) and tears it down after `_hitClip.length`.
-- If there is no clip or no animator, it falls back to a coroutine that rotates `_fallbackRoot` ±`_fallbackLeanDegrees` around local Z based on the sign of the hit direction in local space, then slerps back at `_fallbackSettleSpeed`.
-- `OnDisable` and `OnDestroy` both stop the active reaction and dispose the graph if it's still valid.
+`Combatant` consumes `IActorVitals`, so combat can target player souls, NPC souls, or future actor-vitals components without adding another soul-specific branch. `Combatant.ResolveOrAdd(Transform)` searches parent components for a `Combatant`, then player/NPC souls, then any `IActorVitals` component.
+
+## Targeting Rules
+
+- A swing on the player only damages `NPCSoul` targets that are alive and tagged hostile (`Actor.Hostile`).
+- A swing on a hostile NPC only damages an alive `PlayerSoul`.
+- `NPCSoul.IsHostile` is tag-backed. Legacy hostile fields migrate into `Actor.Hostile`; new combat/law logic should add or remove tags such as `Actor.Hostile`, `Actor.Criminal`, `Actor.Wanted`, `Actor.Dead`, and `Actor.InCombat`.
+- Each swing keeps a set of damaged target instance ids so multiple hit frames cannot double-hit the same target in one swing.
+- The forward-arc check uses planar direction and allows a close-range bypass radius so very near targets are not rejected for being slightly off-axis.
+- `EngageDistance` is `range + radius`; AI should not treat range alone as the usable attack distance.
+
+## Armor And Damage Tags
+
+`Combatant.GetArmorRating` sums equipped armor item defense once per item, then evaluates `Combat.ArmorRating`. `CombatResolver.CalculateArmorMitigation` clamps mitigation at `80%` and uses `armor / (armor + 100)`.
+
+Damage packets carry gameplay tag paths. If the target has `Immune.<leaf>` for a damage tag, final damage becomes zero. If the target has `Resist.<leaf>`, that tagged damage is halved. Melee hits default to `Damage.Physical`.
+
+## Hit Reaction
+
+- `CombatResolver` triggers `HitReaction` only when damage was applied, the target is an alive NPC, and the NPC has a reaction component.
+- If a clip is assigned and the animator is enabled, `HitReaction` plays a one-shot `PlayableGraph`.
+- If there is no clip or no animator, it falls back to a coroutine that leans `_fallbackRoot` away from the hit direction and settles back.
+- `OnDisable` and `OnDestroy` stop the active reaction and dispose the graph if needed.
 
 ## Gotchas
 
-- `EngageDistance` (used by AI to decide attack range) is `range + radius`, **not** range alone. A capsule grows by its radius at both ends.
-- `_targetLayers` defaults to `~0` (everything). For production setups, narrow it so the capsule doesn't waste work on terrain / props.
-- `ApplyLegacyConfig` is called from `PlayerPunchCombat.OnValidate` and `Awake` — editing the punch values on `PlayerPunchCombat` overwrites the underlying `BasicMeleeAttack`'s serialized fields. If you tune the attack component directly, do it on a prefab without `PlayerPunchCombat` or the wrapper will stomp your changes.
-- `HitReaction` requires an `Animator` for the clip path — there's no graph-only fallback, only the lean-and-settle fallback.
-- Damage is hard-coded into the attack component. There is no item-driven weapon damage hook yet; equipped weapons currently provide visuals and (via items) inventory stats, not runtime swing damage.
+- `PlayerPunchCombat.ApplyLegacyConfig` still writes legacy punch tuning into `BasicMeleeAttack`. Tune `BasicMeleeAttack` directly only on prefabs that do not use the wrapper.
+- Equipped weapon damage comes from the item registry through `ItemComponent.Damage`; fallback `_damage` is used when no weapon damage is available.
+- Equipped armor defense is still summed directly from armor items, then stat modifiers can adjust the resulting `Combat.ArmorRating`.
+- `Trait.Tireless` or the matching trait reaction causes combatants to ignore stamina costs after `Combat.StaminaCost` modifiers are evaluated.
 - There is no friendly-fire path. A hostile NPC will not damage another hostile NPC through this system.
+- Keep target layer masks narrow in production so the overlap capsule does not spend time on terrain and props.

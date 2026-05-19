@@ -70,6 +70,7 @@ namespace Sol.Editor
             }
 
             ValidateDialogue(aiNpc, warnings);
+            ValidateRoleTags(soul, aiNpc, warnings);
             ValidateShop(aiNpc, warnings);
             ValidateSchedule(aiNpc, warnings);
             ValidateTags(soul.Tags, warnings);
@@ -122,7 +123,10 @@ namespace Sol.Editor
                         continue;
 
                     if (option.Action == DialogueOptionAction.OpenTrade && !aiNpc.IsTrader)
-                        warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Dialogue option '{DisplayOption(option)}' opens trade, but Trader is unchecked."));
+                        warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Dialogue option '{DisplayOption(option)}' opens trade, but the NPC is missing Job.Trader."));
+
+                    if (option.Action == DialogueOptionAction.OfferQuest && !aiNpc.IsQuestGiver)
+                        warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Dialogue option '{DisplayOption(option)}' offers a quest, but the NPC is missing Job.QuestGiver."));
 
                     if (RequiresQuest(option.Action) && !QuestExists(questRegistry, option.QuestId))
                         warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Dialogue option '{DisplayOption(option)}' references missing quest '{option.QuestId}'."));
@@ -149,6 +153,46 @@ namespace Sol.Editor
 
             if (RpgDefinitionRegistry.Get()?.GetShop(aiNpc.ShopId) == null)
                 warnings.Add(new NPCAuthoringWarning(NPCAuthoringWarningSeverity.Warning, $"Assigned shop '{aiNpc.ShopId}' is not in the RPG registry."));
+        }
+
+        private static void ValidateRoleTags(NPCSoul soul, AI_NPC aiNpc, List<NPCAuthoringWarning> warnings)
+        {
+            if (soul == null)
+                return;
+
+            if (soul.Archetype == NPCArchetype.QuestGiver && !soul.IsQuestGiver)
+            {
+                warnings.Add(new NPCAuthoringWarning(
+                    NPCAuthoringWarningSeverity.Warning,
+                    "QuestGiver archetype is missing Job.QuestGiver."));
+            }
+
+            QuestRegistry registry = QuestRegistry.Get();
+            if (registry?.Quests != null && !soul.IsQuestGiver)
+            {
+                for (int i = 0; i < registry.Quests.Count; i++)
+                {
+                    QuestDefinition quest = registry.Quests[i];
+                    if (quest == null || string.IsNullOrWhiteSpace(quest.GiverNpcName))
+                        continue;
+
+                    if (QuestManager.NpcReferenceMatches(quest.GiverNpcName, soul.OwnerId)
+                        || QuestManager.NpcReferenceMatches(quest.GiverNpcName, soul.CharacterName))
+                    {
+                        warnings.Add(new NPCAuthoringWarning(
+                            NPCAuthoringWarningSeverity.Warning,
+                            "This NPC is referenced as a quest giver but is missing Job.QuestGiver."));
+                        break;
+                    }
+                }
+            }
+
+            if (aiNpc != null && !string.IsNullOrWhiteSpace(aiNpc.ShopId) && !aiNpc.IsTrader)
+            {
+                warnings.Add(new NPCAuthoringWarning(
+                    NPCAuthoringWarningSeverity.Warning,
+                    "NPC has a shop id but is missing Job.Trader."));
+            }
         }
 
         private static void ValidateSchedule(AI_NPC aiNpc, List<NPCAuthoringWarning> warnings)

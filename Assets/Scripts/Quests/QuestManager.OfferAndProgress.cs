@@ -5,6 +5,7 @@ using Sol.AI;
 using Sol.Actions;
 using Sol.Grab;
 using Sol.HUD;
+using Sol.Rpg;
 using Sol.ToD;
 using System.Collections;
 
@@ -423,6 +424,9 @@ namespace Sol.Quests
             if (!fromBoard && !NpcReferenceMatches(def.GiverNpcName, npcNameOrBoard))
                 return false;
 
+            if (!QuestTagConditionsPass(def, npcNameOrBoard, fromBoard))
+                return false;
+
             if (!ArePrerequisitesMet(def))
                 return false;
 
@@ -440,6 +444,66 @@ namespace Sol.Quests
                 return false;
 
             return IsRepeatCooldownComplete(def, completed, now);
+        }
+
+        private bool QuestTagConditionsPass(QuestDefinition def, string npcNameOrBoard, bool fromBoard)
+        {
+            if (def == null)
+                return false;
+
+            GameplayTagSet playerTags = ResolvePlayerTags();
+            if (!TagsSatisfy(playerTags, def.RequiredPlayerTags, def.ForbiddenPlayerTags))
+                return false;
+
+            bool needsGiverTags = (def.RequiredGiverTags != null && !def.RequiredGiverTags.IsEmpty())
+                || (def.ForbiddenGiverTags != null && !def.ForbiddenGiverTags.IsEmpty());
+
+            if (!needsGiverTags)
+                return true;
+
+            if (fromBoard)
+                return false;
+
+            GameplayTagSet giverTags = ResolveNpcTags(npcNameOrBoard);
+            return TagsSatisfy(giverTags, def.RequiredGiverTags, def.ForbiddenGiverTags);
+        }
+
+        private GameplayTagSet ResolvePlayerTags()
+        {
+            GameObject playerRoot = _playerRoot;
+            if (playerRoot == null)
+            {
+                Sol.Player.PlayerSoul player = FindFirstObjectByType<Sol.Player.PlayerSoul>();
+                playerRoot = player != null ? player.gameObject : null;
+            }
+
+            IGameplayTagProvider provider = playerRoot != null ? playerRoot.GetComponentInParent<IGameplayTagProvider>() : null;
+            return provider?.Tags ?? GameplayTagSet.Empty;
+        }
+
+        private static GameplayTagSet ResolveNpcTags(string npcReference)
+        {
+            if (string.IsNullOrWhiteSpace(npcReference))
+                return GameplayTagSet.Empty;
+
+            GameObject npc = OwnerRegistry.Resolve(npcReference.Trim());
+            if (npc == null)
+                return GameplayTagSet.Empty;
+
+            IGameplayTagProvider provider = npc.GetComponentInParent<IGameplayTagProvider>();
+            return provider?.Tags ?? GameplayTagSet.Empty;
+        }
+
+        private static bool TagsSatisfy(GameplayTagSet source, GameplayTagSet required, GameplayTagSet forbidden)
+        {
+            source ??= GameplayTagSet.Empty;
+            if (required != null && !required.IsEmpty() && !source.HasAllTagsOrChildren(required))
+                return false;
+
+            if (forbidden != null && source.HasAnyTagOrChild(forbidden))
+                return false;
+
+            return true;
         }
 
 

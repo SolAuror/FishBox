@@ -1,5 +1,6 @@
 using UnityEngine;
 using Sol.Grab;
+using Sol.Rpg;
 
 namespace Sol.Fishing
 {
@@ -46,7 +47,8 @@ namespace Sol.Fishing
                 return false;
 
             return item.GetComponent<FishingBaitItem>() != null
-                || item.Type == ItemType.Food;
+                || item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingBait)
+                || item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFood);
         }
 
         public static float ResolveInterestMultiplier(ItemComponent item, FishingBaitDefinition fallbackBait = null, float baitlessFallback = 1f)
@@ -57,7 +59,7 @@ namespace Sol.Fishing
                 if (baitItem != null)
                     return baitItem.InterestMultiplier;
 
-                if (item.Type == ItemType.Food)
+                if (item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFood))
                     return DefaultFoodInterestMultiplier;
             }
 
@@ -75,7 +77,7 @@ namespace Sol.Fishing
                 if (baitItem != null)
                     return baitItem.RadiusMultiplier;
 
-                if (item.Type == ItemType.Food)
+                if (item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFood))
                     return DefaultFoodRadiusMultiplier;
             }
 

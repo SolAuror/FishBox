@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
+using Sol.Fishing;
 using Sol.Rpg;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -34,7 +35,9 @@ namespace Sol
             public Sprite Icon;
             [TextArea] public string FlavourText = string.Empty;
             public bool IsStackable;
+            [HideInInspector]
             public bool IsConsumable;
+            [HideInInspector]
             public bool IsTradeable = true;
             [Min(1)] public int MaxStackSize = 1;
             public ItemUseOccasion UseOccasion = ItemUseOccasion.InventoryOnly;
@@ -51,9 +54,13 @@ namespace Sol
             public GameplayStatModifierSet StatModifiers = new();
             public ItemAuthoringTemplate AuthoringTemplate = ItemAuthoringTemplate.None;
             [TextArea] public string AuthoringNotes = string.Empty;
+            [HideInInspector] public bool CapabilityTagsMigrated;
             public ItemComponent Prefab;
 
             public string NameOrId => string.IsNullOrWhiteSpace(DisplayName) ? ItemId : DisplayName.Trim();
+            public bool HasConsumableTag => Tags != null && Tags.HasTagOrChild(GameplayCapabilityTags.ItemConsumable);
+            public bool HasTradeableTag => Tags != null && Tags.HasTagOrChild(GameplayCapabilityTags.ItemTradeable);
+            public bool HasEquipmentTag => Tags != null && Tags.HasTagOrChild(GameplayCapabilityTags.ItemEquipment);
 
             public void Normalize()
             {
@@ -76,10 +83,101 @@ namespace Sol
                 AllowedEquipSlots ??= new List<EquipmentSlotType>();
                 Tags ??= new GameplayTagSet();
                 StatModifiers ??= new GameplayStatModifierSet();
+                MigrateLegacyCapabilityTagsIfNeeded();
                 Tags.Normalize();
                 StatModifiers.Normalize();
                 EquipBone = EquipBone?.Trim() ?? string.Empty;
                 AuthoringNotes = AuthoringNotes?.Trim() ?? string.Empty;
+            }
+
+            public bool MigrateLegacyCapabilityTagsIfNeeded()
+            {
+                if (CapabilityTagsMigrated)
+                    return false;
+
+                bool changed = false;
+                Tags ??= new GameplayTagSet();
+
+                if (IsConsumable || ItemTypeRules.IsConsumableType(ItemType))
+                {
+                    changed |= !Tags.HasTagOrChild(GameplayCapabilityTags.ItemConsumable);
+                    Tags.AddSerializedTagPath(GameplayCapabilityTags.ItemConsumable);
+                }
+
+                if (IsTradeable || ItemType == ItemType.Gold)
+                {
+                    changed |= !Tags.HasTagOrChild(GameplayCapabilityTags.ItemTradeable);
+                    Tags.AddSerializedTagPath(GameplayCapabilityTags.ItemTradeable);
+                }
+
+                changed |= AddLegacyCategoryTags();
+
+                CapabilityTagsMigrated = true;
+                return true;
+            }
+
+            private bool AddLegacyCategoryTags()
+            {
+                bool changed = false;
+                changed |= AddTagForType(ItemType switch
+                {
+                    ItemType.Weapon => GameplayCapabilityTags.ItemWeapon,
+                    ItemType.Armor => GameplayCapabilityTags.ItemArmor,
+                    ItemType.Equipable => GameplayCapabilityTags.ItemEquipment,
+                    ItemType.Material => GameplayCapabilityTags.ItemMaterial,
+                    ItemType.Food => GameplayCapabilityTags.ItemFood,
+                    ItemType.Drink => GameplayCapabilityTags.ItemDrink,
+                    ItemType.Potion => GameplayCapabilityTags.ItemPotion,
+                    ItemType.Key => GameplayCapabilityTags.ItemKey,
+                    ItemType.QuestItem => GameplayCapabilityTags.ItemQuest,
+                    ItemType.Gold => GameplayCapabilityTags.ItemCurrencyGold,
+                    _ => string.Empty,
+                });
+
+                if (ItemTypeRules.IsEquipableType(ItemType))
+                    changed |= AddTagForType(GameplayCapabilityTags.ItemEquipment);
+
+                if (ItemType == ItemType.Gold)
+                    changed |= AddTagForType(GameplayCapabilityTags.ItemCurrency);
+
+                if (Prefab != null)
+                {
+                    if (Prefab.GetComponent<FishingRodItem>() != null)
+                    {
+                        changed |= AddTagForType(GameplayCapabilityTags.ItemFishing);
+                        changed |= AddTagForType(GameplayCapabilityTags.ItemFishingRod);
+                    }
+
+                    if (Prefab.GetComponent<FishingBaitItem>() != null)
+                    {
+                        changed |= AddTagForType(GameplayCapabilityTags.ItemFishing);
+                        changed |= AddTagForType(GameplayCapabilityTags.ItemFishingBait);
+                    }
+
+                    if (Prefab.GetComponent<FishingLureItem>() != null)
+                    {
+                        changed |= AddTagForType(GameplayCapabilityTags.ItemFishing);
+                        changed |= AddTagForType(GameplayCapabilityTags.ItemFishingLure);
+                    }
+
+                    if (Prefab.GetComponent<CaughtFishItem>() != null)
+                    {
+                        changed |= AddTagForType(GameplayCapabilityTags.ItemFishing);
+                        changed |= AddTagForType(GameplayCapabilityTags.ItemFishingCaught);
+                    }
+                }
+
+                return changed;
+            }
+
+            private bool AddTagForType(string tagPath)
+            {
+                if (string.IsNullOrWhiteSpace(tagPath))
+                    return false;
+
+                bool missing = !Tags.HasTagOrChild(tagPath);
+                Tags.AddSerializedTagPath(tagPath);
+                return missing;
             }
 
             public void CopyDesignFromPrefab(ItemComponent item)
@@ -108,9 +206,9 @@ namespace Sol
                 EquipDomain = item.LegacyEquipDomain;
                 WeaponHanding = item.LegacyWeaponHanding;
                 AllowedEquipSlots = item.CloneLegacyAllowedEquipSlots();
+                Prefab = item;
                 AuthoringTemplate = item.LegacyAuthoringTemplate;
                 AuthoringNotes = item.LegacyAuthoringNotes;
-                Prefab = item;
                 Normalize();
             }
         }
@@ -382,6 +480,8 @@ namespace Sol
 
         private static void ForceEditorSync()
         {
+            RpgDefinitionRegistry.ForceEditorSyncNow();
+
             ItemRegistry registry = GetOrCreateEditorAsset();
             if (registry == null)
                 return;
@@ -485,10 +585,10 @@ namespace Sol
             }
 
             bool modifiedAssets = ApplyAssignedIds(assignedIds);
-            List<Entry> rebuiltEntries = BuildEntries(discovered, assignedIds);
+            List<Entry> rebuiltEntries = BuildEntries(discovered, assignedIds, out bool capabilityTagsChanged);
             bool entriesChanged = ReplaceEntriesIfDifferent(rebuiltEntries);
 
-            if (modifiedAssets || entriesChanged)
+            if (modifiedAssets || entriesChanged || capabilityTagsChanged)
             {
                 _lookup = null;
                 EditorUtility.SetDirty(this);
@@ -558,8 +658,9 @@ namespace Sol
             return modifiedAny;
         }
 
-        private static List<Entry> BuildEntries(List<DiscoveredItem> discovered, Dictionary<ItemComponent, string> assignedIds)
+        private static List<Entry> BuildEntries(List<DiscoveredItem> discovered, Dictionary<ItemComponent, string> assignedIds, out bool capabilityTagsChanged)
         {
+            capabilityTagsChanged = false;
             List<Entry> rebuilt = new(discovered.Count);
             for (int i = 0; i < discovered.Count; i++)
             {
@@ -581,6 +682,7 @@ namespace Sol
 
                 entry.ItemId = assignedId;
                 entry.Prefab = item;
+                capabilityTagsChanged |= entry.MigrateLegacyCapabilityTagsIfNeeded();
                 entry.Normalize();
                 rebuilt.Add(entry);
             }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
+using Sol.Rpg;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
@@ -32,7 +33,7 @@ namespace Sol
         {
             if (item == null) return false;
 
-            if (convertGoldToBalance && item.Type == ItemType.Gold)
+            if (convertGoldToBalance && item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemCurrencyGold))
             {
                 Gold += Mathf.Max(1, item.Value);
                 if (item.gameObject != null)
@@ -168,7 +169,7 @@ namespace Sol
             for (int i = 0; i < _slots.Count; i++)
             {
                 var slot = _slots[i];
-                if (slot?.Item == null || slot.Item.Type != ItemType.Gold)
+                if (slot?.Item == null || !slot.Item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemCurrencyGold))
                     continue;
 
                 foreach (var item in slot.EnumerateItems())

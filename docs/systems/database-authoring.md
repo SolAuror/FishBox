@@ -6,9 +6,9 @@
 
 The database authoring tools are Unity Editor windows and custom inspectors for creating and maintaining content records. They sit on top of the runtime registries for Items, NPCs, Quests, and RPG definitions, so authors can work from one searchable menu instead of hunting through project folders and raw inspectors.
 
-Open the main tool from `Window/Sol/Database`. The older menu entries for `Window/Sol/Item Database`, `Window/Sol/NPC Database`, and `Window/Sol/Quest Database` now route into the matching tab in the consolidated Sol Database window.
+Open the main tool from `Window/Sol/Database`.
 
-Use this tool for:
+This tool is for:
 
 - Creating item definitions, optional item visual prefabs, NPC prefabs, quest assets, stats, skills, factions, and shops.
 - Duplicating existing records while automatically assigning fresh ids.
@@ -20,9 +20,10 @@ Use this tool for:
 
 The current item/economy split is intentional:
 
-- `ItemRegistry` is authoritative for item design: names, ids, types, value, icons, flavor text, stack rules, consumable flags, tradeability, use effects, damage, defense, equipment settings, templates, and notes.
+- `ItemRegistry` is authoritative for item design: names, ids, legacy type hints, value, icons, flavor text, stack rules, gameplay tags, use effects, damage, defense, runtime stat modifiers, equipment settings, templates, and notes.
 - Item prefabs are visual/world representations. They still carry an `ItemComponent` so they can be picked up, equipped, previewed, saved as world instances, and host specialized runtime components, but prefab-authored design fields are legacy compatibility data.
-- `ItemComponent` is the runtime facade. Inventory, equipment, tooltips, context menus, fishing, quest checks, save/load, and trade UI can keep asking the component for `ItemName`, `Value`, `Icon`, `Damage`, and similar fields; the component resolves those values from `ItemRegistry`.
+- `ItemComponent` is the runtime facade. Inventory, equipment, tooltips, context menus, fishing, quest checks, save/load, stat modifier providers, and trade UI can keep asking the component for `ItemName`, `Value`, `Icon`, `Damage`, and similar fields; the component resolves those values from `ItemRegistry`.
+- Gameplay tags are the author-facing source of truth for flexible capability/category checks. Legacy booleans such as consumable, tradeable, trader, hostile, locked, and stolen are compatibility inputs that migrate into tags.
 - `RpgShopDefinition` owns merchant stock authoring by item id. NPC inventories are still valid for non-shop inventories, corpse loot, containers, quest delivery, and debug/free transfer, but they are not merchant stock.
 - `ShopRuntimeSession` owns mutable shop state at runtime: current stock instances, current gold, price calculation, and restock timing. Save/load persists those runtime sessions separately from NPC inventory saves.
 
@@ -105,9 +106,10 @@ Detail buttons:
 Inspector sections:
 
 - `Definition`: locked item id, display name, type, value, icon, and flavor text. These are registry-authored gameplay values.
-- `Inventory Rules`: stackability, max stack size, consumable flag, and tradeability.
+- `Inventory Rules`: stackability and max stack size. Consumable/tradeable behavior is tag-backed.
+- `Tags`: item category/capability tags such as `Item.Consumable`, `Item.Tradeable`, `Item.Equipment`, `Item.Key`, `Item.Currency.Gold`, `Item.Fishing.Bait`, and `Item.Fishing.Lure`.
 - `Use`: use occasion and use effects when the item can be used.
-- `Equipment`: damage, defense, equip socket, offsets, equip domain, handing, and allowed slots.
+- `Equipment`: damage, defense, stat modifiers, equip socket, offsets, equip domain, handing, and allowed slots.
 - `Visual / World Prefab`: prefab reference, pickup grip, mesh, and materials. This is visual/world setup only.
 - `Authoring`: template marker and notes.
 
@@ -148,7 +150,8 @@ Detail buttons:
 
 Inspector sections:
 
-- `Identity`: character name, entity type, locked owner id, vitals, archetype, trader flag, hostile flag, notes.
+- `Identity`: character name, entity type, locked owner id, vitals, archetype, and notes.
+- `Tags`: actor/job/faction/status tags. Archetypes apply tags such as `Job.Guard`, `Job.Trader`, `Job.QuestGiver`, `Actor.Hostile`, `Actor.Civilian`, and `Actor.Unique`.
 - `AI & Movement`: AI config, patrol root, patrol points, navmesh snap distance, spline override.
 - `Inventory`: capacity, gold, and seed contents with item dropdowns and quantities.
 - `Dialogue & Trading`: conversation prompt labels, greeting, speaker icon, trade labels, legacy trader warning.
@@ -196,6 +199,7 @@ Inspector sections:
 - `Giver`: NPC owner id for NPC-offered or turn-in quests; empty means board-only.
 - `Prerequisites`: ordered quest id references and cycle warning.
 - `Objectives`: sequential objective list rendered by [QuestObjectiveDrawer.cs](../../Assets/Scripts/Quests/Editor/QuestObjectiveDrawer.cs).
+- `Tag Conditions`: quest offer and objective matching can use required/forbidden giver/player tags plus item/fish/NPC/interactable target tag sets.
 - `Reward`: gold and item rewards.
 - `Authoring`: template marker and notes.
 
@@ -240,11 +244,10 @@ Core database window:
 
 Shared editor helpers:
 
-- [ReferenceDropdown.cs](../../Assets/Scripts/Editor/Common/ReferenceDropdown.cs): searchable dropdowns for item, NPC, quest, and shop ids. It also warns when an id is missing from the relevant registry and repaints open database windows after selections.
+- [ReferenceDropdown.cs](../../Assets/Scripts/Editor/Common/ReferenceDropdown.cs): searchable dropdowns for item, NPC, quest, shop, RPG stat, and gameplay tag ids. It also warns when an id is missing from the relevant registry and repaints open database windows after selections.
 
 Item authoring:
 
-- [ItemDatabaseWindow.cs](../../Assets/Scripts/Inventory/Editor/ItemDatabaseWindow.cs): legacy item window entry point; routes to the Items tab.
 - [ItemAuthoringEditorUtility.cs](../../Assets/Scripts/Inventory/Editor/ItemAuthoringEditorUtility.cs): creates/duplicates item prefabs, assigns `ITM#####`, applies templates, adds canonical components, fills missing defaults.
 - [ItemAuthoringValidator.cs](../../Assets/Scripts/Inventory/Editor/ItemAuthoringValidator.cs): validates registry item definitions, legacy prefab drift, item ids, placeholder names, icons, visual prefab references, stack rules, gold rules, use effects, equipment slots, bait/lure components, and registry duplicates.
 - [ItemComponentEditor.cs](../../Assets/Scripts/Inventory/Editor/ItemComponentEditor.cs): custom inspector entry point for `ItemComponent`.
@@ -253,16 +256,13 @@ Item authoring:
 
 NPC authoring:
 
-- [NPCDatabaseWindow.cs](../../Assets/Scripts/NPCs/Editor/NPCDatabaseWindow.cs): legacy NPC window entry point; routes to the NPCs tab.
 - [NPCAuthoringEditorUtility.cs](../../Assets/Scripts/NPCs/Editor/NPCAuthoringEditorUtility.cs): creates/duplicates NPC prefabs, assigns `OWN#####`, applies archetypes, adds canonical AI/inventory components.
 - [NPCAuthoringValidator.cs](../../Assets/Scripts/NPCs/Editor/NPCAuthoringValidator.cs): validates owner ids, AI setup, inventory setup, dialogue graph references, quest references, trader flags, vitals, and registry duplicates.
 - [NPCAuthoringDrawerUtility.cs](../../Assets/Scripts/NPCs/Editor/NPCAuthoringDrawerUtility.cs): grouped NPC inspector UI, seed inventory list, dialogue/trade/death/debug controls.
 - [DialogueGraphDrawer.cs](../../Assets/Scripts/NPCs/Editor/DialogueGraphDrawer.cs): embedded dialogue graph editor used by NPC authoring.
-- [AI_NPC_TraderMigration.cs](../../Assets/Scripts/NPCs/Editor/AI_NPC_TraderMigration.cs): one-shot and menu-driven migration from legacy `NpcTrader` fields to `AI_NPC`.
 
 Quest authoring:
 
-- [QuestDatabaseWindow.cs](../../Assets/Scripts/Quests/Editor/QuestDatabaseWindow.cs): legacy quest window entry point; routes to the Quests tab.
 - [QuestAuthoringEditorUtility.cs](../../Assets/Scripts/Quests/Editor/QuestAuthoringEditorUtility.cs): creates/duplicates quest assets, assigns `QST#####`, applies quest templates, seeds first objectives.
 - [QuestAuthoringValidator.cs](../../Assets/Scripts/Quests/Editor/QuestAuthoringValidator.cs): validates quest ids, giver ids, prerequisites, prerequisite cycles, objectives, item/NPC references, rewards, repeat timing, and registry duplicates.
 - [QuestAuthoringDrawerUtility.cs](../../Assets/Scripts/Quests/Editor/QuestAuthoringDrawerUtility.cs): grouped quest inspector UI, prerequisite/objective/reward lists, focus helpers, and cross-database jump buttons.
@@ -304,7 +304,7 @@ Info messages are contextual: board-only quests, ignored repeat timing, hidden u
 2. Pick the tab for the content type.
 3. Click `New` with the appropriate template or archetype.
 4. Fill required fields in the right inspector.
-5. Use dropdowns for item, NPC, and quest ids wherever possible.
+5. Use dropdowns for item, NPC, quest, shop, stat, and gameplay tag ids wherever possible.
 6. Click `Rebuild Registry` if the list does not reflect your new asset or manual file changes.
 7. Open `Overview`, click `Refresh Issues`, and resolve errors first.
 8. Playtest the content path that consumes the authored data.
@@ -313,7 +313,7 @@ For shop content, author the stock in the `Shops` tab with item ids. Assign the 
 
 ## Notes
 
-- The consolidated window is the preferred authoring surface. The older item/NPC/quest database menu entries exist for muscle memory and deep links.
+- The consolidated window is the authoring surface for items, NPCs, quests, interactions, and RPG definitions.
 - `Fill Missing Defaults` is the safe repair button. `Reapply...` intentionally overwrites fields listed in its confirmation dialog.
 - Id fields are usually locked in the custom inspectors because ids are registry keys. Use regenerate buttons only when creating a new logical record or fixing a duplicate.
 - Quest objectives are sequential at runtime; list order matters.
@@ -321,6 +321,5 @@ For shop content, author the stock in the `Shops` tab with item ids. Assign the 
 - Reference dropdowns write string ids, not object references. If a dropdown shows `<Missing>`, the string exists but the registry cannot currently resolve it.
 - Shops validate against both NPC and item registries, so registry sync order matters after big content moves.
 - Merchant stock comes from `RpgShopDefinition`, not NPC inventory seed contents.
-- Item values, icons, names, stack rules, use effects, and equipment stats come from `ItemRegistry`, not prefab legacy fields.
+- Item values, icons, names, stack rules, use effects, equipment stats, and item stat modifiers come from `ItemRegistry`, not prefab legacy fields.
 - Runtime caught-fish item prefabs intentionally skip normal item checks because their name, value, icon, and visual are populated by runtime fish data.
-- The NPC trader migration can be run manually from `Tools/Sol/NPCs/Migrate NpcTrader -> AI_NPC` if old prefabs still carry `NpcTrader`.

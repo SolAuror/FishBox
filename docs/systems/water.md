@@ -48,7 +48,7 @@ flowchart TD
     WRM --> WT
     WRS --> WRM
     WV -->|IsSwimming trigger| Locomotion[LocomotionController]
-    WV -->|GetSurfaceHeight| Fishing[FishingTackleInstance]
+    WV -->|GetSurfaceHeight| Fishing[FishingLureInstance]
     WV -->|_WaterSurfaceY global| URC
     FV -.->|references| WV
     FV --> Fish[AI_Fish instances]

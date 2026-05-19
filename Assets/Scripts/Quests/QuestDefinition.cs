@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
 using Sol;
+using Sol.Rpg;
 
 namespace Sol.Quests
 {
@@ -40,6 +41,11 @@ namespace Sol.Quests
         [Tooltip("NPC owner id (OWN#####) that offers and accepts turn-in. Empty = quest board only.")]
         [NpcIdDropdown]
         [SerializeField] private string _giverNpcName = string.Empty;
+        [SerializeField] private GameplayTagSet _requiredGiverTags = new();
+        [SerializeField] private GameplayTagSet _forbiddenGiverTags = new();
+        [SerializeField] private GameplayTagSet _requiredPlayerTags = new();
+        [SerializeField] private GameplayTagSet _forbiddenPlayerTags = new();
+        [SerializeField] private GameplayTagSet _requiredWorldTags = new();
 
         [Tooltip("Objectives are completed in order.")]
         [SerializeField] private List<QuestObjective> _objectives = new();
@@ -84,6 +90,11 @@ namespace Sol.Quests
         public string Title => _title;
         public string Summary => _summary;
         public string GiverNpcName => _giverNpcName;
+        public GameplayTagSet RequiredGiverTags => _requiredGiverTags ?? GameplayTagSet.Empty;
+        public GameplayTagSet ForbiddenGiverTags => _forbiddenGiverTags ?? GameplayTagSet.Empty;
+        public GameplayTagSet RequiredPlayerTags => _requiredPlayerTags ?? GameplayTagSet.Empty;
+        public GameplayTagSet ForbiddenPlayerTags => _forbiddenPlayerTags ?? GameplayTagSet.Empty;
+        public GameplayTagSet RequiredWorldTags => _requiredWorldTags ?? GameplayTagSet.Empty;
         public IReadOnlyList<QuestObjective> Objectives => _objectives;
         public QuestReward Reward => _reward;
         public IReadOnlyList<string> PrerequisiteQuestIds => _prerequisiteQuestIds;

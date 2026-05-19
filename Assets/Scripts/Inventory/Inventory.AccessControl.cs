@@ -16,6 +16,7 @@ namespace Sol
             if (!IsWorldContainer) return;
             _isLocked = true;
             _lockLevel = Mathf.Max(0, lockLevel);
+            SetRuntimeTag(Sol.Rpg.GameplayCapabilityTags.StateLocked, true);
         }
 
 
@@ -42,7 +43,7 @@ namespace Sol
         public void SetRequiredKey(ItemComponent keyItem)
         {
             if (!IsWorldContainer) return;
-            if (keyItem == null || keyItem.Type != ItemType.Key)
+            if (keyItem == null || !ItemTypeRules.HasItemTag(keyItem, Sol.Rpg.GameplayCapabilityTags.ItemKey))
             {
                 _requiredKeyItemName = string.Empty;
                 _requiredKeyItemId = string.Empty;
@@ -61,12 +62,13 @@ namespace Sol
             if (!IsWorldContainer) return;
             _isLocked = false;
             _lockLevel = 0;
+            SetRuntimeTag(Sol.Rpg.GameplayCapabilityTags.StateLocked, false);
         }
 
 
         public bool TryUnlock(int skillLevel)
         {
-            if (!IsWorldContainer || !_isLocked) return true;
+            if (!IsWorldContainer || !IsLocked) return true;
             if (skillLevel < _lockLevel) return false;
             Unlock();
             return true;
@@ -134,7 +136,7 @@ namespace Sol
                 if (slot?.Item == null)
                     continue;
 
-                if (slot.Item.Type != ItemType.Key)
+                if (!ItemTypeRules.HasItemTag(slot.Item, Sol.Rpg.GameplayCapabilityTags.ItemKey))
                     continue;
 
                 if (string.Equals(slot.Item.ItemName, target, StringComparison.OrdinalIgnoreCase))
@@ -157,7 +159,7 @@ namespace Sol
                 return false;
 
             InventorySlot slot = FindByItemId(itemId);
-            return slot?.Item != null && slot.Item.Type == ItemType.Key;
+            return slot?.Item != null && ItemTypeRules.HasItemTag(slot.Item, Sol.Rpg.GameplayCapabilityTags.ItemKey);
         }
 
 
@@ -182,7 +184,7 @@ namespace Sol
             if (!IsWorldContainer)
                 return InventoryAccessResult.Allowed;
 
-            if (_isLocked && !HasRequiredKey(interactor))
+            if (IsLocked && !HasRequiredKey(interactor))
                 return InventoryAccessResult.Locked;
 
             if (enforceOwnership && HasOwner && !IsOwnedBy(interactor.Owner))
@@ -208,7 +210,7 @@ namespace Sol
         {
             displayName = string.Empty;
             InventorySlot keySlot = FindByItemId(itemId);
-            if (keySlot?.Item == null || keySlot.Item.Type != ItemType.Key)
+            if (keySlot?.Item == null || !ItemTypeRules.HasItemTag(keySlot.Item, Sol.Rpg.GameplayCapabilityTags.ItemKey))
                 return false;
 
             displayName = keySlot.Item.ItemName;

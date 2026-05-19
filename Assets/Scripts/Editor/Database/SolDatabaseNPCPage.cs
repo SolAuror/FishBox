@@ -40,6 +40,7 @@ namespace Sol.Editor
             public int WarningCount;
             public string WarningTooltip;
             public bool HasTrader;
+            public bool IsQuestGiver;
             public bool IsHostile;
             public bool MissingAIConfig;
         }
@@ -126,6 +127,7 @@ namespace Sol.Editor
                 WarningCount = warnings.Count,
                 WarningTooltip = JoinWarnings(warnings),
                 HasTrader = aiNpc != null && aiNpc.IsTrader,
+                IsQuestGiver = soul.IsQuestGiver,
                 IsHostile = soul.IsHostile,
                 MissingAIConfig = aiNpc != null && aiNpc.Config == null
             };
@@ -139,7 +141,7 @@ namespace Sol.Editor
             return filter switch
             {
                 NPCFilter.Trader => row.HasTrader,
-                NPCFilter.QuestGiver => row.Archetype == NPCArchetype.QuestGiver,
+                NPCFilter.QuestGiver => row.IsQuestGiver,
                 NPCFilter.Guard => row.Archetype == NPCArchetype.Guard,
                 NPCFilter.Bandit => row.Archetype == NPCArchetype.Bandit,
                 NPCFilter.Hostile => row.IsHostile,
@@ -185,7 +187,7 @@ namespace Sol.Editor
             return filter switch
             {
                 NPCFilter.Trader => row.HasTrader,
-                NPCFilter.QuestGiver => row.Archetype == NPCArchetype.QuestGiver,
+                NPCFilter.QuestGiver => row.IsQuestGiver,
                 NPCFilter.Guard => row.Archetype == NPCArchetype.Guard,
                 NPCFilter.Bandit => row.Archetype == NPCArchetype.Bandit,
                 NPCFilter.Hostile => row.IsHostile,

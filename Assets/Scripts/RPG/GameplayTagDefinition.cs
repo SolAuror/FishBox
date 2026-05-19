@@ -15,6 +15,14 @@ namespace Sol.Rpg
         Damage = 8,
         Defense = 9,
         World = 10,
+        Interaction = 11,
+        Fish = 12,
+        Location = 13,
+        Surface = 14,
+        State = 15,
+        Action = 16,
+        Ownership = 17,
+        Crime = 18,
         Other = 99
     }
 

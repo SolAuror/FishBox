@@ -34,6 +34,7 @@ namespace Sol.SaveLoad
             ApplyContainerData(data.Containers);
             ApplyNpcData(data.NPCs);
             ApplyWorldItemData(data.WorldItems);
+            ApplyInteractionPointData(data.InteractionPoints);
             Sol.Quests.QuestManager.Instance?.ApplySaveData(data.Quests);
             ApplyShopData(data.Shops);
         }
@@ -102,6 +103,9 @@ namespace Sol.SaveLoad
                     soul.MaxStamina = data.MaxStamina;
                     soul.Stamina = data.Stamina;
                 }
+
+                if (data.TagPaths != null && data.TagPaths.Count > 0)
+                    soul.ApplySavedTagPaths(data.TagPaths);
             }
 
             RestoreInventoryAndEquipment(
@@ -156,6 +160,8 @@ namespace Sol.SaveLoad
                     inventory.Lock(saved.LockLevel);
                 else
                     inventory.Unlock();
+                if (saved.TagPaths != null && saved.TagPaths.Count > 0)
+                    inventory.ApplySavedTagPaths(saved.TagPaths);
 
                 RestoreInventory(inventory, saved.Gold, saved.Items);
             }
@@ -217,8 +223,13 @@ namespace Sol.SaveLoad
 
                     if (saved.HasRuntimeFlags)
                     {
-                        soul.CanTrade = saved.CanTrade;
-                        soul.IsHostile = saved.IsHostile;
+                        if (saved.TagPaths != null && saved.TagPaths.Count > 0)
+                            soul.ApplySavedTagPaths(saved.TagPaths);
+                        else
+                        {
+                            soul.CanTrade = saved.CanTrade;
+                            soul.IsHostile = saved.IsHostile;
+                        }
                     }
                 }
 
@@ -262,7 +273,8 @@ namespace Sol.SaveLoad
                     ItemId = saved.ItemId,
                     OwnerId = saved.OwnerId,
                     IsStolen = saved.IsStolen,
-                    FishCode = saved.FishCode
+                    FishCode = saved.FishCode,
+                    TagPaths = saved.TagPaths
                 };
 
                 ItemComponent item = CreateItemInstance(instanceData, null);
@@ -408,6 +420,8 @@ namespace Sol.SaveLoad
             item.gameObject.SetActive(false);
             item.SetOwnerId(data.OwnerId);
             item.SetStolen(data.IsStolen);
+            if (data.TagPaths != null && data.TagPaths.Count > 0)
+                item.ApplySavedTagPaths(data.TagPaths);
 
             if (!string.IsNullOrWhiteSpace(data.FishCode))
             {
@@ -418,6 +432,29 @@ namespace Sol.SaveLoad
             }
 
             return item;
+        }
+
+        private void ApplyInteractionPointData(List<InteractionPointSaveData> points)
+        {
+            if (points == null || points.Count == 0)
+                return;
+
+            InteractionPoint[] scenePoints = FindObjectsByType<InteractionPoint>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+
+            for (int i = 0; i < scenePoints.Length; i++)
+            {
+                InteractionPoint point = scenePoints[i];
+                if (point == null)
+                    continue;
+
+                InteractionPointSaveData saved = FindMatchingInteractionPoint(points, point);
+                if (saved?.TagPaths == null || saved.TagPaths.Count == 0)
+                    continue;
+
+                point.ApplySavedTagPaths(saved.TagPaths);
+            }
         }
 
 
@@ -640,6 +677,58 @@ namespace Sol.SaveLoad
                 bool positionMatches = Vector3.Distance(candidate.Position, interactable.transform.position) <= 0.5f;
                 if (nameMatches && positionMatches)
                     return candidate;
+            }
+
+            return null;
+        }
+
+        private static InteractionPointSaveData FindMatchingInteractionPoint(List<InteractionPointSaveData> points, InteractionPoint point)
+        {
+            if (points == null || point == null)
+                return null;
+
+            string hierarchyPath = GetHierarchyPath(point.transform);
+            if (!string.IsNullOrWhiteSpace(hierarchyPath))
+            {
+                for (int i = 0; i < points.Count; i++)
+                {
+                    InteractionPointSaveData candidate = points[i];
+                    if (candidate != null
+                        && string.Equals(candidate.HierarchyPath, hierarchyPath, StringComparison.Ordinal))
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            string pointId = point.InteractionPointId;
+            if (!string.IsNullOrWhiteSpace(pointId))
+            {
+                int matchCount = 0;
+                InteractionPointSaveData firstIdMatch = null;
+                for (int i = 0; i < points.Count; i++)
+                {
+                    InteractionPointSaveData candidate = points[i];
+                    if (candidate != null
+                        && string.Equals(candidate.InteractionPointId, pointId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        firstIdMatch ??= candidate;
+                        matchCount++;
+                    }
+                }
+
+                if (matchCount == 1)
+                    return firstIdMatch;
+            }
+
+            for (int i = 0; i < points.Count; i++)
+            {
+                InteractionPointSaveData candidate = points[i];
+                if (candidate != null
+                    && string.Equals(candidate.GameObjectName, point.gameObject.name, StringComparison.Ordinal))
+                {
+                    return candidate;
+                }
             }
 
             return null;

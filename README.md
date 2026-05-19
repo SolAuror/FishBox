@@ -6,7 +6,7 @@
 
 Fishbox is a first-person sandbox RPG built on a shared actor stack — player and NPCs run on the same souls, the same locomotion, the same action dispatcher. A day might be spent at the forge, hauling water from a well, swinging fists at a bandit on the road, picking up a quest from a board, or — yes — taking a rod down to the water and waiting for something to bite. Stats and skills nudge upward as you use them, factions remember what you did, shops restock on their own clock, and an eclipse occasionally arrives like nothing in particular is happening.
 
-Under the hood it's a Unity 6 project built around a central action/state dispatcher, a physics-grab world where almost anything you can see you can pick up, an Elder Scrolls-style list inventory, registry-authoritative item definitions, an RPG core of ScriptableObject-defined stats/skills/factions/shops, shop-session trading, and a JSON save system that tries hard not to lose your fish *or* your gold. It's a fork of Project-Solr.
+Under the hood it's a Unity 6 project built around a central action/state dispatcher, a physics-grab world where almost anything you can see you can pick up, an Elder Scrolls-style list inventory, registry-authoritative item definitions, an RPG core of ScriptableObject-defined stats/skills/factions/shops/traits/status effects, runtime stat modifiers for combat and vitals, shop-session trading, and a JSON save system that tries hard not to lose your fish *or* your gold. It's a fork of Project-Solr.
 
 ## Tech stack
 
@@ -29,18 +29,18 @@ If you open the project in an editor version other than `6000.3.9f1`, expect sha
 | Folder | What lives there |
 |--------|------------------|
 | [ActionSystem/](Assets/Scripts/ActionSystem/) | The central dispatcher. Everything an actor "does" goes through here. → [docs](docs/systems/action-system.md) |
-| [RPG/](Assets/Scripts/RPG/) | Stats, skills, factions, shop definitions, and shop runtime sessions. → [docs](docs/systems/rpg.md) |
-| [Combat/](Assets/Scripts/Combat/) | Shared melee attack, player punch combat, hit reactions. → [docs](docs/systems/combat.md) |
+| [RPG/](Assets/Scripts/RPG/) | Stats, skills, factions, shop definitions, traits, status effects, stat modifiers, and shop runtime sessions. → [docs](docs/systems/rpg.md) |
+| [Combat/](Assets/Scripts/Combat/) | Shared melee attack, combatants, stamina/armor/damage resolution, and hit reactions. → [docs](docs/systems/combat.md) |
 | [Interactables/](Assets/Scripts/Interactables/) | Interaction points: forges, anvils, wells, fruit trees, beds, containers. → [docs](docs/systems/interactables.md) |
 | [Fishing/](Assets/Scripts/Fishing/) | Rod, tackle, bait, cast, reel, caught fish — the headline activity loop. → [docs](docs/systems/fishing.md) |
-| [Inventory/](Assets/Scripts/Inventory/) | Inventory, equipment, registry-backed item facade, and direct transfer helpers. → [docs](docs/systems/interactions-inventory.md) |
+| [Inventory/](Assets/Scripts/Inventory/) | Inventory, equipment, registry-backed item facade, equipped stat modifiers, and direct transfer helpers. → [docs](docs/systems/interactions-inventory.md) |
 | [Locomotion/](Assets/Scripts/Locomotion/) | Character movement, IK, footsteps, camera modes. → [docs](docs/systems/locomotion.md) |
 | [Management/](Assets/Scripts/Management/) | Managers: save/load, grab, input, water, ripples. → [docs](docs/systems/save-system.md) |
 | [NPCs/](Assets/Scripts/NPCs/) | AI characters, states, archetypes, dialogue, trader data. → [docs](docs/systems/npcs.md) |
 | [Quests/](Assets/Scripts/Quests/) | Quest definitions, objectives, rewards, lifecycle. → [docs](docs/systems/quests.md) |
 | [TimeOfDay/](Assets/Scripts/TimeOfDay/) | Day/night cycle, calendar, celestial bodies, eclipses. → [docs](docs/systems/time-of-day.md) |
 | [Water/](Assets/Scripts/Water/) | Water volumes, fish volumes, underwater rendering. → [docs](docs/systems/water.md) |
-| [UserInterface/](Assets/Scripts/UserInterface/) | Inventory UI, shop/direct trade UI, item previews, menus, crosshair, HUD. → [docs](docs/systems/ui.md) |
+| [UserInterface/](Assets/Scripts/UserInterface/) | Inventory category tabs/search, shop/direct trade UI, item previews, menus, crosshair, HUD. → [docs](docs/systems/ui.md) |
 | [Editor/Database/](Assets/Scripts/Editor/Database/) | Authoring window for items, NPCs, quests, RPG definitions. → [docs](docs/systems/database-authoring.md) |
 | [Outline/](Assets/Scripts/Outline/), [PhysGrab/](Assets/Scripts/PhysGrab/), [Player/](Assets/Scripts/Player/) | Interaction outline, physics grab, player HUD bars. Covered inline in the docs above. |
 
@@ -73,18 +73,18 @@ Fishing keeps its own seven-beat sub-loop — **equip → cast → wait → bite
 System-level docs live under [docs/systems/](docs/systems/):
 
 - [Action System](docs/systems/action-system.md) — the dispatcher all intent flows through
-- [Combat](docs/systems/combat.md) — melee attacks, punch combat, hit reactions
+- [Combat](docs/systems/combat.md) — melee attacks, combatants, stamina/armor/damage resolution, hit reactions
 - [Database Authoring](docs/systems/database-authoring.md) — editor database menus, authoring buttons, validators
 - [Fishing](docs/systems/fishing.md) — rod, tackle, cast/reel state machine
 - [Interactables](docs/systems/interactables.md) — interaction points, harvestables, water sources, containers
-- [Interactions & Inventory](docs/systems/interactions-inventory.md) — items, equipment, trading, containers
+- [Interactions & Inventory](docs/systems/interactions-inventory.md) — items, equipment, stat modifiers, trading, containers
 - [Locomotion](docs/systems/locomotion.md) — movement, IK, footsteps
 - [NPCs](docs/systems/npcs.md) — AI characters, archetypes, states
 - [Quests](docs/systems/quests.md) — quest lifecycle and objectives
-- [RPG](docs/systems/rpg.md) — stats, skills, factions, shops
+- [RPG](docs/systems/rpg.md) — stats, skills, factions, shops, traits, status effects, runtime stat modifiers
 - [Save System](docs/systems/save-system.md) — JSON slots, what persists
 - [Time of Day](docs/systems/time-of-day.md) — clock, calendar, sky, eclipses
-- [User Interface](docs/systems/ui.md) — menus, inventory UI, trade UI, HUD
+- [User Interface](docs/systems/ui.md) — menus, inventory category tabs/search, trade UI, HUD
 - [Water](docs/systems/water.md) — water volumes, fish volumes, underwater rendering
 
 Each doc follows the same shape: a one-line hook, a purpose, the key files, how data flows, where to plug new things in, and the gotchas.

@@ -1,4 +1,5 @@
 using Sol.Actions;
+using Sol.Rpg;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Serialization;
@@ -29,7 +30,7 @@ namespace Sol
 
     [DisallowMultipleComponent]
     [AddComponentMenu("Sol/Interactables/Interaction Point")]
-    public partial class InteractionPoint : MonoBehaviour, IInteractable
+    public partial class InteractionPoint : MonoBehaviour, IInteractable, IGameplayTagProvider
     {
         private const float ReservationGraceDuration = 4f;
 
@@ -42,6 +43,15 @@ namespace Sol
         [SerializeField] private string _prompt = "Use";
         [SerializeField] private string _displayName = string.Empty;
         [SerializeField] private InteractionPointType _type = InteractionPointType.Utility;
+        [SerializeField] private GameplayTagSet _tags = new();
+        [SerializeField] private GameplayTagSet _allowedActorTags = new();
+        [SerializeField] private GameplayTagSet _forbiddenActorTags = new();
+        [SerializeField] private GameplayTagSet _requiredItemTags = new();
+        [SerializeField] private GameplayTagSet _producedItemTags = new();
+
+        [Header("Shop")]
+        [ShopIdDropdown]
+        [SerializeField] private string _shopId = string.Empty;
 
         [Header("Ownership")]
         [OwnerIdDropdown]
@@ -103,6 +113,9 @@ namespace Sol
         public string DisplayName => EffectiveDisplayName;
         public InteractionPointType Type => EffectiveType;
         public InteractionPointAnimationType AnimationType => EffectiveAnimationType;
+        public GameplayTagSet Tags => EffectiveTags;
+        public GameplayTagSet ProducedItemTags => EffectiveProducedItemTags;
+        public string ShopId => _shopId?.Trim() ?? string.Empty;
         public string OwnerId => EffectiveOwnerId;
         public bool IsOwned => !string.IsNullOrWhiteSpace(OwnerId);
         public InteractionSession ActiveSession => _activeSession;
@@ -136,6 +149,9 @@ namespace Sol
             if (interactor == null || interactor.Owner == null || !interactor.Owner.activeInHierarchy)
                 return false;
 
+            if (IsTaggedShop)
+                return interactor.IsPlayer && interactor.Inventory != null && ResolveShopSession() != null;
+
             ClearExpiredReservationIfNeeded();
 
             if (!CanOwnerUse(interactor))
@@ -145,6 +161,9 @@ namespace Sol
                 return false;
 
             if (!EffectiveAllowNPC && !interactor.IsPlayer)
+                return false;
+
+            if (!SatisfiesTagRules(interactor))
                 return false;
 
             if (EffectiveMaxInteractionRange > 0f)
@@ -166,6 +185,14 @@ namespace Sol
 
         public virtual GameAction GetInteraction(Interactor interactor)
         {
+            if (IsTaggedShop)
+            {
+                ShopRuntimeSession shopSession = ResolveShopSession();
+                return shopSession != null && interactor?.Inventory != null
+                    ? new OpenShopAction(interactor.Inventory, shopSession)
+                    : null;
+            }
+
             return new UseInteractionPointAction(this, interactor);
         }
 
@@ -184,6 +211,8 @@ namespace Sol
                 return false;
 
             _inUse = true;
+            _tags ??= new GameplayTagSet();
+            _tags.AddRuntimeTagPath(GameplayCapabilityTags.StateInUse);
             _activeInteractor = interactor;
             _activeAlignPoint = ResolveNearestAlignPoint(interactor.Transform.position);
             if (IsReservedBy(interactor))
@@ -246,6 +275,8 @@ namespace Sol
             _activeInteractor = null;
             _activeAlignPoint = null;
             _inUse = false;
+            _tags ??= new GameplayTagSet();
+            _tags.RemoveRuntimeTagPath(GameplayCapabilityTags.StateInUse);
             if (session != null)
                 session.SetState(InteractionSessionState.Cleanup);
             _activeSession = null;
@@ -424,6 +455,17 @@ namespace Sol
                     _guestOwnerIds[i] = ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_guestOwnerIds[i]);
             }
 
+            _tags ??= new GameplayTagSet();
+            _tags.Normalize();
+            _allowedActorTags ??= new GameplayTagSet();
+            _allowedActorTags.Normalize();
+            _forbiddenActorTags ??= new GameplayTagSet();
+            _forbiddenActorTags.Normalize();
+            _requiredItemTags ??= new GameplayTagSet();
+            _requiredItemTags.Normalize();
+            _producedItemTags ??= new GameplayTagSet();
+            _producedItemTags.Normalize();
+
             _interactionPointId = EntityCodeUtility.NormalizeOrEmpty(
                 _interactionPointId,
                 EntityCodeUtility.InteractionPointPrefix);
@@ -509,6 +551,11 @@ namespace Sol
         private string EffectivePrompt => UsesDefinitionDefaults ? _definition.Prompt : (string.IsNullOrWhiteSpace(_prompt) ? "Use" : _prompt.Trim());
         private string EffectiveDisplayName => UsesDefinitionDefaults ? _definition.DisplayName : (_displayName?.Trim() ?? string.Empty);
         private InteractionPointType EffectiveType => UsesDefinitionDefaults ? _definition.Type : _type;
+        private GameplayTagSet EffectiveTags => BuildEffectiveTags();
+        private GameplayTagSet EffectiveAllowedActorTags => UsesDefinitionDefaults ? _definition.AllowedActorTags : (_allowedActorTags ?? GameplayTagSet.Empty);
+        private GameplayTagSet EffectiveForbiddenActorTags => UsesDefinitionDefaults ? _definition.ForbiddenActorTags : (_forbiddenActorTags ?? GameplayTagSet.Empty);
+        private GameplayTagSet EffectiveRequiredItemTags => UsesDefinitionDefaults ? _definition.RequiredItemTags : (_requiredItemTags ?? GameplayTagSet.Empty);
+        private GameplayTagSet EffectiveProducedItemTags => UsesDefinitionDefaults ? _definition.ProducedItemTags : (_producedItemTags ?? GameplayTagSet.Empty);
         private InteractionPointAnimationType EffectiveAnimationType => UsesDefinitionDefaults ? _definition.AnimationType : _animationType;
         private AnimationClip EffectiveCustomClip => UsesDefinitionDefaults ? _definition.CustomClip : _customClip;
         private bool EffectiveAllowPlayer => UsesDefinitionDefaults ? _definition.AllowPlayer : _allowPlayer;
@@ -526,6 +573,117 @@ namespace Sol
         private string EffectiveReadyStatePath => UsesDefinitionDefaults ? _definition.ReadyStatePath : string.Empty;
         private float EffectiveReadyNormalizedTime => UsesDefinitionDefaults ? _definition.ReadyNormalizedTime : 0.85f;
         private string EffectiveOwnerId => ItemOwnershipUtility.NormalizeOwnerIdOrEmpty(_ownerId);
+        private bool IsTaggedShop => EffectiveTags.HasTagOrChild(GameplayCapabilityTags.JobTrader);
+
+        public void SetRuntimeTag(string tagPath, bool enabled)
+        {
+            _tags ??= new GameplayTagSet();
+            if (enabled)
+                _tags.AddRuntimeTagPath(tagPath);
+            else
+                _tags.RemoveRuntimeTagPath(tagPath);
+        }
+
+        public System.Collections.Generic.List<string> CollectTagPaths()
+        {
+            return EffectiveTags.CaptureTagPaths();
+        }
+
+        public void ApplySavedTagPaths(System.Collections.Generic.IEnumerable<string> tagPaths)
+        {
+            _tags ??= new GameplayTagSet();
+            _tags.AddRuntimeTagPaths(tagPaths);
+        }
+
+        private GameplayTagSet BuildEffectiveTags()
+        {
+            _tags ??= new GameplayTagSet();
+            _tags.Normalize();
+
+            if (_definition != null && !_overrideDefinitionSettings && _definition.Tags != null)
+                _tags.AddRuntimeTagPaths(_definition.Tags.EnumerateTagPaths());
+
+            AddLegacyTypeTag();
+
+            if (_inUse)
+                _tags.AddRuntimeTagPath(GameplayCapabilityTags.StateInUse);
+
+            if (_reservedInteractor != null)
+                _tags.AddRuntimeTagPath(GameplayCapabilityTags.StateReserved);
+            else
+                _tags.RemoveRuntimeTagPath(GameplayCapabilityTags.StateReserved);
+
+            return _tags;
+        }
+
+        private void AddLegacyTypeTag()
+        {
+            string tagPath = EffectiveType switch
+            {
+                InteractionPointType.Rest => GameplayCapabilityTags.InteractionRest,
+                InteractionPointType.Work => GameplayCapabilityTags.InteractionWork,
+                InteractionPointType.Water => GameplayCapabilityTags.InteractionWaterSource,
+                _ => string.Empty
+            };
+
+            if (!string.IsNullOrWhiteSpace(tagPath))
+                _tags.AddRuntimeTagPath(tagPath);
+
+            if (EffectiveAnimationType == InteractionPointAnimationType.RestSleep)
+                _tags.AddRuntimeTagPath(GameplayCapabilityTags.InteractionSleep);
+
+            if (EffectiveAnimationType == InteractionPointAnimationType.WorkFishing)
+                _tags.AddRuntimeTagPath(GameplayCapabilityTags.InteractionFishing);
+        }
+
+        private bool SatisfiesTagRules(Interactor interactor)
+        {
+            GameplayTagSet actorTags = ResolveActorTags(interactor);
+            GameplayTagSet allowedActorTags = EffectiveAllowedActorTags;
+            if (allowedActorTags != null && !allowedActorTags.IsEmpty() && !actorTags.HasAnyTagOrChild(allowedActorTags))
+                return false;
+
+            GameplayTagSet forbiddenActorTags = EffectiveForbiddenActorTags;
+            if (forbiddenActorTags != null && actorTags.HasAnyTagOrChild(forbiddenActorTags))
+                return false;
+
+            GameplayTagSet requiredItemTags = EffectiveRequiredItemTags;
+            if (requiredItemTags != null && !requiredItemTags.IsEmpty() && !InventoryHasItemTags(interactor?.Inventory, requiredItemTags))
+                return false;
+
+            return true;
+        }
+
+        private static GameplayTagSet ResolveActorTags(Interactor interactor)
+        {
+            IGameplayTagProvider provider = interactor?.Owner != null
+                ? interactor.Owner.GetComponentInParent<IGameplayTagProvider>()
+                : null;
+
+            return provider?.Tags ?? GameplayTagSet.Empty;
+        }
+
+        private static bool InventoryHasItemTags(Inventory inventory, GameplayTagSet requiredTags)
+        {
+            if (inventory == null || requiredTags == null || requiredTags.IsEmpty())
+                return false;
+
+            foreach (InventorySlot slot in inventory.Slots)
+            {
+                if (slot?.Item == null)
+                    continue;
+
+                if (slot.Item.Tags.HasAnyTagOrChild(requiredTags))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private ShopRuntimeSession ResolveShopSession()
+        {
+            return string.IsNullOrWhiteSpace(_shopId) ? null : ShopRuntimeStore.GetOrCreateSession(_shopId);
+        }
 
         private bool RequiresReadyGate()
         {

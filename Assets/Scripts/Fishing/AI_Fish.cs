@@ -6,6 +6,7 @@ using Sol.Grab;
 using Sol.Audio;
 using Sol.Fishing;
 using Sol.AI;
+using Sol.Rpg;
 
 namespace Sol.AI
 {
@@ -923,8 +924,9 @@ namespace Sol.AI
                 return false;
 
             bool hasFavoriteItemId = !string.IsNullOrWhiteSpace(_definition.favoriteBaitItemId);
+            bool hasFavoriteTags = _definition.favoriteBaitTags != null && !_definition.favoriteBaitTags.IsEmpty();
             bool hasFavoriteName = !string.IsNullOrWhiteSpace(_definition.favoriteBaitName);
-            if (!hasFavoriteItemId && !hasFavoriteName)
+            if (!hasFavoriteItemId && !hasFavoriteTags && !hasFavoriteName)
                 return false;
 
             if (hasFavoriteItemId
@@ -935,6 +937,9 @@ namespace Sol.AI
             {
                 return true;
             }
+
+            if (hasFavoriteTags && lure.BaitTags.HasAnyTagOrChild(_definition.favoriteBaitTags))
+                return true;
 
             return hasFavoriteName
                 && string.Equals(
@@ -1328,6 +1333,7 @@ namespace Sol.AI
             fishData.cachedValue = Value;
             fishData.catchVisualScale = CatchVisualLocalScale;
             fishData.modelPrefab = CatchVisualPrefab;
+            fishData.tagPaths = itemComponent.CollectTagPaths();
             string fishCode = FishRegistry.Instance.RegisterFish(fishData);
             caughtFishItem.FishCode = fishCode;
 

@@ -17,6 +17,7 @@ MonoBehaviour:
     DisplayName: Apple
     ItemType: 5
     Value: 5
+    Weight: 0.2
     Icon: {fileID: 21300000, guid: d9dc8b8cead7fb942b90f62b0981e4f1, type: 3}
     FlavourText: An ordinary Apple, but from who's orchard..?
     IsStackable: 1
@@ -35,13 +36,24 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00009
+      - _tagId: TAG00036
+      - _tagId: TAG00010
+      - _tagId: TAG00011
+      - _tagId: TAG00012
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 1312666679401494266, guid: f7f6dd20ddff0114a98379842fde7f46, type: 3}
   - ItemId: ITM00005
     DisplayName: Key
     ItemType: 4
     Value: 0
+    Weight: 0
     Icon: {fileID: 21300000, guid: 2fa30af0bc474944194ac5ff13eb173d, type: 3}
     FlavourText: A generic key...
     IsStackable: 0
@@ -58,13 +70,20 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 437761895070354558, guid: 3df4c3c8e075ec54787b341d1046224c, type: 3}
   - ItemId: ITM10000
     DisplayName: Caught Fish
     ItemType: 5
     Value: 0
+    Weight: 0
     Icon: {fileID: 21300000, guid: d9dc8b8cead7fb942b90f62b0981e4f1, type: 3}
     FlavourText: 
     IsStackable: 0
@@ -81,13 +100,23 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00009
+      - _tagId: TAG00036
+      - _tagId: TAG00010
+      - _tagId: TAG00011
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 5327769213971343067, guid: 14599342bd47179479c8db4e19da5c73, type: 3}
   - ItemId: ITM00031
     DisplayName: Plate Chest
-    ItemType: 4
+    ItemType: 2
     Value: 500
+    Weight: 0
     Icon: {fileID: 21300000, guid: 3ec6c1ea76a89fe42ba48380c43f1151, type: 3}
     FlavourText: Chest armor made of bronze plate
     IsStackable: 0
@@ -104,13 +133,19 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags: []
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 1262569981265340156, guid: 8ddd72c6ca73b7c48916e955f1cd83ad, type: 3}
   - ItemId: ITM00030
     DisplayName: Cube Helm
     ItemType: 2
     Value: 150
+    Weight: 0
     Icon: {fileID: 21300000, guid: 521105b0eb8a9b943a88e4c41b1cb61c, type: 3}
     FlavourText: Slightly reminiscent of a swedish phenomena...
     IsStackable: 0
@@ -127,13 +162,21 @@ MonoBehaviour:
     EquipDomain: 1
     WeaponHanding: 0
     AllowedEquipSlots: 00000000
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+      - _tagId: TAG00008
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 1181342812492980928, guid: cd1720ef9b3117f439a313b83d79c458, type: 3}
   - ItemId: ITM00014
     DisplayName: Empty Glass Bottle
     ItemType: 4
     Value: 10
+    Weight: 0
     Icon: {fileID: 21300000, guid: dab8eaf34f4bae247a848707a10cb27f, type: 3}
     FlavourText: 
     IsStackable: 0
@@ -150,13 +193,20 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 6382334160956226770, guid: 594d2c482362e3e47a1e0b9a847378c2, type: 3}
   - ItemId: ITM00018
     DisplayName: Old Fishing Rod
     ItemType: 4
     Value: 650
+    Weight: 0
     Icon: {fileID: 21300000, guid: dab8eaf34f4bae247a848707a10cb27f, type: 3}
     FlavourText: An old rod, usually found left somewhere near a coastline..
     IsStackable: 0
@@ -173,13 +223,21 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+      - _tagId: TAG00011
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 1441377402548700693, guid: 58cfcc0e0683dec449b3612e89346f1e, type: 3}
   - ItemId: ITM00004
     DisplayName: Garus's Key
     ItemType: 8
     Value: 0
+    Weight: 0
     Icon: {fileID: 21300000, guid: 2fa30af0bc474944194ac5ff13eb173d, type: 3}
     FlavourText: Who knows what Garus keeps in his 'special' crate, but he left it
       laying around somewhere...
@@ -197,13 +255,20 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 161703026071401479, guid: acf4ac8cbdbc1444388e3577a6f7b65b, type: 3}
   - ItemId: ITM00003
     DisplayName: Gold Coin
     ItemType: 11
     Value: 1
+    Weight: 0
     Icon: {fileID: 21300000, guid: c0b3a380187887849ab610ea66d7ee8f, type: 3}
     FlavourText: 
     IsStackable: 1
@@ -220,13 +285,20 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00047
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 437761895070354558, guid: f1d5b1c4459e13e4987ec0e779c13064, type: 3}
   - ItemId: ITM00020
     DisplayName: Green Lure
     ItemType: 10
     Value: 500
+    Weight: 0
     Icon: {fileID: 21300000, guid: dab8eaf34f4bae247a848707a10cb27f, type: 3}
     FlavourText: A shiny green lure, better than your old one for sure...
     IsStackable: 1
@@ -243,13 +315,22 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+      - _tagId: TAG00011
+      - _tagId: TAG00013
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 1626935943008335794, guid: a27619cb9e03c9442b8c808f1837e823, type: 3}
   - ItemId: ITM00012
     DisplayName: Lockpick
     ItemType: 10
     Value: 25
+    Weight: 0
     Icon: {fileID: 21300000, guid: 344c5ac4a7ac82c49b5c8f5df40bb416, type: 3}
     FlavourText: What are -YOU- up to...?
     IsStackable: 1
@@ -266,13 +347,20 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 437761895070354558, guid: 4ebffe2a18b4c4b48a06144cd18adc57, type: 3}
   - ItemId: ITM00007
     DisplayName: Poison Apple
     ItemType: 5
     Value: 5
+    Weight: 0
     Icon: {fileID: 21300000, guid: d9dc8b8cead7fb942b90f62b0981e4f1, type: 3}
     FlavourText: A deadly apple, hopefully no one eats it...
     IsStackable: 1
@@ -291,13 +379,24 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00009
+      - _tagId: TAG00036
+      - _tagId: TAG00010
+      - _tagId: TAG00011
+      - _tagId: TAG00012
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 1312666679401494266, guid: 46fc5c140a1a0284490c22cfdef17406, type: 3}
   - ItemId: ITM00002
     DisplayName: President Fruit
     ItemType: 5
-    Value: 0
+    Value: 5
+    Weight: 0.2
     Icon: {fileID: 21300000, guid: d9dc8b8cead7fb942b90f62b0981e4f1, type: 3}
     FlavourText: The only fruit, the greatest fruit...
     IsStackable: 1
@@ -316,13 +415,24 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00009
+      - _tagId: TAG00036
+      - _tagId: TAG00010
+      - _tagId: TAG00011
+      - _tagId: TAG00012
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 1312666679401494266, guid: 2c88d2e6f4ef79641b9411c18f411d9b, type: 3}
   - ItemId: ITM00011
     DisplayName: Essence Potion
     ItemType: 7
     Value: 300
+    Weight: 0
     Icon: {fileID: 21300000, guid: 0e1be301a54c1124088678dffbe1f161, type: 3}
     FlavourText: A potion to restore the essence a magic in oneself...
     IsStackable: 1
@@ -341,13 +451,21 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00009
+      - _tagId: TAG00036
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 4347285824642607714, guid: 4953d475b70fc384798a34c543f2de6a, type: 3}
   - ItemId: ITM00006
     DisplayName: Vitality Tonic
     ItemType: 7
     Value: 100
+    Weight: 0
     Icon: {fileID: 21300000, guid: 0e1be301a54c1124088678dffbe1f161, type: 3}
     FlavourText: A potion to restore Vitality...
     IsStackable: 1
@@ -366,13 +484,21 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00009
+      - _tagId: TAG00036
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 4347285824642607714, guid: c8431471cb4f3694c823cf4a80d2b57a, type: 3}
   - ItemId: ITM00019
     DisplayName: Shabby Lure
     ItemType: 10
     Value: 10
+    Weight: 0
     Icon: {fileID: 21300000, guid: dab8eaf34f4bae247a848707a10cb27f, type: 3}
     FlavourText: An old shabby lure
     IsStackable: 1
@@ -389,13 +515,22 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+      - _tagId: TAG00011
+      - _tagId: TAG00013
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 3572990517528342952, guid: 72ad4809316ce34419daca094798d08e, type: 3}
   - ItemId: ITM00009
     DisplayName: Skeleton Key
     ItemType: 8
     Value: 10000
+    Weight: 0
     Icon: {fileID: 21300000, guid: 9a7090b655e7c8742b93e29b324ed00f, type: 3}
     FlavourText: 
     IsStackable: 0
@@ -412,13 +547,20 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 437761895070354558, guid: b03e150299b11514aa25553f4eb360c0, type: 3}
   - ItemId: ITM00013
     DisplayName: Endurance Tonic
     ItemType: 7
     Value: 100
+    Weight: 0
     Icon: {fileID: 21300000, guid: 0e1be301a54c1124088678dffbe1f161, type: 3}
     FlavourText: 
     IsStackable: 1
@@ -437,13 +579,21 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00009
+      - _tagId: TAG00036
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 4347285824642607714, guid: 95def502746919a4f8c01eaf8e2c95c1, type: 3}
   - ItemId: ITM00021
     DisplayName: Bait Worm
     ItemType: 10
     Value: 5
+    Weight: 0
     Icon: {fileID: 21300000, guid: d9dc8b8cead7fb942b90f62b0981e4f1, type: 3}
     FlavourText: A writhing, squirming worm...
     IsStackable: 1
@@ -460,6 +610,14 @@ MonoBehaviour:
     EquipDomain: 0
     WeaponHanding: 0
     AllowedEquipSlots: 
+    Tags:
+      _tags:
+      - _tagId: TAG00036
+      - _tagId: TAG00011
+      - _tagId: TAG00012
+    StatModifiers:
+      _modifiers: []
     AuthoringTemplate: 0
     AuthoringNotes: 
+    CapabilityTagsMigrated: 1
     Prefab: {fileID: 634437170479503239, guid: 5b425e47d44519e4ca0b321c38c9706f, type: 3}

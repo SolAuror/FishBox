@@ -6,6 +6,7 @@ using Sol.Grab;
 using Sol.Locomotion;
 using Sol.Outline;
 using Sol.Audio;
+using Sol.Rpg;
 
 namespace Sol.Fishing
 {
@@ -232,7 +233,7 @@ namespace Sol.Fishing
 
             return _activeRod != null
                 && _activeRod.LoadedBaitItem == null
-                && item.GetComponent<FishingLureItem>() != null;
+                && item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingLure);
         }
 
         public bool CanLoadBait(ItemComponent item)
@@ -316,8 +317,7 @@ namespace Sol.Fishing
                 if (slotItem == null)
                     return false;
 
-                FishingLureItem incomingLure = slotItem.GetComponent<FishingLureItem>();
-                if (incomingLure == null)
+                if (!slotItem.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingLure))
                     return false;
 
                 if (!inventory.Remove(slot, 1))
@@ -475,7 +475,7 @@ namespace Sol.Fishing
                 return false;
 
             rod = item.GetComponent<FishingRodItem>();
-            if (rod != null)
+            if (rod != null || item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingRod))
                 return true;
 
             return !string.IsNullOrWhiteSpace(_fallbackRodItemName)
@@ -573,7 +573,8 @@ namespace Sol.Fishing
                 GetLureInterestMultiplier(),
                 GetLureInterestRadius(),
                 GetCurrentBaitItemId(),
-                GetCurrentBaitName());
+                GetCurrentBaitName(),
+                GetCurrentBaitTagPaths());
             _activeLure.SetHookEscapeWindow(GetHookEscapeWindow());
 
             EnsureLineRenderer();
@@ -1318,6 +1319,14 @@ namespace Sol.Fishing
                 return string.Empty;
 
             return FishingBaitItem.ResolveBaitName(_activeRod.LoadedBaitItem, _activeRod.DefaultBait);
+        }
+
+        private IEnumerable<string> GetCurrentBaitTagPaths()
+        {
+            if (_activeRod?.LoadedBaitItem == null)
+                return System.Array.Empty<string>();
+
+            return _activeRod.LoadedBaitItem.Tags.EnumerateTagPaths();
         }
 
         private float CalculateReelDistance(Vector3 lurePosition, Vector3 rodTipPosition)

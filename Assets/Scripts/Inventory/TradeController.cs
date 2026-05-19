@@ -1,4 +1,5 @@
 using Sol.Audio;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol
@@ -18,7 +19,7 @@ namespace Sol
             if (moveCount <= 0)
                 return 0;
 
-            if (slot.Item.Type == Grab.ItemType.Gold)
+            if (slot.Item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemCurrencyGold))
                 return TransferGoldStack(slot, from, to, moveCount);
 
             int moved = 0;
@@ -47,7 +48,7 @@ namespace Sol
             if (slot?.Item == null || from == null || to == null)
                 return 0;
 
-            if (slot.Item.Type != Grab.ItemType.Gold || slot.Count <= 0)
+            if (!slot.Item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemCurrencyGold) || slot.Count <= 0)
                 return 0;
 
             int moveCount = System.Math.Min(slot.Count, System.Math.Max(1, maxCount));
@@ -210,7 +211,7 @@ namespace Sol
             if (item == null || to == null)
                 return;
 
-            bool destinationIsPlayer = to.Owner != null && to.Owner.CompareTag("Player");
+            bool destinationIsPlayer = IsPlayerActor(to.Owner);
 
             if (boughtByPlayer)
             {
@@ -251,6 +252,15 @@ namespace Sol
                 item.SetOwner(to.Owner);
 
             item.SetStolen(false);
+        }
+
+        private static bool IsPlayerActor(GameObject actor)
+        {
+            if (actor == null)
+                return false;
+
+            IGameplayTagProvider provider = actor.GetComponentInParent<IGameplayTagProvider>();
+            return provider != null && provider.Tags.HasTagOrChild(GameplayCapabilityTags.ActorPlayer);
         }
     }
 }

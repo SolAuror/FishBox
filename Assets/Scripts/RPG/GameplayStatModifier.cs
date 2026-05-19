@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Sol.Grab;
 using UnityEngine;
 
 namespace Sol.Rpg
@@ -12,6 +11,7 @@ namespace Sol.Rpg
         public const string ArmorRating = "Combat.ArmorRating";
         public const string StaminaCost = "Combat.StaminaCost";
         public const string StaminaRegen = "Combat.StaminaRegen";
+        public const string OutgoingDamage = "Combat.OutgoingDamage";
         public const string IncomingDamage = "Combat.IncomingDamage";
     }
 
@@ -29,6 +29,7 @@ namespace Sol.Rpg
     [Serializable]
     public sealed class GameplayStatModifier
     {
+        [StatIdDropdown(false)]
         [SerializeField] private string _statId = GameplayStatIds.IncomingDamage;
         [SerializeField] private GameplayStatModifierOperation _operation = GameplayStatModifierOperation.FlatAdd;
         [SerializeField] private float _value;
@@ -125,31 +126,30 @@ namespace Sol.Rpg
 
     public static class GameplayStatSystem
     {
-        private static readonly List<IGameplayStatModifierProvider> ProviderScratch = new();
-        private static readonly HashSet<ItemComponent> ItemScratch = new();
-
         public static float Evaluate(string statId, float baseValue, GameObject target, GameObject source = null)
         {
             if (target == null)
                 return baseValue;
 
-            GameplayTagSet targetTags = target.GetGameplayTags();
-            ProviderScratch.Clear();
-            target.GetComponents(ProviderScratch);
+            GameplayStatAggregator aggregator = EnsureAggregator(target);
+            return aggregator.Evaluate(statId, baseValue, target.GetGameplayTags());
+        }
 
-            Equipment equipment = target.GetComponent<Equipment>();
-            if (equipment != null)
-            {
-                ItemScratch.Clear();
-                foreach (KeyValuePair<EquipmentSlotType, ItemComponent> pair in equipment.Equipped)
-                {
-                    ItemComponent item = pair.Value;
-                    if (item != null && ItemScratch.Add(item) && item is IGameplayStatModifierProvider provider)
-                        ProviderScratch.Add(provider);
-                }
-            }
+        private static GameplayStatAggregator EnsureAggregator(GameObject target)
+        {
+            if (!target.TryGetComponent(out GameplayStatAggregator aggregator))
+                aggregator = target.AddComponent<GameplayStatAggregator>();
 
-            return Evaluate(statId, baseValue, ProviderScratch, targetTags);
+            return aggregator;
+        }
+
+        internal static void EnsureEquipmentModifierProvider(GameObject target)
+        {
+            if (target == null || !target.TryGetComponent(out Equipment _))
+                return;
+
+            if (!target.TryGetComponent<EquipmentModifierProvider>(out _))
+                target.AddComponent<EquipmentModifierProvider>();
         }
 
         public static float Evaluate(string statId, float baseValue, IReadOnlyList<IGameplayStatModifierProvider> providers, GameplayTagSet targetTags)
@@ -167,7 +167,11 @@ namespace Sol.Rpg
 
             for (int p = 0; p < providers.Count; p++)
             {
-                IReadOnlyList<GameplayStatModifier> modifiers = providers[p]?.StatModifiers?.Modifiers;
+                IGameplayStatModifierProvider provider = providers[p];
+                if (provider is Behaviour behaviour && !behaviour.isActiveAndEnabled)
+                    continue;
+
+                IReadOnlyList<GameplayStatModifier> modifiers = provider?.StatModifiers?.Modifiers;
                 if (modifiers == null)
                     continue;
 

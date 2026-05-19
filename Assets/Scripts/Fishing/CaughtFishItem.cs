@@ -1,6 +1,7 @@
 using UnityEngine;
 using Sol.AI;
 using Sol.Outline;
+using Sol.Rpg;
 
 namespace Sol.Grab
 {
@@ -61,6 +62,7 @@ namespace Sol.Grab
                     fish.FishName,
                     fish.Value,
                     BuildFlavourText(fish));
+                ApplyFishTags(item, fish.Definition != null ? fish.Definition.Tags : null, fish.Rarity, fish.IsPredator);
             }
 
             RefreshVisual(fish.CatchVisualPrefab, fish.CatchVisualLocalScale);
@@ -199,6 +201,12 @@ namespace Sol.Grab
                 item.ConfigureRuntimeItem(fishName, data.cachedValue, flavour);
             }
 
+            if (item != null)
+                ApplyFishTags(item, _fishDefinition != null ? _fishDefinition.Tags : null, _rarity, _isPredator);
+
+            if (item != null && data.tagPaths != null)
+                item.ApplySavedTagPaths(data.tagPaths);
+
             gameObject.name = fishName;
 
             // Resolve the visual mesh by looking up the FishDefinition referenced in the save data
@@ -223,6 +231,19 @@ namespace Sol.Grab
         {
             string predatorDescriptor = fish.IsPredator ? "Predator" : "Non-predator";
             return $"{fish.Rarity} catch ({fish.RarityPercent:0.##}%). {predatorDescriptor}. Size {fish.Size:0.##}, Weight {fish.Weight:0.##}.";
+        }
+
+        private static void ApplyFishTags(ItemComponent item, GameplayTagSet definitionTags, FishRarity rarity, bool isPredator)
+        {
+            if (item == null)
+                return;
+
+            item.SetRuntimeTag(GameplayCapabilityTags.ItemFishingCaught, true);
+            item.SetRuntimeTag(GameplayCapabilityTags.FishRarity(rarity), true);
+            item.SetRuntimeTag(GameplayCapabilityTags.FishPredator, isPredator);
+
+            if (definitionTags != null)
+                item.ApplySavedTagPaths(definitionTags.EnumerateTagPaths());
         }
     }
 }

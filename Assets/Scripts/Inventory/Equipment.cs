@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Sol.Grab;
 using Sol.Locomotion;
+using Sol.Rpg;
 
 namespace Sol
 {
@@ -56,9 +57,15 @@ namespace Sol
 
         private void Awake()
         {
+            EnsureModifierProvider();
             _locoIK = GetComponent<LocomotionIK>();
             ApplyAuthoredEquippedItems();
             RefreshRuntimeInspectorList();
+        }
+
+        private void OnEnable()
+        {
+            EnsureModifierProvider();
         }
 
         private void OnValidate()
@@ -488,6 +495,14 @@ namespace Sol
 
             return _boneCache.TryGetValue(boneName, out Transform bone) ? bone : null;
         }
+
+        private void EnsureModifierProvider()
+        {
+            if (!TryGetComponent<EquipmentModifierProvider>(out _))
+                gameObject.AddComponent<EquipmentModifierProvider>();
+
+            if (TryGetComponent(out GameplayStatAggregator aggregator))
+                aggregator.MarkDirty();
+        }
     }
 }
-

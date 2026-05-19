@@ -1,5 +1,6 @@
 using Sol.Fishing;
 using Sol.Grab;
+using Sol.Rpg;
 
 namespace Sol.Actions
 {
@@ -27,7 +28,7 @@ namespace Sol.Actions
             if (item == null)
                 return false;
 
-            return item.GetComponent<FishingLureItem>() != null || FishingBaitItem.IsSupportedBait(item);
+            return item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingLure) || FishingBaitItem.IsSupportedBait(item);
         }
 
         public override bool CanExecute()
@@ -81,7 +82,7 @@ namespace Sol.Actions
             if (slot?.Item == null || inventory == null || fishingState == null || fishingState.HasLineOut)
                 return false;
 
-            if (slot.Item.GetComponent<FishingLureItem>() != null)
+            if (slot.Item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingLure))
                 return fishingState.TryLoadLure(slot, inventory);
 
             if (FishingBaitItem.IsSupportedBait(slot.Item))
@@ -103,7 +104,7 @@ namespace Sol.Actions
                     continue;
 
                 FishingRodItem rod = candidate.GetComponent<FishingRodItem>();
-                if (rod == null || !CanRodAcceptItem(rod, item))
+                if (!candidate.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingRod) || !CanRodAcceptItem(rod, item))
                     continue;
 
                 if (equipment.IsEquipped(candidate) || CanSwitchTo(candidate, equipment))
@@ -118,7 +119,7 @@ namespace Sol.Actions
             if (rod == null || item == null)
                 return false;
 
-            if (item.GetComponent<FishingLureItem>() != null)
+            if (item.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingLure))
                 return rod.LoadedLureItem == null;
 
             if (FishingBaitItem.IsSupportedBait(item))
@@ -144,7 +145,7 @@ namespace Sol.Actions
                     continue;
 
                 ItemComponent equippedItem = kv.Value;
-                return equippedItem != null && equippedItem.GetComponent<FishingRodItem>() != null;
+                return equippedItem != null && equippedItem.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingRod);
             }
 
             return false;
@@ -168,7 +169,7 @@ namespace Sol.Actions
                     if (kv.Key != slot || kv.Value == rodItem)
                         continue;
 
-                    if (kv.Value == null || kv.Value.GetComponent<FishingRodItem>() == null)
+                    if (kv.Value == null || !kv.Value.Tags.HasTagOrChild(GameplayCapabilityTags.ItemFishingRod))
                         return false;
 
                     equipment.Unequip(slot);
@@ -191,4 +192,3 @@ namespace Sol.Actions
         }
     }
 }
-

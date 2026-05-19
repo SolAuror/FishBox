@@ -113,8 +113,6 @@ namespace Sol.HUD
             _currentInstance = Instantiate(item.gameObject, _pivot);
             _currentInstance.SetActive(true);   // Source may be inactive (in inventory).
             _currentInstance.transform.localPosition = Vector3.zero;
-            _currentInstance.transform.localRotation = Quaternion.identity;
-            _currentInstance.transform.localScale = Vector3.one;
 
             PrepareRenderers(_currentInstance);
             StripGameplayComponents(_currentInstance);

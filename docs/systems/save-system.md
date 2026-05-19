@@ -6,7 +6,9 @@
 
 A slot-based save/load system. It captures the world state into one JSON file per slot, plus a PNG screenshot preview. The schema is versioned so older saves can be migrated forward as systems grow.
 
-Current save version: `9`.
+Current save version: `10`.
+
+Version 10 adds gameplay tag snapshots for runtime state. Player, NPC, item instance, world item, container, interaction point, and caught fish records can now preserve tags such as `State.Stolen`, `State.Locked`, `State.Lockpickable`, `State.Owned`, `State.Depleted`, `State.Reserved`, `Job.Trader`, and `Actor.Hostile`.
 
 Version 9 changes how `Time.CurrentTime` is stored — it is now a normalized civil-day progress value measured **from midnight** (so 0.0 = 00:00, 0.5 = 12:00). Older saves are upgraded in `SaveManager.FormattingAndUpgrades` on load.
 
@@ -70,12 +72,13 @@ From `GameSaveData`:
 
 | Field | Covers |
 |-------|--------|
-| `Player` | Position, rotation, health/max health, gold, inventory items, equipped items |
+| `Player` | Position, rotation, health/max health, gold, tag paths, inventory items, equipped items |
 | `Time` | Current time, calendar day/month/year, total elapsed days |
-| `Containers` | World containers: contents, lock state, owner |
-| `NPCs` | NPC position, rotation, health, state, conversation flags, and non-shop inventory |
-| `CaughtFish` | Fish registry/catch-log data |
-| `WorldItems` | Dropped/placed world item instances |
+| `Containers` | World containers: contents, lock/security tag paths, owner |
+| `NPCs` | NPC position, rotation, health, role/state tag paths, conversation flags, and non-shop inventory |
+| `CaughtFish` | Fish registry/catch-log data plus caught-fish tag paths |
+| `WorldItems` | Dropped/placed world item instances plus item state tag paths |
+| `InteractionPoints` | Runtime interaction point tag paths such as depleted/reserved/in-use state |
 | `Quests` | Active, ready, completed, failed, and objective progress |
 | `Shops` | Mutable shop runtime state: shop id, gold, stock item ids/quantities, restock timestamps |
 | `Metadata` | Save name, wall-clock timestamp, in-game date, playtime, screenshot filename |
@@ -104,6 +107,7 @@ The save currently persists stock by item id and quantity. It does not preserve 
 
 Recent versions:
 
+- `10`: runtime gameplay tag snapshots for player, NPCs, item instances, world items, containers, interaction points, and caught fish. Current legacy fields such as `IsStolen`, `IsLocked`, `CanTrade`, and `IsHostile` are translated into tags on load.
 - `9`: `TimeSaveData.CurrentTime` is normalized civil-day progress from midnight (0..1). Older saves are converted on load.
 - `8`: shop runtime state.
 - `7` and earlier: existing player/time/container/NPC/fish/world item/quest state.
@@ -116,4 +120,4 @@ Recent versions:
 - Loading is not additive. `ApplySaveData` assumes the current scene contains the right NPCs/containers to rehydrate.
 - Autosave slot `0` is implicitly trusted.
 - Shops are restored independently from NPC inventories. Do not try to recover merchant stock from NPC inventory data.
-- **NPC schedule and interaction-point state are not serialized.** After load, `ApplyRestore` calls `SnapToCurrentScheduleTarget` on every NPC with a schedule definition — that re-derives where they should be from the restored clock. Mid-interaction state (sitting, sleeping, working) is not preserved; the NPC re-enters the activity for the loaded hour. See [NPC Schedules](npc-schedule.md).
+- NPC schedule position is still re-derived from the restored clock. `ApplyRestore` calls `SnapToCurrentScheduleTarget` on every NPC with a schedule definition. Interaction points now save runtime tag state, but active animation/session continuity is not restored; the point state is restored as data, not as a resumed coroutine/action.

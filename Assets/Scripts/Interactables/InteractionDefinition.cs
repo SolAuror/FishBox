@@ -1,4 +1,5 @@
 using UnityEngine;
+using Sol.Rpg;
 
 namespace Sol
 {
@@ -27,6 +28,11 @@ namespace Sol
         [SerializeField] private InteractionPointType _type = InteractionPointType.Utility;
 
         [Header("Actor Rules")]
+        [SerializeField] private GameplayTagSet _tags = new();
+        [SerializeField] private GameplayTagSet _allowedActorTags = new();
+        [SerializeField] private GameplayTagSet _forbiddenActorTags = new();
+        [SerializeField] private GameplayTagSet _requiredItemTags = new();
+        [SerializeField] private GameplayTagSet _producedItemTags = new();
         [SerializeField] private bool _allowPlayer = true;
         [SerializeField] private bool _allowNPC = true;
         [SerializeField] private bool _singleOccupancy = true;
@@ -60,6 +66,11 @@ namespace Sol
         public string Prompt => string.IsNullOrWhiteSpace(_prompt) ? "Use" : _prompt.Trim();
         public string DisplayName => _displayName?.Trim() ?? string.Empty;
         public InteractionPointType Type => _type;
+        public GameplayTagSet Tags => _tags ?? GameplayTagSet.Empty;
+        public GameplayTagSet AllowedActorTags => _allowedActorTags ?? GameplayTagSet.Empty;
+        public GameplayTagSet ForbiddenActorTags => _forbiddenActorTags ?? GameplayTagSet.Empty;
+        public GameplayTagSet RequiredItemTags => _requiredItemTags ?? GameplayTagSet.Empty;
+        public GameplayTagSet ProducedItemTags => _producedItemTags ?? GameplayTagSet.Empty;
         public bool AllowPlayer => _allowPlayer;
         public bool AllowNPC => _allowNPC;
         public bool SingleOccupancy => _singleOccupancy;
@@ -82,6 +93,16 @@ namespace Sol
             _definitionId = string.IsNullOrWhiteSpace(_definitionId) ? name : _definitionId.Trim();
             _prompt = string.IsNullOrWhiteSpace(_prompt) ? "Use" : _prompt.Trim();
             _displayName = _displayName?.Trim() ?? string.Empty;
+            _tags ??= new GameplayTagSet();
+            _tags.Normalize();
+            _allowedActorTags ??= new GameplayTagSet();
+            _allowedActorTags.Normalize();
+            _forbiddenActorTags ??= new GameplayTagSet();
+            _forbiddenActorTags.Normalize();
+            _requiredItemTags ??= new GameplayTagSet();
+            _requiredItemTags.Normalize();
+            _producedItemTags ??= new GameplayTagSet();
+            _producedItemTags.Normalize();
             _unauthorizedPrompt = string.IsNullOrWhiteSpace(_unauthorizedPrompt) ? "Owned" : _unauthorizedPrompt.Trim();
             _maxInteractionRange = Mathf.Max(0f, _maxInteractionRange);
             _npcArrivalTolerance = Mathf.Max(0.1f, _npcArrivalTolerance);

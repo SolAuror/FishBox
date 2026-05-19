@@ -6,6 +6,7 @@ using Sol;
 using Sol.Actions;
 using Sol.Grab;
 using Sol.Quests;
+using Sol.Rpg;
 using UnityEngine;
 
 namespace Sol.AI
@@ -123,7 +124,7 @@ namespace Sol.AI
                         optionIds,
                         optionLabels,
                         HasGoldPaymentForNpc(questManager, speakerReference, interactor) ? "Pay gold" : null);
-                if (questManager.GetOfferableQuests(speakerReference).Count > 0)
+                if (IsQuestGiver && questManager.GetOfferableQuests(speakerReference).Count > 0)
                     AddConversationOption(ConversationOptionId.Quest, optionIds, optionLabels);
             }
 
@@ -581,6 +582,7 @@ namespace Sol.AI
 
                 if (!IsOptionVisible(opt.Visibility, opt.LocalFlag)) continue;
                 if (IsTradeOption(opt.Action) && !IsTrader) continue;
+                if (opt.Action == DialogueOptionAction.OfferQuest && !IsQuestGiver) continue;
 
                 visibleOptions.Add(opt);
                 optionLabels.Add(string.IsNullOrWhiteSpace(opt.Label)
@@ -612,7 +614,13 @@ namespace Sol.AI
 
         private bool IsOptionVisible(DialogueOptionVisibility visibility, string localFlag)
         {
-            if (visibility == null || visibility.Rule == DialogueVisibilityRule.Always)
+            if (visibility == null)
+                return true;
+
+            if (!TagVisibilityPasses(visibility))
+                return false;
+
+            if (visibility.Rule == DialogueVisibilityRule.Always)
                 return true;
 
             if (visibility.Rule == DialogueVisibilityRule.LocalFlagSet)
@@ -665,6 +673,40 @@ namespace Sol.AI
         public bool IsDialogueVisibilityVisibleForTests(DialogueOptionVisibility visibility, string localFlag = null)
         {
             return IsOptionVisible(visibility, localFlag);
+        }
+
+        private bool TagVisibilityPasses(DialogueOptionVisibility visibility)
+        {
+            GameplayTagSet speakerTags = soul != null ? soul.Tags : GameplayTagSet.Empty;
+            if (visibility.RequiredSpeakerTags != null
+                && !visibility.RequiredSpeakerTags.IsEmpty()
+                && !speakerTags.HasAllTagsOrChildren(visibility.RequiredSpeakerTags))
+            {
+                return false;
+            }
+
+            if (visibility.ForbiddenSpeakerTags != null
+                && speakerTags.HasAnyTagOrChild(visibility.ForbiddenSpeakerTags))
+            {
+                return false;
+            }
+
+            GameplayTagSet playerTags = ResolvePlayerTags();
+            if (visibility.RequiredPlayerTags != null
+                && !visibility.RequiredPlayerTags.IsEmpty()
+                && !playerTags.HasAllTagsOrChildren(visibility.RequiredPlayerTags))
+            {
+                return false;
+            }
+
+            return visibility.ForbiddenPlayerTags == null
+                || !playerTags.HasAnyTagOrChild(visibility.ForbiddenPlayerTags);
+        }
+
+        private static GameplayTagSet ResolvePlayerTags()
+        {
+            Sol.Player.PlayerSoul player = FindFirstObjectByType<Sol.Player.PlayerSoul>();
+            return player != null ? player.Tags : GameplayTagSet.Empty;
         }
 
         private static QuestSaveData FindActiveSaveData(QuestManager qm, string questId)
@@ -772,6 +814,9 @@ namespace Sol.AI
 
         private void OfferNextQuest(string speakerName)
         {
+            if (!IsQuestGiver)
+                return;
+
             QuestManager questManager = QuestManager.Instance;
             if (questManager == null) return;
 
@@ -784,6 +829,9 @@ namespace Sol.AI
 
         private void OfferAuthoredQuest(string speakerName, string questId)
         {
+            if (!IsQuestGiver)
+                return;
+
             QuestManager questManager = QuestManager.Instance;
             if (questManager == null) return;
 
